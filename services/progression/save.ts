@@ -69,10 +69,3 @@ export function clearSave(): void {
     /* ignore */
   }
 }
-
-/** Shop stock rotates every few races rather than on every render. */
-export const RACES_PER_SHOP_ROTATION = 3;
-
-export function shopSeedFor(save: Save): number {
-  return Math.floor(save.racesRun / RACES_PER_SHOP_ROTATION) * 7919 + 104729;
-}

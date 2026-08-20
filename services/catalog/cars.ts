@@ -412,7 +412,7 @@ export const CARS: CarSpec[] = [
   {
     id: "peugeot-607-v6-f1",
     make: "Peugeot",
-    model: "607 V6",
+    model: "607 V6 Fase 1",
     year: 2000,
     kW: 154, // ES9J4S 3.0 V6, 207 hp
     kg: 1580,
@@ -428,7 +428,7 @@ export const CARS: CarSpec[] = [
   {
     id: "peugeot-607-v6-f2",
     make: "Peugeot",
-    model: "607 V6 FII",
+    model: "607 V6 Fase 2",
     year: 2005,
     kW: 157, // ES9A 3.0 V6, 211 hp -- the facelift
     kg: 1600,

@@ -1,5 +1,4 @@
 import type { CarSpec, Rarity } from "@contracts/car";
-import { mulberry32 } from "@sim/rng";
 import { classCap, type ClassLetter } from "@sim/rating";
 import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
@@ -26,16 +25,6 @@ const RARITY_PRICE: Record<Rarity, number> = {
   epic: 150_000,
   legendary: 320_000,
   apex: 700_000,
-};
-
-/** How likely a rarity is to show up in the shop at all. */
-const RARITY_WEIGHT: Record<Rarity, number> = {
-  common: 100,
-  uncommon: 55,
-  rare: 26,
-  epic: 11,
-  legendary: 4,
-  apex: 1,
 };
 
 /** Performance nudges price, but only gently. Rarity dominates. */
@@ -132,40 +121,6 @@ export function classesOpenTo(spec: CarSpec): ClassLetter[] {
   return (["D", "C", "B", "A", "S", "X"] as ClassLetter[]).filter(
     (l) => index <= classCap(l),
   );
-}
-
-export interface ShopListing {
-  spec: CarSpec;
-  price: number;
-}
-
-/**
- * Rotating stock, seeded so the same seed always gives the same window. Rarer
- * cars surface less often, which is what makes finding one feel like an event
- * rather than a menu.
- */
-export function rollShop(seed: number, owned: string[], size = 6): ShopListing[] {
-  const pool = CARS.filter((c) => !owned.includes(c.id));
-  const rng = mulberry32(seed);
-  const picked: CarSpec[] = [];
-  const remaining = [...pool];
-
-  while (picked.length < Math.min(size, pool.length) && remaining.length > 0) {
-    const total = remaining.reduce((a, c) => a + RARITY_WEIGHT[c.rarity], 0);
-    let r = rng() * total;
-    let idx = 0;
-    for (let i = 0; i < remaining.length; i++) {
-      r -= RARITY_WEIGHT[(remaining[i] as CarSpec).rarity];
-      if (r <= 0) {
-        idx = i;
-        break;
-      }
-    }
-    const [chosen] = remaining.splice(idx, 1);
-    if (chosen) picked.push(chosen);
-  }
-
-  return picked.map((spec) => ({ spec, price: priceOf(spec) }));
 }
 
 export function formatCredits(n: number): string {

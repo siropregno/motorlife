@@ -457,3 +457,24 @@ p.screen-sub {
   font-size: 13px;
   color: var(--ink-2);
 }
+
+/* ---------- dealership class sections ---------- */
+/* 26 cars in one grid is a wall. Grouped by class it reads as a ladder. */
+.shop-class {
+  margin-bottom: 30px;
+}
+
+.shop-class-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 400;
+}

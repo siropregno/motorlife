@@ -9,7 +9,6 @@ import {
   payoutFor,
   eligibleFor,
   classesOpenTo,
-  rollShop,
   sellValueFor,
   buyCar,
   sellCar,
@@ -21,7 +20,6 @@ import {
   clearSave,
   STARTING_SAVE,
   SAVE_VERSION,
-  shopSeedFor,
 } from "./save";
 
 const byId = (id: string) => CARS.find((c) => c.id === id) as CarSpec;
@@ -101,33 +99,6 @@ describe("price", () => {
       expect(p, c.id).toBeGreaterThan(0);
       expect(p % 100, c.id).toBe(0);
     }
-  });
-});
-
-describe("shop", () => {
-  it("is deterministic for a seed", () => {
-    const a = rollShop(1234, []).map((l) => l.spec.id);
-    const b = rollShop(1234, []).map((l) => l.spec.id);
-    expect(a).toEqual(b);
-  });
-
-  it("never lists something you already own, and never duplicates", () => {
-    const owned = [r12.id];
-    for (let seed = 0; seed < 60; seed++) {
-      const ids = rollShop(seed, owned).map((l) => l.spec.id);
-      expect(ids).not.toContain(r12.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    }
-  });
-
-  it("rotates with races run", () => {
-    const early = { ...STARTING_SAVE, racesRun: 0 };
-    const later = { ...STARTING_SAVE, racesRun: 9 };
-    expect(shopSeedFor(early)).not.toBe(shopSeedFor(later));
-  });
-
-  it("empties gracefully once you own everything", () => {
-    expect(rollShop(7, CARS.map((c) => c.id))).toEqual([]);
   });
 });
 
@@ -230,9 +201,11 @@ describe("selling", () => {
   });
 
   it("leaves the sold car buyable again", () => {
+    // the dealership lists the catalogue minus what you own, so this is the
+    // whole condition now that stock no longer rotates
     const s = sellCar(save(), "ford-f100");
-    const ids = rollShop(shopSeedFor(s), s.owned, CARS.length).map((l) => l.spec.id);
-    expect(ids).toContain("ford-f100");
+    const forSale = CARS.filter((c) => !s.owned.includes(c.id)).map((c) => c.id);
+    expect(forSale).toContain("ford-f100");
   });
 });
 
