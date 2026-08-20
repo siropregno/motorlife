@@ -3,6 +3,7 @@ import { CARS } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
 import { derive } from "@sim/derive";
 import { CarCard } from "../components/CarCard";
+import { classToneClass } from "../lib/tiers";
 
 interface Props {
   owned: string[];
@@ -36,7 +37,7 @@ export function Garage({ owned, selectedId, onSelect, onShop, onContinue }: Prop
               />
               <div className="shop-buy">
                 <span className="shop-rating">
-                  <b>{r.letter}</b> {r.index}
+                  <b className={classToneClass(r.letter)}>{r.letter}</b> {r.index}
                 </span>
                 <span className="shop-price" style={{ fontSize: 12, color: "var(--ink-4)" }}>
                   class index

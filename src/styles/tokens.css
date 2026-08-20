@@ -30,24 +30,80 @@
   --shadow: 0 10px 15px rgba(0, 0, 0, 0.8);
 }
 
+/*
+ * The tier ladder, defined once. Rarity uses it on the card's edge bar; the
+ * class index uses it on the letter. Same ladder, two different questions --
+ * how rare the car is, and how fast it is. A common car can be class A.
+ */
+:root {
+  --tier-common: linear-gradient(180deg, #aaaaaa 0%, #555555 100%);
+  --tier-uncommon: linear-gradient(180deg, #00ff00 0%, #00aa00 100%);
+  --tier-rare: linear-gradient(180deg, #073cff 0%, #00c3ff 100%);
+  --tier-epic: linear-gradient(180deg, #aa00ff 0%, #ff00aa 100%);
+  --tier-legendary: linear-gradient(180deg, #ffd700 0%, #ffa500 100%);
+  --tier-apex: linear-gradient(180deg, #cc0044 0%, #ff5500 100%);
+
+  /*
+   * Text needs its own ramps. The bar gradients run to near-black at the
+   * bottom, which is invisible on this background once it is clipped to a
+   * glyph, so these run diagonally and keep both stops bright.
+   */
+  --tone-common: linear-gradient(135deg, #d4d4d4, #8a8a8a);
+  --tone-uncommon: linear-gradient(135deg, #7dff7d, #00b400);
+  --tone-rare: linear-gradient(135deg, #7ad9ff, #2a63ff);
+  --tone-epic: linear-gradient(135deg, #d478ff, #ff3fb4);
+  --tone-legendary: linear-gradient(135deg, #ffe680, #ffa500);
+  --tone-apex: linear-gradient(135deg, #ff8a63, #e00a4a);
+}
+
 /* rarity bars, straight from the mockup */
-.rare {
-  background: linear-gradient(180deg, #073cff 0%, #00c3ff 100%);
+.common {
+  background: var(--tier-common);
 }
 .uncommon {
-  background: linear-gradient(180deg, #00ff00 0%, #00aa00 100%);
+  background: var(--tier-uncommon);
 }
-.common {
-  background: linear-gradient(180deg, #aaaaaa 0%, #555555 100%);
+.rare {
+  background: var(--tier-rare);
 }
 .epic {
-  background: linear-gradient(180deg, #aa00ff 0%, #ff00aa 100%);
+  background: var(--tier-epic);
 }
 .legendary {
-  background: linear-gradient(180deg, #ffd700 0%, #ffa500 100%);
+  background: var(--tier-legendary);
 }
 .apex {
-  background: linear-gradient(180deg, #cc0044 0%, #ff5500 100%);
+  background: var(--tier-apex);
+}
+
+/* class letters, painted with the same ladder */
+.tone-common,
+.tone-uncommon,
+.tone-rare,
+.tone-epic,
+.tone-legendary,
+.tone-apex {
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tone-common {
+  background-image: var(--tone-common);
+}
+.tone-uncommon {
+  background-image: var(--tone-uncommon);
+}
+.tone-rare {
+  background-image: var(--tone-rare);
+}
+.tone-epic {
+  background-image: var(--tone-epic);
+}
+.tone-legendary {
+  background-image: var(--tone-legendary);
+}
+.tone-apex {
+  background-image: var(--tone-apex);
 }
 
 * {

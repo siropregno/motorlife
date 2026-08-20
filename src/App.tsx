@@ -9,6 +9,7 @@ import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
+import { classToneClass } from "./lib/tiers";
 
 type Screen = "garage" | "shop" | "setup" | "race";
 
@@ -65,7 +66,7 @@ export default function App() {
         <div className="topbar-right">
           {rating ? (
             <span className="klass">
-              <b>{rating.letter}</b>
+              <b className={classToneClass(rating.letter)}>{rating.letter}</b>
               {rating.index}
             </span>
           ) : null}

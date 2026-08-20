@@ -309,10 +309,11 @@ p.screen-sub {
   color: var(--ink-3);
   letter-spacing: 0.06em;
 }
+/* no colour here: the tone- class paints the letter with the tier ramp, and a
+   colour on this rule would win on specificity and hide the gradient */
 .shop-rating b {
   font-family: var(--display);
   font-size: 15px;
-  color: var(--ink);
   margin-right: 4px;
 }
 
@@ -368,7 +369,6 @@ p.screen-sub {
 .klass b {
   font-family: var(--display);
   font-size: 13px;
-  color: var(--purple);
 }
 
 /* ---------- payout ---------- */
