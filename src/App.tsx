@@ -4,7 +4,7 @@ import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
 import { loadSave, writeSave, type Save } from "@progression/save";
-import { formatCredits, payoutFor } from "@progression/economy";
+import { buyCar, formatCredits, payoutFor, sellCar } from "@progression/economy";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
@@ -35,13 +35,22 @@ export default function App() {
     setBuild((b) => ({ ...b, carId: id }));
   };
 
-  const buy = (id: string, price: number) => {
-    setSave((s) =>
-      s.credits < price || s.owned.includes(id)
-        ? s
-        : { ...s, credits: s.credits - price, owned: [...s.owned, id] },
-    );
-  };
+  const buy = (id: string, price: number) => setSave((s) => buyCar(s, id, price));
+  const sell = (id: string) => setSave((s) => sellCar(s, id));
+
+  /**
+   * Repairs the selection when the selected car leaves the garage. Selling is
+   * the only way that happens today, but the rule belongs to the selection
+   * rather than to the sell handler -- anything that can shrink `owned` gets
+   * this for free, and neither this nor `sellCar` has to know about the other.
+   */
+  useEffect(() => {
+    if (save.owned.includes(carId)) return;
+    const next = save.owned[0];
+    if (!next) return;
+    setCarId(next);
+    setBuild((b) => ({ ...b, carId: next }));
+  }, [save.owned, carId]);
 
   /**
    * Called once when a race reaches the flag. The purse belongs to the event,
@@ -91,6 +100,7 @@ export default function App() {
           owned={save.owned}
           selectedId={carId}
           onSelect={pickCar}
+          onSell={sell}
           onShop={() => setScreen("shop")}
           onContinue={() => setScreen("setup")}
         />

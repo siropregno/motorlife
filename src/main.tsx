@@ -5,6 +5,7 @@ import App from "./App";
 import "./styles/tokens.css";
 import "./styles/card.css";
 import "./styles/app.css";
+import "./styles/menu.css";
 import "./styles/tower.css";
 
 const el = document.getElementById("root");

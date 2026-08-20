@@ -1,8 +1,9 @@
 import type { CarSpec, Rarity } from "@contracts/car";
 import { mulberry32 } from "@sim/rng";
 import { classCap, type ClassLetter } from "@sim/rating";
-import { CARS } from "@catalog/cars";
+import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
+import type { Save } from "./save";
 
 /**
  * The economy exists to make the collection mean something. It is built so
@@ -49,6 +50,52 @@ export function priceOf(spec: CarSpec): number {
     Math.min(2, 1 + (INDEX_INFLUENCE * (index - INDEX_PIVOT)) / INDEX_PIVOT),
   );
   return Math.round((base * mul) / 100) * 100;
+}
+
+/**
+ * Selling takes a haircut, and the haircut is the whole point.
+ *
+ * At parity the dealership becomes free storage: you would park a car there
+ * between events and pull it back out whenever a class cap suited you, and
+ * never once have to choose what to keep. The spread is what makes selling a
+ * decision instead of a menu operation. It is also why selling cannot be
+ * undone by re-buying -- the catalogue price never moves, so a round trip is
+ * always a straight loss of SELL_SPREAD.
+ */
+export const SELL_RATE = 0.6;
+export const SELL_SPREAD = 1 - SELL_RATE;
+
+export function sellValueFor(spec: CarSpec): number {
+  return Math.round((priceOf(spec) * SELL_RATE) / 100) * 100;
+}
+
+/**
+ * Buy and sell are pure functions of the save, not methods on a component,
+ * so the invariants below can be tested without rendering anything. Both
+ * return the save UNCHANGED when the move is illegal rather than throwing:
+ * the caller is a click handler, and a rejected click should do nothing.
+ */
+export function buyCar(save: Save, carId: string, price: number): Save {
+  if (save.owned.includes(carId)) return save;
+  if (!carById(carId)) return save;
+  if (save.credits < price) return save;
+  return { ...save, credits: save.credits - price, owned: [...save.owned, carId] };
+}
+
+export function sellCar(save: Save, carId: string): Save {
+  // Your last car is not for sale. Without it you own nothing to enter, and
+  // no amount of credits buys you back in below the cheapest car in the
+  // catalogue -- the save would be a dead end you could not spend your way
+  // out of.
+  if (save.owned.length <= 1) return save;
+  if (!save.owned.includes(carId)) return save;
+  const spec = carById(carId);
+  if (!spec) return save;
+  return {
+    ...save,
+    credits: save.credits + sellValueFor(spec),
+    owned: save.owned.filter((id) => id !== carId),
+  };
 }
 
 /**

@@ -394,7 +394,7 @@ p.screen-sub {
 .klass-badge {
   display: inline-flex;
   align-items: center;
-  height: 17px;
+  height: 25px;
   padding: 0 6px;
   border-radius: 5px;
   font-family: var(--display);

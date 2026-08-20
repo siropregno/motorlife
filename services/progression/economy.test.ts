@@ -10,8 +10,19 @@ import {
   eligibleFor,
   classesOpenTo,
   rollShop,
+  sellValueFor,
+  buyCar,
+  sellCar,
 } from "./economy";
-import { loadSave, writeSave, clearSave, STARTING_SAVE, shopSeedFor } from "./save";
+import type { Save } from "./save";
+import {
+  loadSave,
+  writeSave,
+  clearSave,
+  STARTING_SAVE,
+  SAVE_VERSION,
+  shopSeedFor,
+} from "./save";
 
 const byId = (id: string) => CARS.find((c) => c.id === id) as CarSpec;
 const m5 = byId("bmw-m5-e60");
@@ -158,5 +169,94 @@ describe("save", () => {
     expect(s.owned).toHaveLength(1);
     expect(s.credits).toBeGreaterThan(0);
     expect(CARS.map((c) => c.id)).toContain(s.owned[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+const save = (over: Partial<Save> = {}): Save => ({
+  version: SAVE_VERSION,
+  credits: 100_000,
+  owned: ["renault-12-tl", "ford-f100"],
+  racesRun: 0,
+  ...over,
+});
+
+describe("selling", () => {
+  it("always takes a haircut, so a round trip is never free", () => {
+    for (const car of CARS) {
+      expect(sellValueFor(car)).toBeLessThan(priceOf(car));
+      expect(sellValueFor(car)).toBeGreaterThan(0);
+    }
+  });
+
+  it("buy then sell strictly loses credits", () => {
+    // The exploit this rules out: park a car in the dealership between events
+    // and pull it back out whenever a class cap suits you, at no cost.
+    for (const car of CARS) {
+      const start = save({ credits: 2_000_000, owned: ["renault-12-tl"] });
+      const bought = buyCar(start, car.id, priceOf(car));
+      if (car.id === "renault-12-tl") {
+        expect(bought).toBe(start); // already owned, nothing happens
+        continue;
+      }
+      const back = sellCar(bought, car.id);
+      expect(back.owned).toEqual(start.owned);
+      expect(back.credits).toBeLessThan(start.credits);
+    }
+  });
+
+  it("refuses to sell your last car", () => {
+    const s = save({ owned: ["renault-12-tl"] });
+    expect(sellCar(s, "renault-12-tl")).toBe(s);
+  });
+
+  it("refuses to sell a car you do not own", () => {
+    const s = save();
+    expect(sellCar(s, "bmw-m5-e60")).toBe(s);
+  });
+
+  it("refuses to sell a car that is not in the catalogue", () => {
+    const s = save({ owned: ["renault-12-tl", "ghost-car"] });
+    expect(sellCar(s, "ghost-car")).toBe(s);
+  });
+
+  it("pays out and drops the car", () => {
+    const s = save();
+    const after = sellCar(s, "ford-f100");
+    expect(after.owned).toEqual(["renault-12-tl"]);
+    expect(after.credits).toBe(s.credits + sellValueFor(byId("ford-f100")));
+    expect(s.owned).toEqual(["renault-12-tl", "ford-f100"]); // input untouched
+  });
+
+  it("leaves the sold car buyable again", () => {
+    const s = sellCar(save(), "ford-f100");
+    const ids = rollShop(shopSeedFor(s), s.owned, CARS.length).map((l) => l.spec.id);
+    expect(ids).toContain("ford-f100");
+  });
+});
+
+describe("buying", () => {
+  it("refuses when you are short", () => {
+    const s = save({ credits: 10 });
+    expect(buyCar(s, "bmw-m5-e60", priceOf(m5))).toBe(s);
+  });
+
+  it("refuses a car you already own", () => {
+    const s = save();
+    expect(buyCar(s, "ford-f100", 1)).toBe(s);
+  });
+
+  it("refuses a car that is not in the catalogue", () => {
+    const s = save();
+    expect(buyCar(s, "ghost-car", 1)).toBe(s);
+  });
+
+  it("charges exactly the price it was shown at", () => {
+    const s = save({ credits: 500_000 });
+    const price = priceOf(m5);
+    const after = buyCar(s, "bmw-m5-e60", price);
+    expect(after.credits).toBe(s.credits - price);
+    expect(after.owned).toContain("bmw-m5-e60");
   });
 });

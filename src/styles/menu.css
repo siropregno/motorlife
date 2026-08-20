@@ -1,0 +1,78 @@
+/* Right-click menu. Portalled to <body>, so it is positioned in viewport
+   coordinates and owes nothing to whatever it was opened from. */
+
+.ctx {
+  position: fixed;
+  z-index: 100;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--panel-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctx-item:hover:not(:disabled),
+.ctx-item:focus-visible {
+  background: #262626;
+  color: var(--ink);
+  outline: none;
+}
+
+.ctx-item:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+
+/*
+ * :not(.armed) is load-bearing. Without it this rule is (0,4,0) against the
+ * armed rule's (0,3,0), so it wins on `color` and paints the confirm label
+ * red on a red fill -- a solid bar with invisible text, which is what the
+ * first screenshot of this menu actually showed.
+ */
+.ctx-item.danger:hover:not(:disabled):not(.armed),
+.ctx-item.danger:focus-visible:not(.armed) {
+  color: var(--red);
+}
+
+/* Armed: the first click asked, this click confirms. Filled rather than
+   tinted, so it cannot be mistaken for the hover state it replaced. */
+.ctx-item.armed,
+.ctx-item.armed:hover,
+.ctx-item.armed:focus-visible {
+  background: var(--red);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ctx-label {
+  white-space: nowrap;
+}
+
+.ctx-hint {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

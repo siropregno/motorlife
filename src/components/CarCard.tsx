@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { classTierClass } from "../lib/tiers";
@@ -6,6 +7,7 @@ interface Props {
   spec: CarSpec;
   selected?: boolean;
   onSelect?: (id: string) => void;
+  onContextMenu?: (e: MouseEvent, id: string) => void;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * often a car surfaces in the dealership; it no longer competes for the same
  * strip of colour.
  */
-export function CarCard({ spec, selected, onSelect }: Props) {
+export function CarCard({ spec, selected, onSelect, onContextMenu }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   const clickable = Boolean(onSelect);
   // cached in the catalogue, so this is a map lookup after the first call
@@ -53,13 +55,22 @@ export function CarCard({ spec, selected, onSelect }: Props) {
     </>
   );
 
-  if (!clickable) return <div className="car-card">{body}</div>;
+  const menu = onContextMenu ? (e: MouseEvent) => onContextMenu(e, spec.id) : undefined;
+
+  if (!clickable) {
+    return (
+      <div className="car-card" onContextMenu={menu}>
+        {body}
+      </div>
+    );
+  }
 
   return (
     <button
       type="button"
       className={`car-card selectable${selected ? " selected" : ""}`}
       onClick={() => onSelect?.(spec.id)}
+      onContextMenu={menu}
       aria-pressed={selected}
     >
       {body}

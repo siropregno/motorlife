@@ -70,6 +70,46 @@ await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);
 await page.screenshot({ path: `${OUT}/5-garage-two.png`, fullPage: true });
 
+// --- right-click menu: drive it, sell the second car ----------------------
+await page.locator(".car-card").nth(1).click({ button: "right" });
+await page.waitForSelector(".ctx");
+console.log(`menu:   ${(await page.locator(".ctx-item").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")).join(" | ")}`);
+await page.screenshot({ path: `${OUT}/6-menu.png`, fullPage: true });
+
+// first click arms, it must NOT have sold anything yet
+await page.getByRole("menuitem", { name: /Vender/ }).click();
+await page.waitForSelector(".ctx-item.armed");
+const armedLabel = (await page.locator(".ctx-item.armed").innerText()).replace(/\s+/g, " ");
+const stillOwned = await page.locator(".car-card").count();
+console.log(`arm:    "${armedLabel}", still ${stillOwned} owned (must be 2)`);
+await page.screenshot({ path: `${OUT}/7-menu-armed.png`, fullPage: true });
+if (stillOwned !== 2) errors.push(`sell fired on the first click, before confirming`);
+
+const beforeSell = await wallet();
+await page.locator(".ctx-item.armed").click();
+await page.waitForTimeout(300);
+const leftInGarage = await page.locator(".car-card").count();
+console.log(`sell:   ${stillOwned} -> ${leftInGarage} owned, wallet ${beforeSell.replace(/\s+/g, " ")} -> ${(await wallet()).replace(/\s+/g, " ")}`);
+if (leftInGarage !== 1) errors.push(`confirm did not sell: ${leftInGarage} cars left`);
+if (await page.locator(".ctx").count()) errors.push("menu stayed open after picking");
+await page.screenshot({ path: `${OUT}/8-garage-sold.png`, fullPage: true });
+
+// the last car is not for sale, and the menu must say why
+await page.locator(".car-card").first().click({ button: "right" });
+await page.waitForSelector(".ctx");
+const sellItem = page.getByRole("menuitem", { name: /Vender/ });
+console.log(`last:   "${(await sellItem.innerText()).replace(/\s+/g, " ")}" disabled=${await sellItem.isDisabled()}`);
+if (!(await sellItem.isDisabled())) errors.push("your last car was sellable");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(150);
+if (await page.locator(".ctx").count()) errors.push("Escape did not close the menu");
+
+// "Subirse al auto" takes you to setup with that car
+await page.locator(".car-card").first().click({ button: "right" });
+await page.getByRole("menuitem", { name: "Subirse al auto" }).click();
+await page.waitForSelector(".laptime");
+console.log(`drive:  setup screen, ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
+
 await browser.close();
 if (errors.length) {
   console.log("\nPAGE ERRORS:");
