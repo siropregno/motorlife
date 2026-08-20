@@ -2,10 +2,8 @@ import { useMemo } from "react";
 import type { Save } from "@progression/save";
 import { shopSeedFor, RACES_PER_SHOP_ROTATION } from "@progression/save";
 import { rollShop, formatCredits } from "@progression/economy";
-import { ratingOf } from "@catalog/rating";
 import { derive } from "@sim/derive";
 import { CarCard } from "../components/CarCard";
-import { classToneClass } from "../lib/tiers";
 
 interface Props {
   save: Save;
@@ -38,16 +36,12 @@ export function Shop({ save, onBuy, onBack }: Props) {
       ) : (
         <div className="card-grid">
           {listings.map(({ spec, price }) => {
-            const rating = ratingOf(spec);
             const afford = save.credits >= price;
             return (
               <div key={spec.id} className="shop-item">
+                {/* the card carries the class badge, so this row is price only */}
                 <CarCard spec={spec} derived={derive(spec)} />
                 <div className="shop-buy">
-                  <span className="shop-rating">
-                    <b className={classToneClass(rating.letter)}>{rating.letter}</b>{" "}
-                    {rating.index}
-                  </span>
                   <span className="shop-price">{formatCredits(price)} cr</span>
                   <button
                     className={`btn${afford ? " primary" : ""}`}

@@ -20,3 +20,21 @@ export const CLASS_TONE: Record<ClassLetter, string> = {
 export function classToneClass(letter: ClassLetter): string {
   return CLASS_TONE[letter] ?? "tone-common";
 }
+
+/**
+ * The filled version, for the badge on the card. Reuses the same rarity
+ * classes that paint the card's edge bar, so the badge background and the bar
+ * come from one definition.
+ */
+export const CLASS_TIER: Record<ClassLetter, string> = {
+  D: "common",
+  C: "uncommon",
+  B: "rare",
+  A: "epic",
+  S: "legendary",
+  X: "apex",
+};
+
+export function classTierClass(letter: ClassLetter): string {
+  return CLASS_TIER[letter] ?? "common";
+}

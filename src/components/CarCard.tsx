@@ -1,4 +1,6 @@
 import type { CarSpec, DerivedCar } from "@contracts/car";
+import { ratingOf } from "@catalog/rating";
+import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
@@ -22,6 +24,8 @@ const CONF_LABEL = {
 export function CarCard({ spec, derived, selected, onSelect }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   const clickable = Boolean(onSelect);
+  // cached in the catalogue, so this is a map lookup after the first call
+  const rating = ratingOf(spec);
 
   const body = (
     <>
@@ -34,6 +38,10 @@ export function CarCard({ spec, derived, selected, onSelect }: Props) {
       <span className="card-info">
         <h2 className="card-title-bold">
           {spec.model} <span className="card-title-light">'{String(spec.year).slice(2)}</span>
+          <span className={`card-klass ${classTierClass(rating.letter)}`}>
+            {rating.letter}
+            {rating.index}
+          </span>
         </h2>
         <p className="card-text-light">
           {hp} Hp{spec.nm ? ` / ${spec.nm} Nm` : ""}
