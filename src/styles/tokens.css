@@ -24,7 +24,15 @@
 
   --display: "Stack Sans Headline", "Arial Narrow", Arial, sans-serif;
   --text: "Stack Sans Text", Arial, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  /*
+   * Data type. Was IBM Plex Mono, which Siro found unappealing -- and a
+   * monospace face was never really earning its keep here: the columns that
+   * matter (gaps, lap times, credits) already line up on
+   * font-variant-numeric: tabular-nums, which the text face supports. So this
+   * is the text face at data sizes, and the name is kept only because it is
+   * threaded through every stylesheet.
+   */
+  --mono: "Stack Sans Text", Arial, sans-serif;
 
   --radius: 20px;
   --shadow: 0 10px 15px rgba(0, 0, 0, 0.8);
