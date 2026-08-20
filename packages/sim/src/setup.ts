@@ -48,10 +48,38 @@ export interface TyreState {
   age: number;
 }
 
+/**
+ * How much faster this setup eats tyres. 1 is neutral.
+ *
+ * Without this the fastest single lap IS the fastest race lap, exactly, so
+ * there is nothing to trade and a predicted-lap readout solves the whole game
+ * for you. Downforce presses the tyre harder into the road and stiff springs
+ * take the compliance out of it -- both buy pace now and pay for it by lap
+ * eight. The number on the Setup screen is still true; it is just no longer
+ * the only thing that decides the race.
+ */
+const WEAR_FROM_AERO = 0.25;
+const WEAR_FROM_SPRINGS = 0.12;
+
+export function wearMultiplier(setup: Setup): number {
+  const clA = Math.max(0, AERO_CLA_BASE + AERO_CLA_SPAN * setup.aero);
+  return (
+    1 + WEAR_FROM_AERO * (clA - AERO_CLA_BASE) + WEAR_FROM_SPRINGS * Math.max(0, setup.springs)
+  );
+}
+
+/**
+ * A tyre this far gone is slow, not frictionless. Without the floor the wear
+ * term runs past 1 on a long stint and grip goes negative, which is not a
+ * worn tyre, it is a car that drives backwards.
+ */
+const GRIP_FLOOR = 0.45;
+
 /** Grip left in a set of tyres, as a multiplier. Falls with accumulated laps. */
-export function tyreGrip(state: TyreState): number {
+export function tyreGrip(state: TyreState, wearMul = 1): number {
   const c = COMPOUNDS[state.compound];
-  return c.grip * (1 - c.wear * Math.pow(Math.max(state.age, 0), 1.35) * 0.02);
+  const lost = c.wear * wearMul * Math.pow(Math.max(state.age, 0), 1.35) * 0.02;
+  return c.grip * Math.max(GRIP_FLOOR, 1 - lost);
 }
 
 /** Fuel still aboard after `lap` laps, kg. The car gets lighter and faster. */
@@ -88,7 +116,7 @@ export function applySetup(
     cda: car.cda + AERO_DRAG_QUAD * clA * clA + AERO_DRAG_LIN * clA,
     clA,
     // braking rides on mechanical grip, so fold the bias gain in here
-    muLateral: car.muLateral * springMul * tyreGrip(tyres) * biasMul,
+    muLateral: car.muLateral * springMul * tyreGrip(tyres, wearMultiplier(setup)) * biasMul,
     eta: car.eta,
     driven: car.driven,
     transferSign: car.transferSign,

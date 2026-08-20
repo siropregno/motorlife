@@ -8,7 +8,7 @@ import type { Entry, Setup } from "@contracts/race";
 import type { TrackSpec, Regulation } from "@contracts/track";
 
 import { derive, cdaFromTopSpeed, CDA_MIN, CDA_MAX, K_MIN, K_MAX, ImportError } from "./derive";
-import { applySetup } from "./setup";
+import { applySetup, tyreGrip, wearMultiplier } from "./setup";
 import { lapTime } from "./lap";
 import { cornerSpeed, zeroToHundred } from "./physics";
 import { simulateRace } from "./race";
@@ -345,5 +345,40 @@ describe("race and tower", () => {
     const before = laps[3]?.timeS ?? 0;
     expect(pit - before).toBeGreaterThan(REG.pitLossS - 3);
     expect(pit - before).toBeLessThan(REG.pitLossS + 3);
+  });
+});
+
+describe("setup drives tyre wear", () => {
+  const car = derive(CARS.find((c) => c.id === "peugeot-504-tn")!);
+  const track = TRACKS[0]!;
+  const flat = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
+  const loaded = { aero: 1, gearing: 0, springs: 1, brakeBias: 0 };
+
+  it("an aggressive setup eats tyres faster than a neutral one", () => {
+    expect(wearMultiplier(loaded)).toBeGreaterThan(wearMultiplier(flat));
+    expect(wearMultiplier(flat)).toBe(1);
+  });
+
+  it("costs nothing on lap one -- the trade only shows up over a stint", () => {
+    const fresh = { compound: "soft" as const, age: 0 };
+    // at age 0 the wear term is zero whatever the multiplier, so the fresh
+    // lap is untouched. That is what makes the two readouts disagree.
+    expect(tyreGrip(fresh, 1)).toBe(tyreGrip(fresh, 2));
+  });
+
+  it("makes the quickest fresh lap NOT the quickest lap seven", () => {
+    // The whole point: if these agreed, the predicted-lap readout would solve
+    // the game and perfect tuning would be strictly correct.
+    const at = (s: typeof flat, age: number) =>
+      lapTime(applySetup(car, s, { compound: "soft", age }, age), track);
+    const freshGain = at(flat, 0) - at(loaded, 0);
+    const wornGain = at(flat, 7) - at(loaded, 7);
+    expect(freshGain).toBeGreaterThan(wornGain);
+  });
+
+  it("never lets grip fall through the floor", () => {
+    for (const c of ["soft", "medium", "hard"] as const) {
+      expect(tyreGrip({ compound: c, age: 40 }, 2)).toBeGreaterThan(0);
+    }
   });
 });

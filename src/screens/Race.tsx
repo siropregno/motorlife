@@ -34,7 +34,7 @@ const LINGER_MS = 1500;
  * C587 raced a D512 and won by a minute -- correct physics, pointless race.
  * The cap decides what you may ENTER; this decides who turns up.
  */
-const RIVAL_BAND = 25;
+const RIVAL_BAND = 35;
 
 /**
  * Rivals no longer carry a hardcoded aero number. They carry a `miss`: how far
@@ -177,10 +177,20 @@ export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props)
 
     const seed = hashSeed(`${eventSeed}|${JSON.stringify(build)}`);
     const rng = mulberry32(seed);
-    // Rotate where in that list the grid starts, so a thin class does not
-    // serve the same three cars every event. Seeded, so the event still
-    // reproduces exactly.
-    const start = others.length > 0 ? Math.floor(rng() * others.length) : 0;
+
+    /*
+     * Shuffle the band. This used to take a consecutive WINDOW from it, and
+     * `others` is sorted by closeness to your rating, so a window of three
+     * over class C's four eligible cars always served adjacent entries -- the
+     * grid looked identical every event even though the start index moved.
+     */
+    const field = [...others];
+    for (let i = 0; i < Math.min(GRID_SIZE - 1, field.length); i++) {
+      const j = i + Math.floor(rng() * (field.length - i));
+      const a = field[i]!;
+      field[i] = field[j]!;
+      field[j] = a;
+    }
 
     const list: Entry[] = [
       {
@@ -222,7 +232,7 @@ export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props)
       // if the class is thin, the same car appears again under another driver.
       // a spec field is a fair race, and it puts the result on setup and
       // strategy rather than on who brought the bigger engine.
-      const c = others.length > 0 ? others[(start + i) % others.length]! : you;
+      const c = field.length > 0 ? field[i % field.length]! : you;
       list.push({
         id: `rival-${i}`,
         label: who.name,

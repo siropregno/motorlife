@@ -20,6 +20,8 @@ interface Props {
 }
 
 const FLAT: SetupValues = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
+/** Laps into a stint that the second readout reports. */
+const STINT = 7;
 
 const SLIDERS: {
   key: keyof SetupValues;
@@ -41,12 +43,20 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
 
   // The whole point of a pure sim in the browser: this is the real model, not
   // an approximation of it, so the number moves the moment a slider does.
-  const { predicted, baseline } = useMemo(() => {
-    if (!car) return { predicted: 0, baseline: 0 };
+  const { predicted, baseline, worn } = useMemo(() => {
+    if (!car) return { predicted: 0, baseline: 0, worn: 0 };
     const fresh = { compound: build.compound, age: 0 };
     const now = applySetup(car, build.setup, fresh, 0);
     const flat = applySetup(car, FLAT, fresh, 0);
-    return { predicted: lapTime(now, track), baseline: lapTime(flat, track) };
+    // The same setup at the end of a stint. Downforce and stiff springs buy
+    // pace on lap one and hand it back by lap seven, so these two numbers
+    // pull in opposite directions and there is no single one to solve for.
+    const late = applySetup(car, build.setup, { compound: build.compound, age: STINT }, STINT);
+    return {
+      predicted: lapTime(now, track),
+      baseline: lapTime(flat, track),
+      worn: lapTime(late, track),
+    };
   }, [car, build, track]);
 
   if (!spec || !car) return <p>Car not found.</p>;
@@ -76,9 +86,20 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
                 ? "baseline setup"
                 : `${delta > 0 ? "+" : ""}${delta.toFixed(3)} vs baseline`}
             </p>
+            <dl className="stats" style={{ marginTop: 14 }}>
+              <div>
+                <dt>Lap 1, fresh</dt>
+                <dd>{fmt(predicted)}</dd>
+              </div>
+              <div>
+                <dt>Lap {STINT}, same set</dt>
+                <dd>{fmt(worn)}</dd>
+              </div>
+            </dl>
             <p className="note">
-              Fresh tyres, full tank. This is the same model that resolves the race, not an
-              approximation of it.
+              Wing and stiff springs buy the first number and spend the second. There is no
+              setting that wins both, so how you split them is the decision -- and it depends
+              on how long you mean to stay out.
             </p>
           </div>
 
