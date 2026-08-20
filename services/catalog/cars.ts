@@ -159,17 +159,32 @@ export const CARS: CarSpec[] = [
    * calibrates the model exactly; where it is not, it stays out rather than
    * being invented.
    */
+  /*
+   * The GT was never the 2.0 -- that was the L. Ford Pacheco built the Taunus
+   * from June 1974 to November 1984 and the Coupé GT had the 2.3 I4 at 122 CV
+   * for the whole run, so the old 68 kW / 92 CV line here was the base sedan's
+   * engine under the GT's name.
+   *
+   * Both performance figures are measured rather than claimed: Parabrisas
+   * Corsa timed 173.73 km/h as the average of two runs in opposite directions
+   * and 12.0 s to 100 (May 1975). That pair calibrates the car exactly, which
+   * is why swapping 92 CV for 122 CV barely moves its rating -- the published
+   * power went up 32% and the stopwatch says it is still a 12-second car. The
+   * fitted scalar lands at 0.75, the low end of believable, because 122 CV is
+   * an SAE gross figure and the crankshaft never saw all of it.
+   */
   {
     id: "ford-taunus-gt",
     make: "Ford",
     model: "Taunus GT",
     year: 1974,
-    kW: 68, // 2.0 I4, 92 CV
-    kg: 1100,
+    kW: 90, // 2.3 I4 OHC, 122 CV SAE at 5.000 rpm
+    kg: 1100, // 1.103 kg with a full tank, per the factory sheet
     layout: "FR",
     cls: "saloon",
-    topKph: 165,
-    nm: 155,
+    topKph: 174, // 173,73 measured
+    zeroTo100: 12.0,
+    nm: 192, // 19,6 kgm at 3.500 rpm
     rarity: "common",
     blurb: "Coupé",
     logo: "/ford-logo.png",
