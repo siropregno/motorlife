@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@200..700&family=Stack+Sans+Text:wght@200..700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient( 45deg, #000000 33%, #222222 66%)
+}
+
+.car-card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.car-card {
+    position: relative;
+    width: 470px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-radius: 20px;
+    background: linear-gradient(90deg, #101010 0%, #111111 55%, #191919 100%);
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.8);
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.card-label{
+    height: 120px;
+    width: 20px;
+}
+
+.rare { background: linear-gradient(180deg, #073CFF 0%, #00C3FF 100%);}
+.uncommon { background: linear-gradient(180deg, #00FF00 0%, #00AA00 100%);}
+.common { background: linear-gradient(180deg, #AAAAAA 0%, #555555 100%);}
+.epic { background: linear-gradient(180deg, #AA00FF 0%, #FF00AA 100%);}
+.legendary { background: linear-gradient(180deg, #FFD700 0%, #FFA500 100%);}
+.apex { background: linear-gradient(180deg, #CC0044 0%, #FF5500 100%);}
+
+.card-logo {
+    position: relative;
+    width: 60px;
+    padding: 20px;
+    z-index: 2;
+}
+
+.card-logo img {
+    width: 100%;
+
+}
+
+.card-info {
+    position: relative;
+    z-index: 3;
+    width: 220px;
+}
+
+.card-info h2 {
+    font-size: 20px;
+    font-family: 'Stack Sans Headline', sans-serif;
+    color: #d5d5d5;
+    margin-bottom: 5px;
+}
+
+.card-info p {
+    margin: 0;
+    font-size: 14px;
+    font-family: 'Stack Sans Text', sans-serif;
+    color: #d5d5d5;
+}
+
+.card-title-light {
+    margin: 0;
+    font-family: 'Stack Sans Headline', sans-serif;
+    font-weight: 300;
+}
+
+.card-title-bold {
+    margin: 0;
+    font-family: 'Stack Sans Headline', sans-serif;
+    font-weight: 700;
+}
+
+.card-text-light {  
+    margin: 0;
+    font-family: 'Stack Sans Text', sans-serif;
+    font-weight: 300;
+}
+
+.card-car {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 235px;
+    height: 100%;
+    z-index: 1;
+}
+
+.card-car img {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 235px;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    z-index: 1;
+}
+
+.card-car::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 350px;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        #111111 10%,
+        #222222 30%,
+        rgba(51, 51, 51, 1) 40%,
+        transparent 100%
+    );
+    z-index: 2;
+    pointer-events: none;
+}

@@ -1,0 +1,87 @@
+/*
+ * Design tokens. The rarity gradients came out of the original mockup and are
+ * the spine of the collection, so they live here once rather than in whichever
+ * component happens to need them.
+ */
+:root {
+  --ground: #000000;
+  --ground-2: #222222;
+  --panel: #101010;
+  --panel-2: #191919;
+  --line: #2a2a2a;
+  --line-2: #3a3a3a;
+
+  --ink: #eaeaea;
+  --ink-2: #d5d5d5;
+  --ink-3: #8a8a8a;
+  --ink-4: #5c5c5c;
+
+  /* FIA live timing convention: purple fastest, green personal best */
+  --purple: #b06cff;
+  --green: #35d07f;
+  --amber: #ffb020;
+  --red: #ff5545;
+
+  --display: "Stack Sans Headline", "Arial Narrow", Arial, sans-serif;
+  --text: "Stack Sans Text", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  --radius: 20px;
+  --shadow: 0 10px 15px rgba(0, 0, 0, 0.8);
+}
+
+/* rarity bars, straight from the mockup */
+.rare {
+  background: linear-gradient(180deg, #073cff 0%, #00c3ff 100%);
+}
+.uncommon {
+  background: linear-gradient(180deg, #00ff00 0%, #00aa00 100%);
+}
+.common {
+  background: linear-gradient(180deg, #aaaaaa 0%, #555555 100%);
+}
+.epic {
+  background: linear-gradient(180deg, #aa00ff 0%, #ff00aa 100%);
+}
+.legendary {
+  background: linear-gradient(180deg, #ffd700 0%, #ffa500 100%);
+}
+.apex {
+  background: linear-gradient(180deg, #cc0044 0%, #ff5500 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * The gradient goes on html, not just body. With it only on body, any page
+ * taller than the viewport shows the html element's default white below the
+ * body box -- which is exactly what the first screenshot caught.
+ */
+html {
+  min-height: 100%;
+  background: linear-gradient(45deg, var(--ground) 33%, var(--ground-2) 66%);
+  background-attachment: fixed;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+}

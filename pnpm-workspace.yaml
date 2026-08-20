@@ -1,0 +1,3 @@
+# esbuild ships a native binary and its postinstall links it. Vite needs it.
+allowBuilds:
+  esbuild: true

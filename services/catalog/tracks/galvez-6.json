@@ -1,0 +1,152 @@
+{
+  "id": "galvez-6",
+  "name": "Autodromo Oscar y Juan Galvez No. 6",
+  "country": "AR",
+  "publishedM": 4259,
+  "source": "osm",
+  "note": "OpenStreetMap, matched to published length within 0.23%",
+  "lengthM": 4259,
+  "corners": 15,
+  "longestStraightM": 645,
+  "segments": [
+    {
+      "kind": "straight",
+      "len": 95
+    },
+    {
+      "kind": "corner",
+      "len": 130,
+      "r": 45
+    },
+    {
+      "kind": "straight",
+      "len": 120
+    },
+    {
+      "kind": "corner",
+      "len": 65,
+      "r": 174.4
+    },
+    {
+      "kind": "straight",
+      "len": 645
+    },
+    {
+      "kind": "corner",
+      "len": 155,
+      "r": 61
+    },
+    {
+      "kind": "straight",
+      "len": 50
+    },
+    {
+      "kind": "corner",
+      "len": 85,
+      "r": 116.6
+    },
+    {
+      "kind": "straight",
+      "len": 150
+    },
+    {
+      "kind": "corner",
+      "len": 155,
+      "r": 53.4
+    },
+    {
+      "kind": "straight",
+      "len": 130
+    },
+    {
+      "kind": "corner",
+      "len": 135,
+      "r": 92.5
+    },
+    {
+      "kind": "straight",
+      "len": 10
+    },
+    {
+      "kind": "corner",
+      "len": 65,
+      "r": 147.5
+    },
+    {
+      "kind": "straight",
+      "len": 40
+    },
+    {
+      "kind": "corner",
+      "len": 245,
+      "r": 77.5
+    },
+    {
+      "kind": "straight",
+      "len": 400
+    },
+    {
+      "kind": "corner",
+      "len": 220,
+      "r": 176.8
+    },
+    {
+      "kind": "straight",
+      "len": 140
+    },
+    {
+      "kind": "corner",
+      "len": 150,
+      "r": 45
+    },
+    {
+      "kind": "straight",
+      "len": 15
+    },
+    {
+      "kind": "corner",
+      "len": 55,
+      "r": 104
+    },
+    {
+      "kind": "straight",
+      "len": 5
+    },
+    {
+      "kind": "corner",
+      "len": 55,
+      "r": 96.4
+    },
+    {
+      "kind": "straight",
+      "len": 10
+    },
+    {
+      "kind": "corner",
+      "len": 105,
+      "r": 74.3
+    },
+    {
+      "kind": "straight",
+      "len": 30
+    },
+    {
+      "kind": "corner",
+      "len": 135,
+      "r": 62.2
+    },
+    {
+      "kind": "straight",
+      "len": 260
+    },
+    {
+      "kind": "corner",
+      "len": 260,
+      "r": 59
+    },
+    {
+      "kind": "straight",
+      "len": 145
+    }
+  ]
+}

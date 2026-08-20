@@ -1,0 +1,201 @@
+/*
+ * The timing tower. Rows are persistent nodes keyed by entry id, positioned
+ * with translateY and moved by a CSS transition -- that is what makes a
+ * position change read as an overtake instead of a repaint.
+ */
+
+.tower {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow);
+}
+
+.tower-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.tower-track {
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+}
+
+.tower-lap {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.tower-lap b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tower-head,
+.tower-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 82px 66px 88px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  font-size: 12.5px;
+}
+
+.tower-head {
+  height: 28px;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.tower-body {
+  --rh: 46px;
+  position: relative;
+  height: calc(var(--rows) * var(--rh));
+}
+
+.tower-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--rh);
+  border-bottom: 1px solid var(--line);
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.3s;
+}
+
+.tower-row.you {
+  background: rgba(170, 0, 255, 0.12);
+}
+
+.tower-row .pos {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.tower-row .nm {
+  min-width: 0;
+}
+.tower-row .nm b {
+  display: block;
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tower-row .nm em {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: var(--ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tower-row.you .nm b {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.tower-row .gp,
+.tower-row .lt {
+  text-align: right;
+  color: var(--ink-3);
+}
+.tower-row .lt.pb {
+  color: var(--green);
+  font-weight: 600;
+}
+.tower-row .lt.fl {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.tower-row .ty {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.tower-row .ty i {
+  font-style: normal;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 9.5px;
+  font-weight: 600;
+  margin-right: 5px;
+  border: 1.5px solid currentColor;
+}
+.ty-soft {
+  color: var(--red);
+}
+.ty-medium {
+  color: var(--amber);
+}
+.ty-hard {
+  color: var(--ink-4);
+}
+
+.tower-feed {
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 10px 16px;
+  min-height: 78px;
+  font-size: 11.5px;
+}
+.tower-feed div {
+  color: var(--ink-3);
+  padding: 1.5px 0;
+}
+.tower-feed div::before {
+  content: "› ";
+  color: var(--ink-4);
+}
+.tower-feed div.fastest {
+  color: var(--purple);
+}
+.tower-feed div.good {
+  color: var(--green);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tower-row {
+    transition: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .tower-head,
+  .tower-row {
+    grid-template-columns: 26px 1fr 70px 74px;
+    padding: 0 10px;
+  }
+  .tower-head .ty,
+  .tower-row .ty {
+    display: none;
+  }
+}

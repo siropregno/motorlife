@@ -1,0 +1,117 @@
+{
+  "id": "galvez-12",
+  "name": "Autodromo Oscar y Juan Galvez No. 12",
+  "country": "AR",
+  "publishedM": 5651,
+  "source": "traced",
+  "note": "Hand traced from satellite imagery, scaled 7.3% to published length",
+  "lengthM": 5651,
+  "corners": 12,
+  "longestStraightM": 1330,
+  "segments": [
+    {
+      "kind": "corner",
+      "len": 60,
+      "r": 166.9
+    },
+    {
+      "kind": "straight",
+      "len": 850
+    },
+    {
+      "kind": "corner",
+      "len": 375,
+      "r": 266.8
+    },
+    {
+      "kind": "straight",
+      "len": 145
+    },
+    {
+      "kind": "corner",
+      "len": 100,
+      "r": 223.7
+    },
+    {
+      "kind": "straight",
+      "len": 10
+    },
+    {
+      "kind": "corner",
+      "len": 255,
+      "r": 230.1
+    },
+    {
+      "kind": "straight",
+      "len": 1330
+    },
+    {
+      "kind": "corner",
+      "len": 105,
+      "r": 111.4
+    },
+    {
+      "kind": "straight",
+      "len": 15
+    },
+    {
+      "kind": "corner",
+      "len": 105,
+      "r": 96.4
+    },
+    {
+      "kind": "straight",
+      "len": 50
+    },
+    {
+      "kind": "corner",
+      "len": 40,
+      "r": 175.1
+    },
+    {
+      "kind": "straight",
+      "len": 35
+    },
+    {
+      "kind": "corner",
+      "len": 135,
+      "r": 197.4
+    },
+    {
+      "kind": "straight",
+      "len": 650
+    },
+    {
+      "kind": "corner",
+      "len": 140,
+      "r": 48.7
+    },
+    {
+      "kind": "straight",
+      "len": 130
+    },
+    {
+      "kind": "corner",
+      "len": 70,
+      "r": 185.3
+    },
+    {
+      "kind": "straight",
+      "len": 730
+    },
+    {
+      "kind": "corner",
+      "len": 145,
+      "r": 190.4
+    },
+    {
+      "kind": "straight",
+      "len": 50
+    },
+    {
+      "kind": "corner",
+      "len": 130,
+      "r": 182.1
+    }
+  ]
+}

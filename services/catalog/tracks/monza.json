@@ -1,0 +1,116 @@
+{
+  "id": "monza",
+  "name": "Autodromo Nazionale Monza",
+  "country": "IT",
+  "publishedM": 5793,
+  "source": "osm",
+  "note": "OpenStreetMap highway=raceway, assembled length within 0.02% of published",
+  "lengthM": 5793,
+  "corners": 11,
+  "longestStraightM": 995,
+  "segments": [
+    {
+      "kind": "straight",
+      "len": 900
+    },
+    {
+      "kind": "corner",
+      "len": 120,
+      "r": 36.2
+    },
+    {
+      "kind": "straight",
+      "len": 70
+    },
+    {
+      "kind": "corner",
+      "len": 75,
+      "r": 315.5
+    },
+    {
+      "kind": "straight",
+      "len": 135
+    },
+    {
+      "kind": "corner",
+      "len": 300,
+      "r": 310.6
+    },
+    {
+      "kind": "straight",
+      "len": 15
+    },
+    {
+      "kind": "corner",
+      "len": 45,
+      "r": 358.1
+    },
+    {
+      "kind": "straight",
+      "len": 460
+    },
+    {
+      "kind": "corner",
+      "len": 110,
+      "r": 55.6
+    },
+    {
+      "kind": "straight",
+      "len": 255
+    },
+    {
+      "kind": "corner",
+      "len": 160,
+      "r": 90.2
+    },
+    {
+      "kind": "straight",
+      "len": 200
+    },
+    {
+      "kind": "corner",
+      "len": 85,
+      "r": 72.9
+    },
+    {
+      "kind": "straight",
+      "len": 995
+    },
+    {
+      "kind": "corner",
+      "len": 65,
+      "r": 69.9
+    },
+    {
+      "kind": "straight",
+      "len": 10
+    },
+    {
+      "kind": "corner",
+      "len": 115,
+      "r": 125.2
+    },
+    {
+      "kind": "straight",
+      "len": 10
+    },
+    {
+      "kind": "corner",
+      "len": 60,
+      "r": 85.3
+    },
+    {
+      "kind": "straight",
+      "len": 925
+    },
+    {
+      "kind": "corner",
+      "len": 405,
+      "r": 135.5
+    },
+    {
+      "kind": "straight",
+      "len": 280
+    }
+  ]
+}

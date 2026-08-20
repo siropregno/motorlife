@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@sim": ["./packages/sim/src/index.ts"],
+      "@sim/*": ["./packages/sim/src/*"],
+      "@contracts/*": ["./contracts/*"],
+      "@catalog/*": ["./services/catalog/*"]
+    }
+  },
+  "include": ["src", "packages", "contracts", "services", "vite.config.ts"]
+}
