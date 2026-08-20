@@ -82,6 +82,22 @@ for (const r of rows) console.log("   " + r.replace(/\n/g, "  "));
 console.log(`payout: ${(await page.locator(".payout").innerText()).replace(/\s+/g, " ")}`);
 console.log(`wallet: ${(await wallet()).replace(/\s+/g, " ")}`);
 await page.screenshot({ path: `${OUT}/3-race.png`, fullPage: true });
+const race1 = rows.map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
+
+// --- race the SAME setup again: it must be a different event --------------
+const rerun = async () => {
+  await page.getByRole("button", { name: /Setup/ }).click();
+  await page.waitForSelector(".laptime");
+  await page.getByRole("button", { name: /Race/ }).click();
+  await page.waitForSelector(".tower-row");
+  await page.getByRole("button", { name: /Skip to flag/ }).click();
+  await page.waitForTimeout(700);
+  return (await page.locator(".tower-row").allInnerTexts()).map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
+};
+const race2 = await rerun();
+console.log("second race, same setup:");
+for (const r of (await page.locator(".tower-row").allInnerTexts())) console.log("   " + r.replace(/\n/g, "  "));
+if (race1 === race2) errors.push("re-racing the same setup produced an identical result");
 
 // --- earn enough, then actually buy --------------------------------------
 await page.evaluate(() => {

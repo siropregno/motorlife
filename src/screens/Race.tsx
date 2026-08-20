@@ -16,6 +16,8 @@ interface Props {
   carId: string;
   build: Build;
   track: TrackSpec;
+  /** Which event this is. Seeds the race, so each one is a fresh draw. */
+  racesRun: number;
   onFinish: (position: number, gridSize: number) => void;
   onBack: () => void;
 }
@@ -111,9 +113,25 @@ function detune(opt: SetupValues, miss: number, rng: () => number): SetupValues 
   return { aero: off(opt.aero), gearing: off(opt.gearing), springs: off(opt.springs), brakeBias: off(opt.brakeBias) };
 }
 
-export function Race({ carId, build, track, onFinish, onBack }: Props) {
+export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props) {
   const you = carById(carId);
   const rating = you ? ratingOf(you) : null;
+
+  /*
+   * The event, frozen on mount.
+   *
+   * The seed used to be hash(car | track | build), which made "the same setup"
+   * and "the same race" the same statement -- re-racing was byte-identical
+   * forever, so tuning was a puzzle you solved once. Keying it to the event
+   * instead keeps every property that mattered (a finished race is still
+   * exactly reproducible, and the tower is still playback) while making the
+   * next race a new draw.
+   *
+   * Frozen because racesRun increments when the payout lands. As a live
+   * dependency it would re-simulate the race you are watching and change the
+   * result halfway through the playback.
+   */
+  const [eventSeed] = useState(() => hashSeed(`${racesRun}|${carId}|${track.id}`));
 
   const { ticks, entries, purse } = useMemo(() => {
     if (!you || !rating) return { ticks: [], entries: [] as Entry[], purse: 0 };
@@ -124,7 +142,11 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
      * R12 and wins by nearly seven minutes, which is physically correct and
      * completely pointless as a race.
      */
-    const pool = eligibleFor(rating.letter).filter((c) => c.id !== carId);
+    // Your own car is IN the pool. A rival in the identical car is the fairest
+    // race on the grid and the cleanest test of setup, so there was never a
+    // reason to exclude it -- it just sorts to the front, being zero away from
+    // your own rating.
+    const pool = eligibleFor(rating.letter);
     // closest on rating first, and only cars inside the band -- unless the
     // class is too thin to fill a grid, in which case anything under the cap
     // is better than an empty field.
@@ -135,8 +157,12 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
       .map((x) => x.c);
     const others = near.length > 0 ? near : pool;
 
-    const seed = hashSeed(`${carId}|${track.id}|${JSON.stringify(build)}`);
+    const seed = hashSeed(`${eventSeed}|${JSON.stringify(build)}`);
     const rng = mulberry32(seed);
+    // Rotate where in that list the grid starts, so a thin class does not
+    // serve the same three cars every event. Seeded, so the event still
+    // reproduces exactly.
+    const start = others.length > 0 ? Math.floor(rng() * others.length) : 0;
 
     const list: Entry[] = [
       {
@@ -155,7 +181,7 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
       // if the class is thin, the same car appears again under another driver.
       // a spec field is a fair race, and it puts the result on setup and
       // strategy rather than on who brought the bigger engine.
-      const c = others.length > 0 ? others[i % others.length]! : you;
+      const c = others.length > 0 ? others[(start + i) % others.length]! : you;
       list.push({
         id: `rival-${i}`,
         label: plan.driver,
@@ -180,7 +206,7 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
       entries: list,
       purse: purseFor(rating.letter),
     };
-  }, [carId, build, track, you, rating]);
+  }, [carId, build, track, you, rating, eventSeed]);
 
   const [lap, setLap] = useState(1);
   const [feed, setFeed] = useState<{ text: string; kind: string }[]>([]);

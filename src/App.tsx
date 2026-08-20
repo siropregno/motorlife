@@ -163,6 +163,7 @@ export default function App() {
           carId={carId}
           build={build}
           track={track}
+          racesRun={save.racesRun}
           onFinish={finishRace}
           onBack={() => setScreen("setup")}
         />
