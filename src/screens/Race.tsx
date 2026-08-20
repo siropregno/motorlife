@@ -37,16 +37,6 @@ const LINGER_MS = 1500;
 const RIVAL_BAND = 35;
 
 /**
- * Rivals no longer carry a hardcoded aero number. They carry a `miss`: how far
- * off the optimum setup this driver ends up.
- *
- * That was the real reason you won every race. You sat on the sliders until
- * the predicted lap bottomed out; they ran aero 0.3 / -0.2 / 0.6 on every
- * circuit whatever the circuit wanted. Three IDENTICAL F-100s finished 43
- * seconds apart on setup alone. Skill is now "how close to the right setup",
- * which is the same axis you are playing on.
- */
-/**
  * A roster the event drafts three names from, not a fixed grid.
  *
  * This used to be an array of exactly three, used in order, every race. The
@@ -58,16 +48,16 @@ const RIVAL_BAND = 35;
  * you learn who to worry about.
  */
 const DRIVERS: { name: string; miss: number; consistency: number }[] = [
-  { name: "M. REYES", miss: 0.08, consistency: 0.88 },
-  { name: "N. BJORK", miss: 0.1, consistency: 0.87 },
-  { name: "L. FERRARO", miss: 0.12, consistency: 0.86 },
-  { name: "G. ANDRADE", miss: 0.15, consistency: 0.86 },
-  { name: "D. OKONKWO", miss: 0.18, consistency: 0.85 },
-  { name: "K. DOYLE", miss: 0.22, consistency: 0.84 },
-  { name: "R. TANAKA", miss: 0.25, consistency: 0.83 },
-  { name: "S. VARGAS", miss: 0.3, consistency: 0.82 },
-  { name: "P. MOREAU", miss: 0.35, consistency: 0.81 },
-  { name: "A. PETROV", miss: 0.4, consistency: 0.8 },
+  { name: "M. REYES", miss: 0.02, consistency: 0.94 },
+  { name: "N. BJORK", miss: 0.025, consistency: 0.93 },
+  { name: "L. FERRARO", miss: 0.03, consistency: 0.92 },
+  { name: "G. ANDRADE", miss: 0.04, consistency: 0.9 },
+  { name: "D. OKONKWO", miss: 0.05, consistency: 0.89 },
+  { name: "K. DOYLE", miss: 0.06, consistency: 0.87 },
+  { name: "R. TANAKA", miss: 0.075, consistency: 0.85 },
+  { name: "S. VARGAS", miss: 0.09, consistency: 0.83 },
+  { name: "P. MOREAU", miss: 0.11, consistency: 0.81 },
+  { name: "A. PETROV", miss: 0.13, consistency: 0.79 },
 ];
 
 /** Strategy is per grid slot, so a race is never three identical plans. */
@@ -82,15 +72,31 @@ const KEYS = ["aero", "gearing", "springs", "brakeBias"] as const;
 const STEPS = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
 
 /**
- * Coordinate descent over the four sliders: two passes, nine steps each, so
- * 72 lap solves per car. It is the same `lapTime` the Setup screen shows you,
- * so a rival is measured against the identical model you tune against -- no
- * separate difficulty fudge, and nothing for the sim to disagree with.
+ * Tyre ages a rival scores a setup at. Three samples across a stint, not one
+ * fresh lap.
+ *
+ * Optimising the fresh lap was the same mistake the Setup readout used to
+ * invite: now that wing and springs cost tyre life, the setup that wins lap
+ * one is not the setup that wins the stint. A rival aiming at lap one would
+ * over-wing itself exactly the way a player reading only the top number
+ * does, and would never punish you for doing it.
+ */
+const WEAR_SAMPLES = [0, 3, 6];
+
+/**
+ * Coordinate descent over the four sliders: two passes, nine steps each,
+ * scored across the stint, so 216 lap solves per car. It is the same
+ * `lapTime` the Setup screen shows you, so a rival is measured against the
+ * identical model you tune against -- no separate difficulty fudge, and
+ * nothing for the sim to disagree with.
  */
 function bestSetup(spec: CarSpec, track: TrackSpec, compound: Compound): SetupValues {
   const car = derive(spec);
-  const fresh = { compound, age: 0 };
-  const score = (s: SetupValues) => lapTime(applySetup(car, s, fresh, 0), track);
+  const score = (s: SetupValues) =>
+    WEAR_SAMPLES.reduce(
+      (sum, age) => sum + lapTime(applySetup(car, s, { compound, age }, age + 1), track),
+      0,
+    );
 
   let best = FLAT;
   let bestT = score(best);
