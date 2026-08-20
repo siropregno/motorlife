@@ -303,20 +303,6 @@ p.screen-sub {
   background: var(--panel);
 }
 
-.shop-rating {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-3);
-  letter-spacing: 0.06em;
-}
-/* no colour here: the tone- class paints the letter with the tier ramp, and a
-   colour on this rule would win on specificity and hide the gradient */
-.shop-rating b {
-  font-family: var(--display);
-  font-size: 15px;
-  margin-right: 4px;
-}
-
 .shop-price {
   margin-left: auto;
   font-family: var(--mono);
@@ -336,10 +322,7 @@ p.screen-sub {
   font-size: 13px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-  padding: 4px 10px;
-  border: 1px solid var(--line-2);
   border-radius: 8px;
-  background: var(--panel);
 }
 .wallet span {
   color: var(--ink-4);
@@ -348,27 +331,78 @@ p.screen-sub {
   margin-left: 5px;
 }
 
+/*
+ * Opted out of the topbar's baseline alignment. An <img> baselines on its
+ * bottom edge, so leaving the strip in the baseline group would hang the whole
+ * right-hand side off the marque logo instead of off the text.
+ */
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  align-self: center;
+  gap: 12px;
 }
 
-/* ---------- class badge ---------- */
-.klass {
+/* ---------- selected car strip ---------- */
+.topcar {
   display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink-3);
-  border: 1px solid var(--line-2);
-  border-radius: 6px;
-  padding: 2px 7px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--panel);
 }
-.klass b {
+
+/* Same fixed-box + contain trick the card needs: the Renault diamond is tall
+   and narrow, the Ford oval is wide and short. Sizing on width alone would
+   render the oval at three times the height of the text beside it. */
+.topcar-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  flex: none;
+}
+.topcar-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.topcar-name {
   font-family: var(--display);
+  font-weight: 700;
   font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.topcar-year {
+  font-weight: 300;
+  color: var(--ink-3);
+  margin-left: 5px;
+}
+
+/* ---------- class badge (card + topbar) ---------- */
+/*
+ * Background is the tier ramp, the same definition that paints the card's edge
+ * bar. White on the gold and green ramps is thin on contrast, so the badge
+ * carries a dark text shadow -- that is what keeps one rule legible across all
+ * six tiers instead of needing a per-tier text colour.
+ */
+.klass-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 /* ---------- payout ---------- */

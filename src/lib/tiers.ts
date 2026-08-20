@@ -5,26 +5,10 @@ import type { ClassLetter } from "@sim/rating";
  * same way a common card reads grey and an apex card reads red. Rarity and
  * class are different questions -- how rare, how fast -- but they are both
  * tiers, and one visual language for both is one thing to learn instead of
- * two. They stay distinguishable by form: rarity is the bar, class is the
- * letter.
- */
-export const CLASS_TONE: Record<ClassLetter, string> = {
-  D: "tone-common",
-  C: "tone-uncommon",
-  B: "tone-rare",
-  A: "tone-epic",
-  S: "tone-legendary",
-  X: "tone-apex",
-};
-
-export function classToneClass(letter: ClassLetter): string {
-  return CLASS_TONE[letter] ?? "tone-common";
-}
-
-/**
- * The filled version, for the badge on the card. Reuses the same rarity
- * classes that paint the card's edge bar, so the badge background and the bar
- * come from one definition.
+ * two.
+ *
+ * Nothing paints rarity any more. It sets price and how often a car turns up
+ * in the dealership; the colour on screen always answers "how fast".
  */
 export const CLASS_TIER: Record<ClassLetter, string> = {
   D: "common",

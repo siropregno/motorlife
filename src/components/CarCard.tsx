@@ -36,7 +36,7 @@ export function CarCard({ spec, selected, onSelect }: Props) {
         <h2 className="card-title-bold">
           <span>{spec.model}</span>
           <span className="card-title-light">'{String(spec.year).slice(2)}</span>
-          <span className={`card-klass ${tier}`}>
+          <span className={`klass-badge ${tier}`}>
             {rating.letter}
             {rating.index}
           </span>

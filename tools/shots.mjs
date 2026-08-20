@@ -21,7 +21,7 @@ await page.reload({ waitUntil: "networkidle" });
 // --- garage: you own one car ---------------------------------------------
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned, wallet ${(await wallet()).replace(/\s+/g, " ")}`);
-console.log(`        class badge ${(await page.locator(".klass").innerText()).replace(/\s+/g, " ")}`);
+console.log(`        selected car ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
 await page.screenshot({ path: `${OUT}/1-garage.png`, fullPage: true });
 
 // --- dealership: cannot afford anything yet -------------------------------

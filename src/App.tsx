@@ -9,7 +9,7 @@ import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
-import { classToneClass } from "./lib/tiers";
+import { classTierClass } from "./lib/tiers";
 
 type Screen = "garage" | "shop" | "setup" | "race";
 
@@ -64,10 +64,19 @@ export default function App() {
           Motor<span>life</span>
         </h1>
         <div className="topbar-right">
-          {rating ? (
-            <span className="klass">
-              <b className={classToneClass(rating.letter)}>{rating.letter}</b>
-              {rating.index}
+          {car && rating ? (
+            <span className="topcar">
+              <span className="topcar-logo">
+                {car.logo ? <img src={car.logo} alt={car.make} /> : null}
+              </span>
+              <span className="topcar-name">
+                {car.model}
+                <span className="topcar-year">'{String(car.year).slice(2)}</span>
+              </span>
+              <span className={`klass-badge ${classTierClass(rating.letter)}`}>
+                {rating.letter}
+                {rating.index}
+              </span>
             </span>
           ) : null}
           <span className="wallet">

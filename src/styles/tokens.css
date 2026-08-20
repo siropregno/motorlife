@@ -42,18 +42,6 @@
   --tier-epic: linear-gradient(180deg, #aa00ff 0%, #ff00aa 100%);
   --tier-legendary: linear-gradient(180deg, #ffd700 0%, #ffa500 100%);
   --tier-apex: linear-gradient(180deg, #cc0044 0%, #ff5500 100%);
-
-  /*
-   * Text needs its own ramps. The bar gradients run to near-black at the
-   * bottom, which is invisible on this background once it is clipped to a
-   * glyph, so these run diagonally and keep both stops bright.
-   */
-  --tone-common: linear-gradient(135deg, #d4d4d4, #8a8a8a);
-  --tone-uncommon: linear-gradient(135deg, #7dff7d, #00b400);
-  --tone-rare: linear-gradient(135deg, #7ad9ff, #2a63ff);
-  --tone-epic: linear-gradient(135deg, #d478ff, #ff3fb4);
-  --tone-legendary: linear-gradient(135deg, #ffe680, #ffa500);
-  --tone-apex: linear-gradient(135deg, #ff8a63, #e00a4a);
 }
 
 /* rarity bars, straight from the mockup */
@@ -74,36 +62,6 @@
 }
 .apex {
   background: var(--tier-apex);
-}
-
-/* class letters, painted with the same ladder */
-.tone-common,
-.tone-uncommon,
-.tone-rare,
-.tone-epic,
-.tone-legendary,
-.tone-apex {
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.tone-common {
-  background-image: var(--tone-common);
-}
-.tone-uncommon {
-  background-image: var(--tone-uncommon);
-}
-.tone-rare {
-  background-image: var(--tone-rare);
-}
-.tone-epic {
-  background-image: var(--tone-epic);
-}
-.tone-legendary {
-  background-image: var(--tone-legendary);
-}
-.tone-apex {
-  background-image: var(--tone-apex);
 }
 
 * {
