@@ -19,6 +19,14 @@ export interface PhysicsCar {
   clA: number;
   /** Mechanical grip, g. Never scaled by the calibration scalar. */
   muLateral: number;
+  /**
+   * Grip available under braking. Separate from muLateral because brake bias
+   * moves one and not the other -- folding it into muLateral made rearward
+   * bias a free CORNERING boost, which is why its answer was +0.25 at every
+   * circuit on every car. Defaults to muLateral for anything that has not
+   * set it.
+   */
+  muBrake?: number;
   eta: number;
   driven: number;
   transferSign: -1 | 0 | 1;
@@ -64,7 +72,7 @@ export function tractiveForce(car: PhysicsCar, v: number, massKg: number): numbe
 
 /** Deceleration under braking, m/s². Uses lateral grip, not the fitted one. */
 export function brakeDecel(car: PhysicsCar): number {
-  return car.muLateral * G;
+  return (car.muBrake ?? car.muLateral) * G;
 }
 
 /**

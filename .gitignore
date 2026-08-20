@@ -4,3 +4,4 @@ tools/shots/
 *.local
 .DS_Store
 .vite/
+balance.txt

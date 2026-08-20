@@ -133,6 +133,7 @@ export const CARS: CarSpec[] = [
     nm: 100,
     rarity: "uncommon",
     blurb: "Compacto deportivo",
+    logo: "/fiat-a-logo.png",
   },
   {
     id: "dodge-1500-gt90",
