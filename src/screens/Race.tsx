@@ -46,17 +46,35 @@ const RIVAL_BAND = 25;
  * seconds apart on setup alone. Skill is now "how close to the right setup",
  * which is the same axis you are playing on.
  */
-const RIVAL_PLAN: {
-  driver: string;
-  compound: Compound;
-  pitCompound: Compound;
-  pitOffset: number;
-  consistency: number;
-  miss: number;
-}[] = [
-  { driver: "M. REYES", compound: "soft", pitCompound: "medium", pitOffset: -1, consistency: 0.88, miss: 0.08 },
-  { driver: "K. DOYLE", compound: "medium", pitCompound: "soft", pitOffset: 0, consistency: 0.84, miss: 0.22 },
-  { driver: "A. PETROV", compound: "soft", pitCompound: "medium", pitOffset: 1, consistency: 0.8, miss: 0.4 },
+/**
+ * A roster the event drafts three names from, not a fixed grid.
+ *
+ * This used to be an array of exactly three, used in order, every race. The
+ * cars rotated and the drivers never did, so every event was M. REYES,
+ * K. DOYLE and A. PETROV again.
+ *
+ * Skill belongs to the NAME, not the grid slot. M. REYES is quick every time
+ * you meet him. That is the difference between a field and a random number:
+ * you learn who to worry about.
+ */
+const DRIVERS: { name: string; miss: number; consistency: number }[] = [
+  { name: "M. REYES", miss: 0.08, consistency: 0.88 },
+  { name: "N. BJORK", miss: 0.1, consistency: 0.87 },
+  { name: "L. FERRARO", miss: 0.12, consistency: 0.86 },
+  { name: "G. ANDRADE", miss: 0.15, consistency: 0.86 },
+  { name: "D. OKONKWO", miss: 0.18, consistency: 0.85 },
+  { name: "K. DOYLE", miss: 0.22, consistency: 0.84 },
+  { name: "R. TANAKA", miss: 0.25, consistency: 0.83 },
+  { name: "S. VARGAS", miss: 0.3, consistency: 0.82 },
+  { name: "P. MOREAU", miss: 0.35, consistency: 0.81 },
+  { name: "A. PETROV", miss: 0.4, consistency: 0.8 },
+];
+
+/** Strategy is per grid slot, so a race is never three identical plans. */
+const SLOT_PLAN: { compound: Compound; pitCompound: Compound; pitOffset: number }[] = [
+  { compound: "soft", pitCompound: "medium", pitOffset: -1 },
+  { compound: "medium", pitCompound: "soft", pitOffset: 0 },
+  { compound: "soft", pitCompound: "medium", pitOffset: 1 },
 ];
 
 const FLAT: SetupValues = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
@@ -176,23 +194,46 @@ export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props)
         you: true,
       },
     ];
+    /*
+     * Draft the field: a seeded partial Fisher-Yates over the roster, so the
+     * three names differ event to event and nobody turns up twice.
+     *
+     * The first pick is drawn from the sharp end only. A uniform draw means
+     * some events hand you the three slowest drivers on the list and the race
+     * is over at the lights -- the first field this produced was MOREAU,
+     * TANAKA and VARGAS, and it was won by 38 seconds. There is always someone
+     * worth beating; who fills the other two seats is open.
+     */
+    const roster = [...DRIVERS];
+    const CONTENDERS = 3; // DRIVERS is ordered by miss, so these are the quick ones
+    const swap = (i: number, j: number) => {
+      const a = roster[i]!;
+      roster[i] = roster[j]!;
+      roster[j] = a;
+    };
+    swap(0, Math.floor(rng() * CONTENDERS));
+    for (let i = 1; i < GRID_SIZE - 1; i++) {
+      swap(i, i + Math.floor(rng() * (roster.length - i)));
+    }
+
     for (let i = 0; i < GRID_SIZE - 1; i++) {
-      const plan = RIVAL_PLAN[i % RIVAL_PLAN.length]!;
+      const who = roster[i]!;
+      const plan = SLOT_PLAN[i % SLOT_PLAN.length]!;
       // if the class is thin, the same car appears again under another driver.
       // a spec field is a fair race, and it puts the result on setup and
       // strategy rather than on who brought the bigger engine.
       const c = others.length > 0 ? others[(start + i) % others.length]! : you;
       list.push({
         id: `rival-${i}`,
-        label: plan.driver,
+        label: who.name,
         car: c,
         build: {
           carId: c.id,
           compound: plan.compound,
-          setup: detune(bestSetup(c, track, plan.compound), plan.miss, rng),
+          setup: detune(bestSetup(c, track, plan.compound), who.miss, rng),
         },
-        consistency: plan.consistency,
-        // mid-race, give or take a lap. The old plan put A. PETROV on hards
+        consistency: who.consistency,
+        // mid-race, give or take a lap. The old plan put a driver on hards
         // until lap 10 of 14, which is most of where his 52 seconds went.
         pitLap: Math.round(REG.laps / 2) + plan.pitOffset,
         pitCompound: plan.pitCompound,
