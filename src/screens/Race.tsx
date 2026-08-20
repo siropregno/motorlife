@@ -28,13 +28,21 @@ const TICK_MS = 620;
 const LINGER_MS = 1500;
 
 /**
- * How far from the player's rating a car may be and still make the grid.
+ * How far off your pace AT THIS CIRCUIT a car may be and still make the grid,
+ * as a fraction of lap time.
  *
- * The class cap alone is not a field. Class C admits anything up to 600, so a
- * C587 raced a D512 and won by a minute -- correct physics, pointless race.
- * The cap decides what you may ENTER; this decides who turns up.
+ * This used to compare class-index points, and the class index is a MEAN over
+ * the reference tracks. A mean cannot see that one car is a Monza car and
+ * another is a Galvez car. The Falcon Sprint sits 30 points from the 128 IAVA
+ * -- comfortably inside the old band -- and laps Galvez No. 12 eleven percent
+ * slower, both of them optimally set up. It finished 195 seconds down. No
+ * amount of tuning closes that, because it was never a tuning problem.
+ *
+ * The split now: the class CAP decides what you may enter, and it stays
+ * global because a car's class is a property of the car. This decides who
+ * turns up, and it is local because a race happens at one circuit.
  */
-const RIVAL_BAND = 35;
+const RIVAL_PACE_BAND = 0.04;
 
 /**
  * A roster the event drafts three names from, not a fixed grid.
@@ -171,15 +179,22 @@ export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props)
     // reason to exclude it -- it just sorts to the front, being zero away from
     // your own rating.
     const pool = eligibleFor(rating.letter);
-    // closest on rating first, and only cars inside the band -- unless the
-    // class is too thin to fill a grid, in which case anything under the cap
-    // is better than an empty field.
-    const near = pool
-      .map((c) => ({ c, d: Math.abs(ratingOf(c).index - rating.index) }))
-      .filter((x) => x.d <= RIVAL_BAND)
-      .sort((a, b) => a.d - b.d)
-      .map((x) => x.c);
-    const others = near.length > 0 ? near : pool;
+    // One flat-setup lap per candidate at THIS circuit. Flat rather than
+    // optimum because it is a fair common baseline and costs one lap solve
+    // instead of 216 -- it understates a car that gains a lot from setup, but
+    // by a couple of percent rather than the eleven the global index missed.
+    const flat = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
+    const paceOf = (c: typeof you) =>
+      lapTime(applySetup(derive(c), flat, { compound: "medium", age: 0 }, 0), track);
+    const myPace = paceOf(you);
+    const scored = pool
+      .map((c) => ({ c, d: Math.abs(paceOf(c) / myPace - 1) }))
+      .sort((a, b) => a.d - b.d);
+    const near = scored.filter((x) => x.d <= RIVAL_PACE_BAND).map((x) => x.c);
+    // if nothing at this circuit is close, take the closest anyway -- a thin
+    // grid beats an empty one, and the catalogue is the real fix
+    const others =
+      near.length > 0 ? near : scored.slice(0, GRID_SIZE - 1).map((x) => x.c);
 
     const seed = hashSeed(`${eventSeed}|${JSON.stringify(build)}`);
     const rng = mulberry32(seed);
