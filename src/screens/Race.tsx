@@ -48,16 +48,16 @@ const RIVAL_BAND = 35;
  * you learn who to worry about.
  */
 const DRIVERS: { name: string; miss: number; consistency: number }[] = [
-  { name: "M. REYES", miss: 0.02, consistency: 0.94 },
-  { name: "N. BJORK", miss: 0.025, consistency: 0.93 },
-  { name: "L. FERRARO", miss: 0.03, consistency: 0.92 },
-  { name: "G. ANDRADE", miss: 0.04, consistency: 0.9 },
-  { name: "D. OKONKWO", miss: 0.05, consistency: 0.89 },
-  { name: "K. DOYLE", miss: 0.06, consistency: 0.87 },
-  { name: "R. TANAKA", miss: 0.075, consistency: 0.85 },
-  { name: "S. VARGAS", miss: 0.09, consistency: 0.83 },
-  { name: "P. MOREAU", miss: 0.11, consistency: 0.81 },
-  { name: "A. PETROV", miss: 0.13, consistency: 0.79 },
+  { name: "M. REYES", miss: 0.08, consistency: 0.94 },
+  { name: "N. BJORK", miss: 0.5, consistency: 0.93 },
+  { name: "L. FERRARO", miss: 0.14, consistency: 0.92 },
+  { name: "G. ANDRADE", miss: 0.18, consistency: 0.9 },
+  { name: "D. OKONKWO", miss: 0.22, consistency: 0.89 },
+  { name: "K. DOYLE", miss: 0.27, consistency: 0.87 },
+  { name: "R. TANAKA", miss: 0.33, consistency: 0.85 },
+  { name: "S. VARGAS", miss: 0.4, consistency: 0.83 },
+  { name: "P. MOREAU", miss: 0.5, consistency: 0.81 },
+  { name: "A. PETROV", miss: 0.62, consistency: 0.79 },
 ];
 
 /** Strategy is per grid slot, so a race is never three identical plans. */

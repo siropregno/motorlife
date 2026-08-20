@@ -41,6 +41,14 @@ const GEAR_LOW_SPEED = 0.1;
 const GEAR_TOP_SPEED = 0.06;
 /** Speed by which the shorter-gearing advantage has faded, m/s. */
 const GEAR_FADE_V = 30;
+/**
+ * Where running out of gear starts to bite, and over what speed range it
+ * reaches full effect. Set for this catalogue: these cars top out between 40
+ * and 51 m/s, so a window that opens at 90 km/h and saturates at 162 puts the
+ * trade inside the speeds they actually reach.
+ */
+const GEAR_TOP_FROM_V = 25;
+const GEAR_TOP_SPAN = 20;
 
 export interface TyreState {
   compound: Compound;
@@ -130,6 +138,12 @@ export function applySetup(
 
 /** Tractive force multiplier from gearing, fading out with speed. */
 export function gearFactor(car: EffectiveCar, v: number): number {
-  const fade = Math.max(0, 1 - v / GEAR_FADE_V);
-  return 1 + (car.gearLowSpeed - 1) * fade;
+  // short gearing pulls harder off the corner, and the advantage is gone by
+  // the time the car is travelling properly
+  const low = Math.max(0, 1 - v / GEAR_FADE_V);
+  // ...and runs out of gear at the far end of a straight, which is the other
+  // half of the trade. Without this term long gearing had no cost anywhere
+  // and every car on every circuit wanted it pinned at +1.
+  const high = Math.min(1, Math.max(0, (v - GEAR_TOP_FROM_V) / GEAR_TOP_SPAN));
+  return 1 + (car.gearLowSpeed - 1) * low + (car.gearTopSpeed - 1) * high;
 }

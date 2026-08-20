@@ -25,7 +25,13 @@ export function lapTime(car: EffectiveCar, track: TrackSpec): number {
   const cornerV: number[] = [];
   for (const seg of track.segments) {
     if (seg.kind === "corner") {
-      cornerV.push(cornerSpeed(car, seg.r + RACING_LINE_GAIN_M) * car.gearTopSpeed);
+      // No gearing term. Corner speed is grip-limited, not gear-limited, and
+      // multiplying it by gearTopSpeed handed every car a free 6% through
+      // every corner on the track -- worth about six and a half seconds a lap
+      // at Galvez, which is why the optimum setup was `gearing: +1` on every
+      // car at every circuit. Gearing belongs in tractive force, and that is
+      // where it now lives.
+      cornerV.push(cornerSpeed(car, seg.r + RACING_LINE_GAIN_M));
     }
   }
   if (cornerV.length === 0) return Infinity;
