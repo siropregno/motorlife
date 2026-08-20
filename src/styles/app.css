@@ -478,3 +478,18 @@ p.screen-sub {
   color: var(--ink-4);
   font-weight: 400;
 }
+
+/* Price under the card. The buy button moved into the spec sheet, so this is
+   a label, not a control -- the whole card is the control now. */
+.shop-tag {
+  display: block;
+  margin-top: 6px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.shop-tag.afford {
+  color: var(--green);
+}

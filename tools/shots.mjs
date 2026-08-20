@@ -29,7 +29,7 @@ await page.getByRole("button", { name: "Dealership" }).click();
 await page.waitForSelector(".shop-item");
 const stock = await page.locator(".shop-item .card-title-bold").allInnerTexts();
 const prices = await page.locator(".shop-price").allInnerTexts();
-const buyLabels = await page.locator(".shop-buy .btn").allInnerTexts();
+const buyLabels = await page.locator(".shop-tag").allInnerTexts();
 console.log(`shop:   ${stock.length} listed -> ${stock.map((s, i) => `${s.trim()} ${prices[i]} [${buyLabels[i]}]`).join(", ")}`);
 await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
 
@@ -103,7 +103,14 @@ const fits = await page.locator(".shop-item .card-title-bold > span").first().ev
 console.log(`longname: clipped=${fits.clipped} rowFits=${fits.rowFits}`);
 if (fits.clipped) errors.push("a 19-char model name is clipped on the card");
 await page.screenshot({ path: `${OUT}/4-shop-rich.png`, fullPage: true });
-await page.locator(".shop-buy .btn").first().click();
+await page.locator(".shop-item .car-card").first().click();
+await page.waitForSelector("dialog.modal[open]");
+console.log(`modal:  ${(await page.locator(".modal-title h2").innerText()).trim()} | ${(await page.locator(".modal-price").innerText()).trim()}`);
+console.log(`        ${(await page.locator(".modal-specs").innerText()).replace(/s+/g, " ")}`);
+await page.screenshot({ path: `${OUT}/4b-modal.png`, fullPage: false });
+await page.getByRole("button", { name: "Buy", exact: true }).click();
+await page.waitForTimeout(300);
+if (await page.locator("dialog.modal[open]").count()) errors.push("the spec sheet stayed open after buying");
 await page.waitForTimeout(300);
 const after = await page.locator(".shop-item").count();
 console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).replace(/\s+/g, " ")}`);

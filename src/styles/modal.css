@@ -1,0 +1,211 @@
+/*
+ * The car spec sheet.
+ *
+ * No hairline borders anywhere. Structure comes from two surfaces at
+ * different lightness and from spacing -- the spec column is darker than the
+ * main panel, and that is the whole separation. A 1px rule around every box is
+ * the look every generated app has, and it reads as a wireframe that nobody
+ * went back to finish.
+ *
+ * A native <dialog>, so the backdrop, the focus trap and the Escape key are
+ * the browser's job rather than ours.
+ */
+
+.modal {
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.75),
+    0 2px 0 rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(2px);
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  max-height: calc(100vh - 64px);
+}
+
+@media (max-width: 620px) {
+  .modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- left: the vertical spec column ---------- */
+.modal-specs {
+  background: #0e0e0e;
+  padding: 20px 20px 24px;
+  overflow-y: auto;
+}
+
+.modal-section {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 400;
+}
+.modal-section + .spec-list {
+  margin-bottom: 22px;
+}
+
+.spec-list {
+  display: grid;
+}
+
+/* Rows are separated by rhythm, not by rules. The label sits above its value
+   rather than beside it, which is what lets a long one like "Front / rear"
+   keep the whole column width instead of wrapping against a facing number. */
+.spec-row {
+  padding: 6px 0;
+}
+
+.spec-k {
+  display: block;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: 1px;
+}
+
+.spec-v {
+  display: block;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.spec-v em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-left: 6px;
+}
+
+/* ---------- right: identity, photo, price ---------- */
+.modal-main {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.modal-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 32px;
+  flex: none;
+}
+.modal-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.modal-title {
+  flex: 1;
+  min-width: 0;
+}
+.modal-title h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.15;
+}
+.modal-title p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.modal-x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-4);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-x:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+.modal-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* the spec column is taller than the photo, so let the photo absorb the
+     slack rather than leaving a hole above the price */
+  flex: 1 1 auto;
+  margin: 16px 0 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0e0e0e;
+  min-height: 168px;
+}
+.modal-hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.modal-nophoto {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 18px;
+}
+
+.modal-rarity {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.modal-price {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

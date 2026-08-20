@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CarSpec } from "@contracts/car";
 import type { ClassLetter } from "@sim/rating";
 import type { Save } from "@progression/save";
@@ -6,6 +6,7 @@ import { CARS } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
 import { priceOf, formatCredits } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
+import { CarModal } from "../components/CarModal";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
@@ -45,6 +46,9 @@ export function Shop({ save, onBuy, onBack }: Props) {
     })).filter((g) => g.cars.length > 0);
   }, [save.owned]);
 
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = openId ? groups.flatMap((g) => g.cars).find((l) => l.spec.id === openId) : null;
+
   const total = groups.reduce((n, g) => n + g.cars.length, 0);
   const affordable = groups.reduce(
     (n, g) => n + g.cars.filter((l) => save.credits >= l.price).length,
@@ -75,29 +79,29 @@ export function Shop({ save, onBuy, onBack }: Props) {
               </span>
             </h3>
             <div className="card-grid">
-              {g.cars.map(({ spec, price }) => {
-                const afford = save.credits >= price;
-                return (
-                  <div key={spec.id} className="shop-item">
-                    {/* the card carries the class badge, so this row is price only */}
-                    <CarCard spec={spec} />
-                    <div className="shop-buy">
-                      <span className="shop-price">{formatCredits(price)} cr</span>
-                      <button
-                        className={`btn${afford ? " primary" : ""}`}
-                        disabled={!afford}
-                        onClick={() => onBuy(spec.id, price)}
-                      >
-                        {afford ? "Buy" : "Short"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {g.cars.map(({ spec, price }) => (
+                <div key={spec.id} className="shop-item">
+                  <CarCard spec={spec} onOpen={setOpenId} />
+                  <span className={`shop-tag${save.credits >= price ? " afford" : ""}`}>
+                    {formatCredits(price)} cr
+                  </span>
+                </div>
+              ))}
             </div>
           </section>
         ))
       )}
+
+      {open ? (
+        <CarModal
+          spec={open.spec}
+          price={open.price}
+          credits={save.credits}
+          owned={save.owned.includes(open.spec.id)}
+          onBuy={onBuy}
+          onClose={() => setOpenId(null)}
+        />
+      ) : null}
 
       <div className="row" style={{ marginTop: 26 }}>
         <button className="btn" onClick={onBack}>

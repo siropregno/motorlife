@@ -5,6 +5,8 @@ import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
+  /** Opens the spec sheet. A card does nothing else on click. */
+  onOpen?: (id: string) => void;
   onContextMenu?: (e: MouseEvent, id: string) => void;
 }
 
@@ -17,13 +19,13 @@ interface Props {
  * often a car surfaces in the dealership; it no longer competes for the same
  * strip of colour.
  *
- * A card is never a click target. Left-clicking one used to swap the car you
- * were driving, which meant the same gesture that reads the collection also
- * silently changed what you were about to race. Getting into a car is now a
- * deliberate pick from the right-click menu, and the topbar is what says which
- * car you are in.
+ * Clicking a card opens its spec sheet and nothing else. It used to SWAP the
+ * car you were driving, so the same gesture that reads the collection quietly
+ * changed what you were about to race. Getting into a car is a deliberate pick
+ * from the right-click menu now, and the topbar says which one you are in.
+ * Opening a read-only sheet is the one thing a click can safely mean.
  */
-export function CarCard({ spec, onContextMenu }: Props) {
+export function CarCard({ spec, onOpen, onContextMenu }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
@@ -57,6 +59,19 @@ export function CarCard({ spec, onContextMenu }: Props) {
       </span>
     </>
   );
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className="car-card menuable"
+        onClick={() => onOpen(spec.id)}
+        onContextMenu={onContextMenu ? (e) => onContextMenu(e, spec.id) : undefined}
+      >
+        {body}
+      </button>
+    );
+  }
 
   if (!onContextMenu) return <div className="car-card">{body}</div>;
 

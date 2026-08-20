@@ -7,6 +7,7 @@ import "./styles/tokens.css";
 import "./styles/card.css";
 import "./styles/app.css";
 import "./styles/menu.css";
+import "./styles/modal.css";
 import "./styles/toast.css";
 import "./styles/tower.css";
 
