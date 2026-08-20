@@ -144,7 +144,7 @@ export interface ShopListing {
  * cars surface less often, which is what makes finding one feel like an event
  * rather than a menu.
  */
-export function rollShop(seed: number, owned: string[], size = 3): ShopListing[] {
+export function rollShop(seed: number, owned: string[], size = 6): ShopListing[] {
   const pool = CARS.filter((c) => !owned.includes(c.id));
   const rng = mulberry32(seed);
   const picked: CarSpec[] = [];
