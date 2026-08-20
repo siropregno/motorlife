@@ -37,6 +37,39 @@ await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
 await page.getByRole("button", { name: /Garage/ }).click();
 await page.getByRole("button", { name: /Set up/ }).click();
 await page.waitForSelector(".laptime");
+
+// Tune the player the way a player would: move a slider, read the predicted
+// lap, keep what is quicker. Rivals now solve for the optimum setup, so a
+// flat-setup run is the WRONG baseline for "is the race competitive".
+const lapOf = async () => (await page.locator(".laptime").innerText()).trim();
+const toSeconds = (s) => {
+  const [m, rest] = s.split(":");
+  return Number(m) * 60 + Number(rest);
+};
+const setSlider = (name, v) =>
+  page.getByLabel(name).evaluate((el, val) => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    set.call(el, String(val));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, v);
+
+const flatLap = await lapOf();
+for (const name of ["Aero", "Gearing", "Springs", "Brake bias"]) {
+  let bestV = 0;
+  let bestT = toSeconds(await lapOf());
+  for (const v of [-1, -0.5, 0.5, 1]) {
+    await setSlider(name, v);
+    await page.waitForTimeout(60);
+    const t = toSeconds(await lapOf());
+    if (t < bestT) {
+      bestT = t;
+      bestV = v;
+    }
+  }
+  await setSlider(name, bestV);
+  await page.waitForTimeout(60);
+}
+console.log(`tune:   ${flatLap} flat -> ${await lapOf()} tuned`);
 await page.getByRole("button", { name: /Race/ }).click();
 await page.waitForSelector(".tower-row");
 const heading = (await page.locator(".screen-sub").innerText()).replace(/\s+/g, " ");

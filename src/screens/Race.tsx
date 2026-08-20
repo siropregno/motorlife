@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Build, Compound, Entry } from "@contracts/race";
+import type { Build, Compound, Entry, Setup as SetupValues } from "@contracts/race";
 import type { TrackSpec, Regulation } from "@contracts/track";
+import type { CarSpec } from "@contracts/car";
 import { carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
 import { eligibleFor, purseFor, payoutFor, formatCredits } from "@progression/economy";
+import { derive } from "@sim/derive";
+import { applySetup } from "@sim/setup";
+import { lapTime } from "@sim/lap";
 import { simulateRace } from "@sim/race";
 import { buildTower, fmt, fmtGap } from "@sim/tower";
-import { hashSeed } from "@sim/rng";
+import { hashSeed, mulberry32 } from "@sim/rng";
 
 interface Props {
   carId: string;
@@ -21,18 +25,91 @@ const GRID_SIZE = 4;
 const TICK_MS = 620;
 const LINGER_MS = 1500;
 
+/**
+ * How far from the player's rating a car may be and still make the grid.
+ *
+ * The class cap alone is not a field. Class C admits anything up to 600, so a
+ * C587 raced a D512 and won by a minute -- correct physics, pointless race.
+ * The cap decides what you may ENTER; this decides who turns up.
+ */
+const RIVAL_BAND = 25;
+
+/**
+ * Rivals no longer carry a hardcoded aero number. They carry a `miss`: how far
+ * off the optimum setup this driver ends up.
+ *
+ * That was the real reason you won every race. You sat on the sliders until
+ * the predicted lap bottomed out; they ran aero 0.3 / -0.2 / 0.6 on every
+ * circuit whatever the circuit wanted. Three IDENTICAL F-100s finished 43
+ * seconds apart on setup alone. Skill is now "how close to the right setup",
+ * which is the same axis you are playing on.
+ */
 const RIVAL_PLAN: {
   driver: string;
   compound: Compound;
   pitCompound: Compound;
-  pitLap: number;
+  pitOffset: number;
   consistency: number;
-  aero: number;
+  miss: number;
 }[] = [
-  { driver: "M. REYES", compound: "soft", pitCompound: "medium", pitLap: 6, consistency: 0.88, aero: 0.3 },
-  { driver: "K. DOYLE", compound: "medium", pitCompound: "soft", pitLap: 8, consistency: 0.81, aero: -0.2 },
-  { driver: "A. PETROV", compound: "hard", pitCompound: "soft", pitLap: 10, consistency: 0.75, aero: 0.6 },
+  { driver: "M. REYES", compound: "soft", pitCompound: "medium", pitOffset: -1, consistency: 0.88, miss: 0.08 },
+  { driver: "K. DOYLE", compound: "medium", pitCompound: "soft", pitOffset: 0, consistency: 0.84, miss: 0.22 },
+  { driver: "A. PETROV", compound: "soft", pitCompound: "medium", pitOffset: 1, consistency: 0.8, miss: 0.4 },
 ];
+
+const FLAT: SetupValues = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
+const KEYS = ["aero", "gearing", "springs", "brakeBias"] as const;
+const STEPS = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1];
+
+/**
+ * Coordinate descent over the four sliders: two passes, nine steps each, so
+ * 72 lap solves per car. It is the same `lapTime` the Setup screen shows you,
+ * so a rival is measured against the identical model you tune against -- no
+ * separate difficulty fudge, and nothing for the sim to disagree with.
+ */
+function bestSetup(spec: CarSpec, track: TrackSpec, compound: Compound): SetupValues {
+  const car = derive(spec);
+  const fresh = { compound, age: 0 };
+  const score = (s: SetupValues) => lapTime(applySetup(car, s, fresh, 0), track);
+
+  let best = FLAT;
+  let bestT = score(best);
+  for (let pass = 0; pass < 2; pass++) {
+    for (const key of KEYS) {
+      for (const v of STEPS) {
+        if (v === best[key]) continue;
+        const cand = { ...best, [key]: v };
+        const t = score(cand);
+        if (t < bestT) {
+          bestT = t;
+          best = cand;
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * Push a setup off the optimum by EXACTLY `miss` on every slider. Only the
+ * direction is random.
+ *
+ * The first version randomised the magnitude too, and it made skill
+ * non-monotonic: K. DOYLE on miss 0.3 beat M. REYES on miss 0.15 because the
+ * dice put him closer to the optimum. A driver rated worse has to finish
+ * worse, or the rating means nothing.
+ *
+ * Direction is forced inward at the rails. Without that, an optimum sitting
+ * at +1 clamps the error away half the time and hands the rival a perfect
+ * setup by accident.
+ */
+function detune(opt: SetupValues, miss: number, rng: () => number): SetupValues {
+  const off = (v: number) => {
+    const dir = v + miss > 1 ? -1 : v - miss < -1 ? 1 : rng() < 0.5 ? -1 : 1;
+    return v + dir * miss;
+  };
+  return { aero: off(opt.aero), gearing: off(opt.gearing), springs: off(opt.springs), brakeBias: off(opt.brakeBias) };
+}
 
 export function Race({ carId, build, track, onFinish, onBack }: Props) {
   const you = carById(carId);
@@ -47,8 +124,19 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
      * R12 and wins by nearly seven minutes, which is physically correct and
      * completely pointless as a race.
      */
-    const pool = eligibleFor(rating.letter);
-    const others = pool.filter((c) => c.id !== carId);
+    const pool = eligibleFor(rating.letter).filter((c) => c.id !== carId);
+    // closest on rating first, and only cars inside the band -- unless the
+    // class is too thin to fill a grid, in which case anything under the cap
+    // is better than an empty field.
+    const near = pool
+      .map((c) => ({ c, d: Math.abs(ratingOf(c).index - rating.index) }))
+      .filter((x) => x.d <= RIVAL_BAND)
+      .sort((a, b) => a.d - b.d)
+      .map((x) => x.c);
+    const others = near.length > 0 ? near : pool;
+
+    const seed = hashSeed(`${carId}|${track.id}|${JSON.stringify(build)}`);
+    const rng = mulberry32(seed);
 
     const list: Entry[] = [
       {
@@ -75,16 +163,17 @@ export function Race({ carId, build, track, onFinish, onBack }: Props) {
         build: {
           carId: c.id,
           compound: plan.compound,
-          setup: { aero: plan.aero, gearing: 0, springs: 0.3, brakeBias: 0.2 },
+          setup: detune(bestSetup(c, track, plan.compound), plan.miss, rng),
         },
         consistency: plan.consistency,
-        pitLap: plan.pitLap,
+        // mid-race, give or take a lap. The old plan put A. PETROV on hards
+        // until lap 10 of 14, which is most of where his 52 seconds went.
+        pitLap: Math.round(REG.laps / 2) + plan.pitOffset,
         pitCompound: plan.pitCompound,
         you: false,
       });
     }
 
-    const seed = hashSeed(`${carId}|${track.id}|${JSON.stringify(build)}`);
     const result = simulateRace(list, track, REG, seed);
     return {
       ticks: buildTower(result, list),
