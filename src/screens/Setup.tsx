@@ -66,7 +66,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
 
       <div className="setup-grid">
         <div style={{ display: "grid", gap: 20 }}>
-          <CarCard spec={spec} derived={car} />
+          <CarCard spec={spec} />
 
           <div className="panel">
             <h3>Predicted lap</h3>

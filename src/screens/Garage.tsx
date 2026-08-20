@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { CARS } from "@catalog/cars";
-import { derive } from "@sim/derive";
 import { CarCard } from "../components/CarCard";
 
 interface Props {
@@ -27,7 +26,6 @@ export function Garage({ owned, selectedId, onSelect, onShop, onContinue }: Prop
           <CarCard
             key={c.id}
             spec={c}
-            derived={derive(c)}
             selected={c.id === selectedId}
             onSelect={onSelect}
           />

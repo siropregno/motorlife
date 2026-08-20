@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type { Save } from "@progression/save";
 import { shopSeedFor, RACES_PER_SHOP_ROTATION } from "@progression/save";
 import { rollShop, formatCredits } from "@progression/economy";
-import { derive } from "@sim/derive";
 import { CarCard } from "../components/CarCard";
 
 interface Props {
@@ -40,7 +39,7 @@ export function Shop({ save, onBuy, onBack }: Props) {
             return (
               <div key={spec.id} className="shop-item">
                 {/* the card carries the class badge, so this row is price only */}
-                <CarCard spec={spec} derived={derive(spec)} />
+                <CarCard spec={spec} />
                 <div className="shop-buy">
                   <span className="shop-price">{formatCredits(price)} cr</span>
                   <button

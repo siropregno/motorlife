@@ -1,35 +1,32 @@
-import type { CarSpec, DerivedCar } from "@contracts/car";
+import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
-  derived?: DerivedCar | undefined;
   selected?: boolean;
   onSelect?: (id: string) => void;
 }
 
-const CONF_LABEL = {
-  calibrated: "Calibrated",
-  estimated: "Estimated",
-  rough: "Rough",
-} as const;
-
 /**
- * The card from the mockup, with the data made dynamic and one thing added:
- * how much the sim actually knows about this car. A car imported from six
- * fields is honestly labelled Estimated rather than pretending to precision
- * it does not have.
+ * The card from the mockup, with the data made dynamic.
+ *
+ * The edge bar and the class badge are both painted by CLASS, not rarity. They
+ * sit two centimetres apart, so having one mean "how rare" and the other mean
+ * "how fast" just read as a colour bug. Rarity still drives price and how
+ * often a car surfaces in the dealership; it no longer competes for the same
+ * strip of colour.
  */
-export function CarCard({ spec, derived, selected, onSelect }: Props) {
+export function CarCard({ spec, selected, onSelect }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   const clickable = Boolean(onSelect);
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
+  const tier = classTierClass(rating.letter);
 
   const body = (
     <>
-      <span className={`card-label ${spec.rarity}`} />
+      <span className={`card-label ${tier}`} />
 
       <span className="card-logo">
         {spec.logo ? <img src={spec.logo} alt={spec.make} /> : null}
@@ -37,8 +34,9 @@ export function CarCard({ spec, derived, selected, onSelect }: Props) {
 
       <span className="card-info">
         <h2 className="card-title-bold">
-          {spec.model} <span className="card-title-light">'{String(spec.year).slice(2)}</span>
-          <span className={`card-klass ${classTierClass(rating.letter)}`}>
+          <span>{spec.model}</span>
+          <span className="card-title-light">'{String(spec.year).slice(2)}</span>
+          <span className={`card-klass ${tier}`}>
             {rating.letter}
             {rating.index}
           </span>
@@ -47,11 +45,6 @@ export function CarCard({ spec, derived, selected, onSelect }: Props) {
           {hp} Hp{spec.nm ? ` / ${spec.nm} Nm` : ""}
         </p>
         <p className="card-text-light">{spec.blurb}</p>
-        {derived ? (
-          <span className={`card-confidence conf-${derived.confidence}`}>
-            {CONF_LABEL[derived.confidence]}
-          </span>
-        ) : null}
       </span>
 
       <span className="card-car">

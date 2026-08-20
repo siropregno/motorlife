@@ -54,11 +54,20 @@
   width: 220px;
 }
 
+/*
+ * Flex with a baseline-ish centre rather than a vertical-align nudge on the
+ * badge. Mixing a 20px title with an 11px pill on the same text baseline is
+ * what made the badge sit visibly off-centre.
+ */
 .card-info h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 20px;
   font-family: var(--display);
   color: var(--ink-2);
   margin: 0 0 5px;
+  line-height: 1.15;
 }
 
 .card-info p {
@@ -81,29 +90,6 @@
 .card-text-light {
   font-family: var(--text);
   font-weight: 300;
-}
-
-/* how much the sim actually knows about this car */
-.card-confidence {
-  display: inline-block;
-  margin-top: 4px;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 3px;
-  border: 1px solid currentColor;
-}
-
-.conf-calibrated {
-  color: var(--green);
-}
-.conf-estimated {
-  color: var(--amber);
-}
-.conf-rough {
-  color: var(--ink-4);
 }
 
 .card-car {
@@ -153,16 +139,15 @@
  * instead of needing a per-tier text colour.
  */
 .card-klass {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 1px 6px 2px;
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 6px;
   border-radius: 5px;
   font-family: var(--display);
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.03em;
-  line-height: 1.25;
   color: #fff;
-  vertical-align: 3px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
