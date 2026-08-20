@@ -5,8 +5,6 @@ import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
-  selected?: boolean;
-  onSelect?: (id: string) => void;
   onContextMenu?: (e: MouseEvent, id: string) => void;
 }
 
@@ -18,10 +16,15 @@ interface Props {
  * "how fast" just read as a colour bug. Rarity still drives price and how
  * often a car surfaces in the dealership; it no longer competes for the same
  * strip of colour.
+ *
+ * A card is never a click target. Left-clicking one used to swap the car you
+ * were driving, which meant the same gesture that reads the collection also
+ * silently changed what you were about to race. Getting into a car is now a
+ * deliberate pick from the right-click menu, and the topbar is what says which
+ * car you are in.
  */
-export function CarCard({ spec, selected, onSelect, onContextMenu }: Props) {
+export function CarCard({ spec, onContextMenu }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
-  const clickable = Boolean(onSelect);
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
@@ -55,25 +58,24 @@ export function CarCard({ spec, selected, onSelect, onContextMenu }: Props) {
     </>
   );
 
-  const menu = onContextMenu ? (e: MouseEvent) => onContextMenu(e, spec.id) : undefined;
+  if (!onContextMenu) return <div className="car-card">{body}</div>;
 
-  if (!clickable) {
-    return (
-      <div className="car-card" onContextMenu={menu}>
-        {body}
-      </div>
-    );
-  }
-
+  /*
+   * tabIndex + aria-haspopup rather than a <button>: the card has no click
+   * action to advertise, but the menu still has to be reachable without a
+   * mouse. Browsers fire `contextmenu` for the Menu key and Shift+F10 on the
+   * focused element, so keeping the card focusable is the whole fix -- the
+   * handler just has to cope with the zeroed coordinates those send.
+   */
   return (
-    <button
-      type="button"
-      className={`car-card selectable${selected ? " selected" : ""}`}
-      onClick={() => onSelect?.(spec.id)}
-      onContextMenu={menu}
-      aria-pressed={selected}
+    <div
+      className="car-card menuable"
+      tabIndex={0}
+      aria-haspopup="menu"
+      aria-label={`${spec.make} ${spec.model} ${spec.year}`}
+      onContextMenu={(e) => onContextMenu(e, spec.id)}
     >
       {body}
-    </button>
+    </div>
   );
 }

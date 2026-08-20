@@ -98,8 +98,8 @@ export default function App() {
       {screen === "garage" && (
         <Garage
           owned={save.owned}
-          selectedId={carId}
-          onSelect={pickCar}
+          currentId={carId}
+          onDrive={pickCar}
           onSell={sell}
           onShop={() => setScreen("shop")}
           onContinue={() => setScreen("setup")}

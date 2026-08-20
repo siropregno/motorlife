@@ -21,7 +21,7 @@ await page.reload({ waitUntil: "networkidle" });
 // --- garage: you own one car ---------------------------------------------
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned, wallet ${(await wallet()).replace(/\s+/g, " ")}`);
-console.log(`        selected car ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
+console.log(`        current car ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
 await page.screenshot({ path: `${OUT}/1-garage.png`, fullPage: true });
 
 // --- dealership: cannot afford anything yet -------------------------------
@@ -70,29 +70,63 @@ await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);
 await page.screenshot({ path: `${OUT}/5-garage-two.png`, fullPage: true });
 
-// --- right-click menu: drive it, sell the second car ----------------------
+// --- the card is not a click target any more -------------------------------
+const topcar = async () => (await page.locator(".topcar").innerText()).replace(/\s+/g, " ");
+const screen = async () => (await page.locator(".screen-title").innerText()).trim().toLowerCase();
+
+const beforeClick = await topcar();
+await page.locator(".car-card").nth(1).click();
+await page.waitForTimeout(200);
+console.log(`click:  ${await screen()} screen, topcar ${beforeClick} -> ${await topcar()}`);
+if ((await topcar()) !== beforeClick) errors.push("left-clicking a card still changed the car");
+if ((await screen()) !== "garage") errors.push("left-clicking a card navigated somewhere");
+
+// --- right-click menu ------------------------------------------------------
 await page.locator(".car-card").nth(1).click({ button: "right" });
 await page.waitForSelector(".ctx");
 console.log(`menu:   ${(await page.locator(".ctx-item").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")).join(" | ")}`);
 await page.screenshot({ path: `${OUT}/6-menu.png`, fullPage: true });
 
-// first click arms, it must NOT have sold anything yet
+// "Subirse al auto" changes the car and STAYS in the garage
+await page.getByRole("menuitem", { name: "Subirse al auto" }).click();
+await page.waitForTimeout(250);
+console.log(`drive:  topcar ${beforeClick} -> ${await topcar()}, still on ${await screen()}`);
+if ((await topcar()) === beforeClick) errors.push("Subirse al auto did not change the car");
+if ((await screen()) !== "garage") errors.push("Subirse al auto navigated away from the garage");
+await page.screenshot({ path: `${OUT}/7-garage-drive.png`, fullPage: true });
+
+// the car you are already in cannot be got into again
+await page.locator(".car-card").nth(1).click({ button: "right" });
+await page.waitForSelector(".ctx");
+const driveItem = page.locator(".ctx-item").first();
+console.log(`in-car: "${(await driveItem.innerText()).replace(/\s+/g, " ")}" disabled=${await driveItem.isDisabled()}`);
+if (!(await driveItem.isDisabled())) errors.push("the current car still offered Subirse al auto");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(150);
+if (await page.locator(".ctx").count()) errors.push("Escape did not close the menu");
+
+// --- sell the car we are sitting in: the selection has to repair itself ----
+await page.locator(".car-card").nth(1).click({ button: "right" });
+await page.waitForSelector(".ctx");
 await page.getByRole("menuitem", { name: /Vender/ }).click();
 await page.waitForSelector(".ctx-item.armed");
 const armedLabel = (await page.locator(".ctx-item.armed").innerText()).replace(/\s+/g, " ");
 const stillOwned = await page.locator(".car-card").count();
 console.log(`arm:    "${armedLabel}", still ${stillOwned} owned (must be 2)`);
-await page.screenshot({ path: `${OUT}/7-menu-armed.png`, fullPage: true });
-if (stillOwned !== 2) errors.push(`sell fired on the first click, before confirming`);
+await page.screenshot({ path: `${OUT}/8-menu-armed.png`, fullPage: true });
+if (stillOwned !== 2) errors.push("sell fired on the first click, before confirming");
 
+const soldCar = await topcar();
 const beforeSell = await wallet();
 await page.locator(".ctx-item.armed").click();
 await page.waitForTimeout(300);
 const leftInGarage = await page.locator(".car-card").count();
 console.log(`sell:   ${stillOwned} -> ${leftInGarage} owned, wallet ${beforeSell.replace(/\s+/g, " ")} -> ${(await wallet()).replace(/\s+/g, " ")}`);
+console.log(`repair: topcar ${soldCar} -> ${await topcar()}`);
 if (leftInGarage !== 1) errors.push(`confirm did not sell: ${leftInGarage} cars left`);
+if ((await topcar()) === soldCar) errors.push("still sitting in the car that was just sold");
 if (await page.locator(".ctx").count()) errors.push("menu stayed open after picking");
-await page.screenshot({ path: `${OUT}/8-garage-sold.png`, fullPage: true });
+await page.screenshot({ path: `${OUT}/9-garage-sold.png`, fullPage: true });
 
 // the last car is not for sale, and the menu must say why
 await page.locator(".car-card").first().click({ button: "right" });
@@ -101,14 +135,15 @@ const sellItem = page.getByRole("menuitem", { name: /Vender/ });
 console.log(`last:   "${(await sellItem.innerText()).replace(/\s+/g, " ")}" disabled=${await sellItem.isDisabled()}`);
 if (!(await sellItem.isDisabled())) errors.push("your last car was sellable");
 await page.keyboard.press("Escape");
-await page.waitForTimeout(150);
-if (await page.locator(".ctx").count()) errors.push("Escape did not close the menu");
 
-// "Subirse al auto" takes you to setup with that car
-await page.locator(".car-card").first().click({ button: "right" });
-await page.getByRole("menuitem", { name: "Subirse al auto" }).click();
-await page.waitForSelector(".laptime");
-console.log(`drive:  setup screen, ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
+// --- keyboard: the menu is reachable without a mouse -----------------------
+await page.locator(".car-card").first().focus();
+await page.keyboard.press("Shift+F10");
+await page.waitForTimeout(200);
+const kbdOpen = await page.locator(".ctx").count();
+console.log(`kbd:    Shift+F10 opened the menu = ${kbdOpen === 1}`);
+if (kbdOpen !== 1) errors.push("Shift+F10 on a focused card did not open the menu");
+await page.keyboard.press("Escape");
 
 await browser.close();
 if (errors.length) {

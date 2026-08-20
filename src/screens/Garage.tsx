@@ -6,8 +6,9 @@ import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 
 interface Props {
   owned: string[];
-  selectedId: string;
-  onSelect: (id: string) => void;
+  /** The car you are currently in. Only "Subirse al auto" changes it. */
+  currentId: string;
+  onDrive: (id: string) => void;
   onSell: (id: string) => void;
   onShop: () => void;
   onContinue: () => void;
@@ -19,7 +20,7 @@ interface MenuAt {
   id: string;
 }
 
-export function Garage({ owned, selectedId, onSelect, onSell, onShop, onContinue }: Props) {
+export function Garage({ owned, currentId, onDrive, onSell, onShop, onContinue }: Props) {
   const cars = useMemo(() => CARS.filter((c) => owned.includes(c.id)), [owned]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
 
@@ -28,14 +29,15 @@ export function Garage({ owned, selectedId, onSelect, onSell, onShop, onContinue
   const items = useMemo<MenuItem[]>(() => {
     const spec = menu ? carById(menu.id) : null;
     if (!spec) return [];
+    const current = spec.id === currentId;
     const last = owned.length <= 1;
     return [
       {
-        label: "Subirse al auto",
-        onPick: () => {
-          onSelect(spec.id);
-          onContinue();
-        },
+        label: current ? "Ya estás en este auto" : "Subirse al auto",
+        // With no highlight on the card, this is what tells you which car you
+        // are in without looking up at the topbar.
+        disabled: current,
+        onPick: () => onDrive(spec.id),
       },
       {
         label: "Vender",
@@ -48,7 +50,7 @@ export function Garage({ owned, selectedId, onSelect, onSell, onShop, onContinue
         onPick: () => onSell(spec.id),
       },
     ];
-  }, [menu, owned.length, onSelect, onContinue, onSell]);
+  }, [menu, currentId, owned.length, onDrive, onSell]);
 
   return (
     <>
@@ -63,11 +65,18 @@ export function Garage({ owned, selectedId, onSelect, onSell, onShop, onContinue
           <CarCard
             key={c.id}
             spec={c}
-            selected={c.id === selectedId}
-            onSelect={onSelect}
             onContextMenu={(e, id) => {
               e.preventDefault();
-              setMenu({ x: e.clientX, y: e.clientY, id });
+              // The Menu key and Shift+F10 fire contextmenu with zeroed
+              // coordinates. Fall back to the card itself so the menu opens
+              // next to what it belongs to rather than in the top corner.
+              const kbd = e.clientX <= 0 && e.clientY <= 0;
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setMenu({
+                x: kbd ? r.left + 24 : e.clientX,
+                y: kbd ? r.bottom - 12 : e.clientY,
+                id,
+              });
             }}
           />
         ))}
