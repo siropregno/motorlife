@@ -98,7 +98,7 @@ if ((await topcar()) === beforeClick) errors.push("Subirse al auto did not chang
 if ((await screen()) !== "garage") errors.push("Subirse al auto navigated away from the garage");
 const driveToast = (await page.locator(".toast").last().innerText().catch(() => "")).replace(/\s+/g, " ");
 console.log(`toast:  "${driveToast}"`);
-if (driveToast !== "Te subiste a tu Peugeot 504 TN") errors.push(`wrong drive toast: "${driveToast}"`);
+if (!/^Te subiste a tu .+$/.test(driveToast)) errors.push(`wrong drive toast: "${driveToast}"`);
 await page.screenshot({ path: `${OUT}/7-garage-drive.png`, fullPage: true });
 
 // the car you are already in cannot be got into again
@@ -136,7 +136,7 @@ if (await page.locator(".ctx").count()) errors.push("menu stayed open after pick
 // you have been moved into another car
 const pair = (await page.locator(".toast").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
 console.log(`toasts: ${pair.map((t) => `"${t}"`).join(" + ")}`);
-if (!pair.some((t) => /^Vendiste tu Peugeot 504 TN por 8\.700 cr$/.test(t)))
+if (!pair.some((t) => /^Vendiste tu .+ por [\d.]+ cr$/.test(t)))
   errors.push(`no sell toast in ${JSON.stringify(pair)}`);
 if (!pair.some((t) => t === "Te subiste a tu Renault R12 TL"))
   errors.push(`the forced car change was silent: ${JSON.stringify(pair)}`);

@@ -80,6 +80,74 @@ export const CARS: CarSpec[] = [
     image: "/ford-f-100.png",
     logo: "/ford-logo.png",
   },
+
+  /*
+   * Argentine classics, added to give D through B a real field instead of
+   * three copies of the F-100 under different driver names.
+   *
+   * Figures are the published ones I am confident in; where a source range
+   * exists I have said so on the line rather than picking silently. No photos
+   * for these yet, and no marque logo for Fiat or Dodge -- the card renders
+   * without them.
+   */
+  {
+    id: "renault-torino-zx",
+    make: "Renault",
+    model: "Torino ZX",
+    year: 1978,
+    kW: 96, // Tornado 3.0 I6, 130 CV DIN -- the single-carb ZX, not the 176 CV 5V
+    kg: 1250,
+    layout: "FR",
+    cls: "muscle",
+    topKph: 180,
+    nm: 230,
+    rarity: "rare",
+    blurb: "Coupé",
+    logo: "/renault-logo.png",
+  },
+  {
+    id: "ford-falcon-sprint",
+    make: "Ford",
+    model: "Falcon Sprint",
+    year: 1973,
+    kW: 122, // 221 cid (3.6) I6, 166 CV
+    kg: 1290,
+    layout: "FR",
+    cls: "muscle",
+    topKph: 185, // sources give 175-190; the middle of that is the honest pick
+    nm: 300,
+    rarity: "uncommon",
+    blurb: "Sedán deportivo",
+    logo: "/ford-logo.png",
+  },
+  {
+    id: "fiat-128-iava",
+    make: "Fiat",
+    model: "128 IAVA",
+    year: 1976,
+    kW: 55, // 1.3 TV, 75 CV
+    kg: 830,
+    layout: "FWD",
+    cls: "sports",
+    topKph: 160,
+    nm: 100,
+    rarity: "uncommon",
+    blurb: "Compacto deportivo",
+  },
+  {
+    id: "dodge-1500-gt90",
+    make: "Dodge",
+    model: "1500 GT90",
+    year: 1975,
+    kW: 66, // 1.5 I4, 90 CV -- the car sold here on Fittipaldi's name
+    kg: 925,
+    layout: "FWD",
+    cls: "sports",
+    topKph: 160,
+    nm: 115,
+    rarity: "common",
+    blurb: "Compacto",
+  },
 ];
 
 export function carById(id: string): CarSpec | undefined {
