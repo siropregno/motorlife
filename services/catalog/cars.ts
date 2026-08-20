@@ -87,8 +87,8 @@ export const CARS: CarSpec[] = [
    *
    * Figures are the published ones I am confident in; where a source range
    * exists I have said so on the line rather than picking silently. No photos
-   * for these yet, and no marque logo for Fiat or Dodge -- the card renders
-   * without them.
+   * for these yet, and no marque logo for Dodge -- the card renders without
+   * them.
    */
   {
     id: "renault-torino-zx",
@@ -368,6 +368,7 @@ export const CARS: CarSpec[] = [
     nm: 285,
     rarity: "legendary",
     blurb: "Superdeportivo",
+    logo: "/honda-logo.png",
   },
   {
     id: "subaru-impreza-22b",
@@ -398,6 +399,7 @@ export const CARS: CarSpec[] = [
     nm: 577,
     rarity: "apex",
     blurb: "Superdeportivo",
+    logo: "/ferrari-logo.png",
   },
   /*
    * Both phases of the 607 V6, at Siro's call: he wants the variety even
