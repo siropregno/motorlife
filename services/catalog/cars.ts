@@ -172,22 +172,30 @@ export const CARS: CarSpec[] = [
    * power went up 32% and the stopwatch says it is still a 12-second car. The
    * fitted scalar lands at 0.75, the low end of believable, because 122 CV is
    * an SAE gross figure and the crankshaft never saw all of it.
+   *
+   * cls is "sports" at Siro's call: the 2300 GT is a coupé and it was sitting
+   * in the saloon grip bucket. It costs something and the cost is named here.
+   * The car leaves D for C, so D is down to the R12 and the F-100, and the
+   * Taunus lands at the bottom of C just under the Falcon Sprint. Only grip
+   * moves (0.96 -> 1.06); CdA is derived from the measured top speed, so the
+   * class table never touches it.
    */
   {
     id: "ford-taunus-gt",
     make: "Ford",
-    model: "Taunus GT",
+    model: "Taunus 2300GT",
     year: 1974,
     kW: 90, // 2.3 I4 OHC, 122 CV SAE at 5.000 rpm
     kg: 1100, // 1.103 kg with a full tank, per the factory sheet
     layout: "FR",
-    cls: "saloon",
+    cls: "sports",
     topKph: 174, // 173,73 measured
     zeroTo100: 12.0,
     nm: 192, // 19,6 kgm at 3.500 rpm
     rarity: "common",
     blurb: "Coupé",
     logo: "/ford-logo.png",
+    image: "/ford-taunus-2300gt.png",
   },
   {
     id: "chevrolet-chevy-250",

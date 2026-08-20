@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { CARS, carById } from "./cars";
 
@@ -9,17 +8,31 @@ import { CARS, carById } from "./cars";
  * A logo path that does not resolve renders as a broken <img> on the card and
  * nothing in the type system notices -- `logo` is just a string.
  *
- * The three checks, in the order they catch things:
- *   1. every path a car names is a file that is actually in public/
- *   2. logos follow the <marque>-logo.png convention, so a file dropped in as
+ * The four checks, in the order they catch things:
+ *   1. every path a car names is a file that is actually in public/, matched
+ *      case-sensitively -- see below
+ *   2. paths are lowercase, because that is the only way the case rule stays
+ *      easy to follow rather than something you have to remember per file
+ *   3. logos follow the <marque>-logo.png convention, so a file dropped in as
  *      logo-honda.png is caught at the point it is wired rather than in the UI
- *   3. a marque whose logo file exists uses it on every one of its cars, which
+ *   4. a marque whose logo file exists uses it on every one of its cars, which
  *      is the case of a logo sitting in public/ that nobody ever referenced
+ *
+ * On the case-sensitivity: this is developed on Windows, where fs.existsSync
+ * happily resolves ford-taunus-2300gt.png to a file named ...2300GT.png. Any
+ * Linux host serving the build would 404 it. So the check reads the directory
+ * and compares names exactly rather than asking the filesystem, which makes
+ * the test mean the same thing on both.
  */
 
 /** Vite serves public/ at the site root, so a "/x.png" is public/x.png. */
 const publicDir = fileURLToPath(new URL("../../public/", import.meta.url));
-const inPublic = (p: string) => existsSync(join(publicDir, p.replace(/^\//, "")));
+const files = new Set(
+  readdirSync(publicDir, { recursive: true, encoding: "utf8" }).map((f) =>
+    f.replaceAll("\\", "/"),
+  ),
+);
+const inPublic = (p: string) => files.has(p.replace(/^\//, ""));
 
 /** The marque's slug in a filename: "Volkswagen" -> "volkswagen". */
 const slug = (make: string) => make.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -33,6 +46,16 @@ describe("catalogue assets", () => {
         .map((p) => `${c.id} -> ${p}`),
     );
     expect(missing).toEqual([]);
+  });
+
+  it("keeps every asset path lowercase", () => {
+    const shouty = CARS.flatMap((c) =>
+      [c.logo, c.image]
+        .filter((p): p is string => typeof p === "string")
+        .filter((p) => p !== p.toLowerCase())
+        .map((p) => `${c.id} -> ${p}`),
+    );
+    expect(shouty).toEqual([]);
   });
 
   it("names logos <marque>-logo.png", () => {
