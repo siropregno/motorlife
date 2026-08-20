@@ -39,7 +39,7 @@
   position: relative;
   width: 60px;
   flex: none;
-  padding: 20px;
+  margin: 20px;
   z-index: 2;
 }
 

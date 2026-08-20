@@ -44,5 +44,13 @@ export {
   type TyreState,
 } from "./setup";
 export { lapTime, referenceLap } from "./lap";
+export {
+  classIndex,
+  meanReferenceLap,
+  classOf,
+  classCap,
+  CLASS_BANDS,
+  type ClassLetter,
+} from "./rating";
 export { simulateRace } from "./race";
 export { buildTower, fmt, fmtGap } from "./tower";

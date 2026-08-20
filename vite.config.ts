@@ -11,6 +11,7 @@ export default defineConfig({
       "@sim": r("./packages/sim/src"),
       "@contracts": r("./contracts"),
       "@catalog": r("./services/catalog"),
+      "@progression": r("./services/progression"),
     },
   },
   test: {

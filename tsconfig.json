@@ -20,7 +20,8 @@
       "@sim": ["./packages/sim/src/index.ts"],
       "@sim/*": ["./packages/sim/src/*"],
       "@contracts/*": ["./contracts/*"],
-      "@catalog/*": ["./services/catalog/*"]
+      "@catalog/*": ["./services/catalog/*"],
+      "@progression/*": ["./services/progression/*"]
     }
   },
   "include": ["src", "packages", "contracts", "services", "vite.config.ts"]

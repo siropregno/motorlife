@@ -1,39 +1,56 @@
 import { useMemo } from "react";
 import { CARS } from "@catalog/cars";
+import { ratingOf } from "@catalog/rating";
 import { derive } from "@sim/derive";
 import { CarCard } from "../components/CarCard";
 
 interface Props {
+  owned: string[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onShop: () => void;
   onContinue: () => void;
 }
 
-export function Garage({ selectedId, onSelect, onContinue }: Props) {
-  // derive() is memoised inside the sim, so this is cheap; useMemo just keeps
-  // the array identity stable across renders
-  const derived = useMemo(() => new Map(CARS.map((c) => [c.id, derive(c)])), []);
+export function Garage({ owned, selectedId, onSelect, onShop, onContinue }: Props) {
+  const cars = useMemo(() => CARS.filter((c) => owned.includes(c.id)), [owned]);
 
   return (
     <>
       <h2 className="screen-title">Garage</h2>
       <p className="screen-sub">
-        {CARS.length} cars. Pick one and take it to the setup sheet.
+        {cars.length} of {CARS.length} cars owned. A collection is a hand of cards, and a circuit
+        is the question it answers.
       </p>
 
       <div className="card-grid">
-        {CARS.map((c) => (
-          <CarCard
-            key={c.id}
-            spec={c}
-            derived={derived.get(c.id)}
-            selected={c.id === selectedId}
-            onSelect={onSelect}
-          />
-        ))}
+        {cars.map((c) => {
+          const r = ratingOf(c);
+          return (
+            <div key={c.id} className="shop-item">
+              <CarCard
+                spec={c}
+                derived={derive(c)}
+                selected={c.id === selectedId}
+                onSelect={onSelect}
+              />
+              <div className="shop-buy">
+                <span className="shop-rating">
+                  <b>{r.letter}</b> {r.index}
+                </span>
+                <span className="shop-price" style={{ fontSize: 12, color: "var(--ink-4)" }}>
+                  class index
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
+      <div className="row" style={{ marginTop: 26, justifyContent: "space-between" }}>
+        <button className="btn" onClick={onShop}>
+          Dealership
+        </button>
         <button className="btn primary" onClick={onContinue}>
           Set up →
         </button>
