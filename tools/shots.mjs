@@ -36,40 +36,24 @@ await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
 // --- race for the money ---------------------------------------------------
 await page.getByRole("button", { name: /Garage/ }).click();
 await page.getByRole("button", { name: /Set up/ }).click();
-await page.waitForSelector(".laptime");
+await page.waitForSelector(".feel");
 
-// Tune the player the way a player would: move a slider, read the predicted
-// lap, keep what is quicker. Rivals now solve for the optimum setup, so a
-// flat-setup run is the WRONG baseline for "is the race competitive".
-const lapOf = async () => (await page.locator(".laptime").innerText()).trim();
-const toSeconds = (s) => {
-  const [m, rest] = s.split(":");
-  return Number(m) * 60 + Number(rest);
-};
+// There is no predicted lap any more, so there is nothing to hill-climb.
+// Set the car the way a player reading the feel bars would: wing on for a
+// twisty circuit, springs left alone so the tyres last the stint.
 const setSlider = (name, v) =>
   page.getByLabel(name).evaluate((el, val) => {
     const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
     set.call(el, String(val));
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }, v);
-
-const flatLap = await lapOf();
-for (const name of ["Aero", "Gearing", "Springs", "Brake bias"]) {
-  let bestV = 0;
-  let bestT = toSeconds(await lapOf());
-  for (const v of [-1, -0.5, 0.5, 1]) {
-    await setSlider(name, v);
-    await page.waitForTimeout(60);
-    const t = toSeconds(await lapOf());
-    if (t < bestT) {
-      bestT = t;
-      bestV = v;
-    }
-  }
-  await setSlider(name, bestV);
+for (const [name, v] of [["Aero", 0.5], ["Gearing", -0.25], ["Springs", 0.35], ["Brake bias", 0.35]]) {
+  await setSlider(name, v);
   await page.waitForTimeout(60);
 }
-console.log(`tune:   ${flatLap} flat -> ${await lapOf()} tuned`);
+await page.screenshot({ path: `${OUT}/2b-setup.png`, fullPage: true });
+console.log(`feel:   ${(await page.locator(".feel").innerText()).replace(/s+/g, " | ")}`);
+if (await page.locator(".laptime").count()) errors.push("the predicted lap is still on the Setup screen");
 await page.getByRole("button", { name: /Race/ }).click();
 await page.waitForSelector(".tower-row");
 const heading = (await page.locator(".screen-sub").innerText()).replace(/\s+/g, " ");
@@ -87,7 +71,7 @@ const race1 = rows.map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
 // --- race the SAME setup again: it must be a different event --------------
 const rerun = async () => {
   await page.getByRole("button", { name: /Setup/ }).click();
-  await page.waitForSelector(".laptime");
+  await page.waitForSelector(".feel");
   await page.getByRole("button", { name: /Race/ }).click();
   await page.waitForSelector(".tower-row");
   await page.getByRole("button", { name: /Skip to flag/ }).click();

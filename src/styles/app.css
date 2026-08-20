@@ -412,3 +412,48 @@ p.screen-sub {
   color: var(--green);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- car feel ---------- */
+/*
+ * Replaces the predicted lap. Bars and words, no number: a single scalar
+ * objective is a solver prompt, and the game is the judgement about which of
+ * these three the circuit rewards.
+ */
+.feel {
+  display: grid;
+  gap: 10px;
+}
+
+.feel-row {
+  display: grid;
+  grid-template-columns: 80px auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.feel-name {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.feel-bar {
+  display: inline-flex;
+  gap: 3px;
+}
+.feel-bar i {
+  width: 16px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.feel-bar i.on {
+  background: var(--purple);
+}
+
+.feel-word {
+  font-size: 13px;
+  color: var(--ink-2);
+}

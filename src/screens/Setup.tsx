@@ -4,9 +4,7 @@ import type { TrackSpec } from "@contracts/track";
 import { carById } from "@catalog/cars";
 import { TRACKS } from "@catalog/tracks";
 import { derive } from "@sim/derive";
-import { applySetup } from "@sim/setup";
-import { lapTime } from "@sim/lap";
-import { fmt } from "@sim/tower";
+import { applySetup, wearMultiplier } from "@sim/setup";
 import { CarCard } from "../components/CarCard";
 
 interface Props {
@@ -20,8 +18,6 @@ interface Props {
 }
 
 const FLAT: SetupValues = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
-/** Laps into a stint that the second readout reports. */
-const STINT = 7;
 
 const SLIDERS: {
   key: keyof SetupValues;
@@ -41,28 +37,46 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
   const spec = carById(carId);
   const car = useMemo(() => (spec ? derive(spec) : null), [spec]);
 
-  // The whole point of a pure sim in the browser: this is the real model, not
-  // an approximation of it, so the number moves the moment a slider does.
-  const { predicted, baseline, worn } = useMemo(() => {
-    if (!car) return { predicted: 0, baseline: 0, worn: 0 };
+  /**
+   * No lap time. There used to be one, and it decided the game: move a
+   * slider, read the number, keep what is quicker, and the car is perfectly
+   * tuned in four sweeps by someone who understands none of it. A single
+   * scalar objective is a solver prompt, not a decision.
+   *
+   * These three are the real model -- same `applySetup` the race runs -- read
+   * as ratios against the stock setup and rounded onto five steps. They pull
+   * against each other on purpose: wing buys corners and spends straights and
+   * tyres. Which of the three matters is a property of the circuit, and that
+   * judgement is the part the number was doing for you.
+   */
+  const feel = useMemo(() => {
+    if (!car) return [];
     const fresh = { compound: build.compound, age: 0 };
     const now = applySetup(car, build.setup, fresh, 0);
     const flat = applySetup(car, FLAT, fresh, 0);
-    // The same setup at the end of a stint. Downforce and stiff springs buy
-    // pace on lap one and hand it back by lap seven, so these two numbers
-    // pull in opposite directions and there is no single one to solve for.
-    const late = applySetup(car, build.setup, { compound: build.compound, age: STINT }, STINT);
-    return {
-      predicted: lapTime(now, track),
-      baseline: lapTime(flat, track),
-      worn: lapTime(late, track),
-    };
-  }, [car, build, track]);
+    const step = (ratio: number, span: number) =>
+      Math.max(1, Math.min(5, Math.round(3 + ((ratio - 1) / span) * 2)));
+    const grip = (c: typeof now) => c.muLateral * (1 + c.clA);
+    return [
+      {
+        name: "Straights",
+        level: step(flat.cda / now.cda, 0.3),
+        words: ["Very draggy", "Draggy", "Stock", "Slippery", "Very slippery"],
+      },
+      {
+        name: "Corners",
+        level: step(grip(now) / grip(flat), 0.35),
+        words: ["Very loose", "Loose", "Stock", "Planted", "Very planted"],
+      },
+      {
+        name: "Tyre life",
+        level: step(1 / wearMultiplier(build.setup), 0.18),
+        words: ["Burns them", "Short", "Stock", "Long", "Very long"],
+      },
+    ];
+  }, [car, build]);
 
   if (!spec || !car) return <p>Car not found.</p>;
-
-  const delta = predicted - baseline;
-  const deltaClass = Math.abs(delta) < 0.005 ? "" : delta < 0 ? "down" : "up";
 
   const set = (key: keyof SetupValues, v: number) =>
     onBuild({ ...build, setup: { ...build.setup, [key]: v } });
@@ -79,27 +93,24 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
           <CarCard spec={spec} />
 
           <div className="panel">
-            <h3>Predicted lap</h3>
-            <p className={`laptime ${deltaClass}`}>{fmt(predicted)}</p>
-            <p className="laptime-delta">
-              {delta === 0
-                ? "baseline setup"
-                : `${delta > 0 ? "+" : ""}${delta.toFixed(3)} vs baseline`}
-            </p>
-            <dl className="stats" style={{ marginTop: 14 }}>
-              <div>
-                <dt>Lap 1, fresh</dt>
-                <dd>{fmt(predicted)}</dd>
-              </div>
-              <div>
-                <dt>Lap {STINT}, same set</dt>
-                <dd>{fmt(worn)}</dd>
-              </div>
-            </dl>
+            <h3>Car feel</h3>
+            <div className="feel">
+              {feel.map((f) => (
+                <div className="feel-row" key={f.name}>
+                  <span className="feel-name">{f.name}</span>
+                  <span className="feel-bar" aria-hidden="true">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <i key={i} className={i <= f.level ? "on" : ""} />
+                    ))}
+                  </span>
+                  <span className="feel-word">{f.words[f.level - 1]}</span>
+                </div>
+              ))}
+            </div>
             <p className="note">
-              Wing and stiff springs buy the first number and spend the second. There is no
-              setting that wins both, so how you split them is the decision -- and it depends
-              on how long you mean to stay out.
+              No lap time on purpose. These three fight each other -- wing buys corners and
+              spends straights and tyres -- and which one is worth having is a property of the
+              circuit, not of the car. Read the track, then decide.
             </p>
           </div>
 
