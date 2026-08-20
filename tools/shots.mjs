@@ -65,6 +65,9 @@ await page.locator(".shop-buy .btn").first().click();
 await page.waitForTimeout(300);
 const after = await page.locator(".shop-item").count();
 console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).replace(/\s+/g, " ")}`);
+const buyToast = await page.locator(".toast").innerText().catch(() => "");
+console.log(`toast:  "${buyToast.replace(/\s+/g, " ")}"`);
+if (!/^Compraste un /.test(buyToast)) errors.push(`no buy toast, got "${buyToast}"`);
 await page.getByRole("button", { name: /Garage/ }).click();
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);
@@ -93,6 +96,9 @@ await page.waitForTimeout(250);
 console.log(`drive:  topcar ${beforeClick} -> ${await topcar()}, still on ${await screen()}`);
 if ((await topcar()) === beforeClick) errors.push("Subirse al auto did not change the car");
 if ((await screen()) !== "garage") errors.push("Subirse al auto navigated away from the garage");
+const driveToast = (await page.locator(".toast").last().innerText().catch(() => "")).replace(/\s+/g, " ");
+console.log(`toast:  "${driveToast}"`);
+if (driveToast !== "Te subiste a tu Peugeot 504 TN") errors.push(`wrong drive toast: "${driveToast}"`);
 await page.screenshot({ path: `${OUT}/7-garage-drive.png`, fullPage: true });
 
 // the car you are already in cannot be got into again
@@ -126,6 +132,14 @@ console.log(`repair: topcar ${soldCar} -> ${await topcar()}`);
 if (leftInGarage !== 1) errors.push(`confirm did not sell: ${leftInGarage} cars left`);
 if ((await topcar()) === soldCar) errors.push("still sitting in the car that was just sold");
 if (await page.locator(".ctx").count()) errors.push("menu stayed open after picking");
+// selling the car you are in must say BOTH things: what you sold, and that
+// you have been moved into another car
+const pair = (await page.locator(".toast").allInnerTexts()).map((t) => t.replace(/\s+/g, " "));
+console.log(`toasts: ${pair.map((t) => `"${t}"`).join(" + ")}`);
+if (!pair.some((t) => /^Vendiste tu Peugeot 504 TN por 8\.700 cr$/.test(t)))
+  errors.push(`no sell toast in ${JSON.stringify(pair)}`);
+if (!pair.some((t) => t === "Te subiste a tu Renault R12 TL"))
+  errors.push(`the forced car change was silent: ${JSON.stringify(pair)}`);
 await page.screenshot({ path: `${OUT}/9-garage-sold.png`, fullPage: true });
 
 // the last car is not for sale, and the menu must say why

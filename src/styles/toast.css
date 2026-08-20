@@ -1,0 +1,81 @@
+/*
+ * Toasts, bottom right. Top right would put them nearer the wallet they are
+ * usually about, but the app column is 1040px wide and a toast is up to 320,
+ * so on any ordinary window there is no clear gutter beside the content --
+ * the first version sat on top of the screen's own instructions. Down here
+ * the page is empty.
+ */
+
+.toasts {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  /* the stack is an overlay, not a wall: only the toasts themselves take
+     clicks, the empty column below them does not */
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  max-width: 320px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--ink-4);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-family: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  animation: toast-in 0.22s ease-out;
+}
+
+.toast:hover {
+  border-color: #4a4a4a;
+}
+
+.toast.good {
+  border-left-color: var(--green);
+}
+.toast.bad {
+  border-left-color: var(--red);
+}
+.toast.info {
+  border-left-color: var(--purple);
+}
+
+.toast.leaving {
+  animation: toast-out 0.18s ease-in forwards;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.leaving {
+    animation: none;
+  }
+}

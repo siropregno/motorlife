@@ -9,11 +9,19 @@ import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
+import { useToast } from "./components/Toasts";
 import { classTierClass } from "./lib/tiers";
+
+/** "Renault R12 TL" -- how a car is named in prose rather than on its card. */
+const nameOf = (id: string) => {
+  const spec = carById(id);
+  return spec ? `${spec.make} ${spec.model}` : null;
+};
 
 type Screen = "garage" | "shop" | "setup" | "race";
 
 export default function App() {
+  const toast = useToast();
   const [save, setSave] = useState<Save>(() => loadSave());
   const [screen, setScreen] = useState<Screen>("garage");
   const [carId, setCarId] = useState(() => loadSave().owned[0] ?? CARS[0]!.id);
@@ -33,16 +41,42 @@ export default function App() {
   const pickCar = (id: string) => {
     setCarId(id);
     setBuild((b) => ({ ...b, carId: id }));
+    const name = nameOf(id);
+    if (name) toast(`Te subiste a tu ${name}`, "good");
   };
 
-  const buy = (id: string, price: number) => setSave((s) => buyCar(s, id, price));
-  const sell = (id: string) => setSave((s) => sellCar(s, id));
+  /*
+   * Both of these resolve against the current `save` and pass a plain value to
+   * setSave, rather than doing the work inside an updater. Two reasons: React
+   * may call an updater twice, which would fire the toast twice, and the pure
+   * functions return the save unchanged when the move is illegal -- comparing
+   * by identity out here is what lets a refused click stay silent.
+   */
+  const buy = (id: string, price: number) => {
+    const next = buyCar(save, id, price);
+    if (next === save) return;
+    setSave(next);
+    const name = nameOf(id);
+    if (name) toast(`Compraste un ${name} por ${formatCredits(price)} cr`, "good");
+  };
+
+  const sell = (id: string) => {
+    const name = nameOf(id);
+    const next = sellCar(save, id);
+    if (next === save) return;
+    setSave(next);
+    const paid = next.credits - save.credits;
+    if (name) toast(`Vendiste tu ${name} por ${formatCredits(paid)} cr`, "bad");
+  };
 
   /**
    * Repairs the selection when the selected car leaves the garage. Selling is
    * the only way that happens today, but the rule belongs to the selection
    * rather than to the sell handler -- anything that can shrink `owned` gets
    * this for free, and neither this nor `sellCar` has to know about the other.
+   *
+   * It announces itself. Being moved into a different car without being told
+   * is exactly the silent swap that clicking a card used to do.
    */
   useEffect(() => {
     if (save.owned.includes(carId)) return;
@@ -50,7 +84,9 @@ export default function App() {
     if (!next) return;
     setCarId(next);
     setBuild((b) => ({ ...b, carId: next }));
-  }, [save.owned, carId]);
+    const name = nameOf(next);
+    if (name) toast(`Te subiste a tu ${name}`, "info");
+  }, [save.owned, carId, toast]);
 
   /**
    * Called once when a race reaches the flag. The purse belongs to the event,
