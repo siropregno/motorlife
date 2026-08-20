@@ -164,14 +164,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* the spec column is taller than the photo, so let the photo absorb the
-     slack rather than leaving a hole above the price */
-  flex: 1 1 auto;
   margin: 16px 0 0;
   border-radius: 12px;
   overflow: hidden;
   background: #0e0e0e;
-  min-height: 168px;
+  /* A FIXED frame, identical for every car. Not flex-to-fill and not an
+     aspect ratio: the box must not change size because one car has a longer
+     spec list or a narrower column. A car with no photo gets the same frame
+     with a placeholder in it, so the layout never moves between cars. */
+  height: 236px;
+  flex: none;
 }
 .modal-hero img {
   display: block;
@@ -191,6 +193,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: auto;
   padding-top: 18px;
 }
 

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
-import { derive } from "@sim/derive";
 import { ratingOf } from "@catalog/rating";
 import { formatCredits } from "@progression/economy";
 import { classTierClass } from "../lib/tiers";
@@ -41,14 +40,13 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
  * focus trap, the Escape key, the inert background and ::backdrop for free,
  * and all of those are things a div gets wrong quietly.
  *
- * Both halves of the data are here on purpose. The TYPED block is what someone
- * read off an infobox and entered; the DERIVED block is everything the model
- * worked out from it. Keeping them visibly separate is what stops a derived
- * number from being mistaken for a published one.
+ * Published figures only. The derived block that used to sit under these --
+ * drag area, grip, calibration k -- was engine-room detail on a screen whose
+ * job is "do I want this car", and dropping it lets the photo be a strip
+ * rather than a near-square slab.
  */
 export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const car = derive(spec);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
   const hp = Math.round(spec.kW * 1.35962);
@@ -82,15 +80,6 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
             <Row k="Layout" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Year" v={String(spec.year)} />
           </div>
-
-          <h3 className="modal-section">Worked out</h3>
-          <div className="spec-list">
-            <Row k="Drag area" v={`${car.cda.toFixed(3)} m²`} />
-            <Row k="Lateral grip" v={`${car.muLateral.toFixed(3)} g`} />
-            <Row k="Power / tonne" v={`${car.kWPerTonne.toFixed(0)} kW`} />
-            <Row k="Calibration k" v={car.k.toFixed(3)} />
-            <Row k="Class index" v={`${rating.letter}${rating.index}`} />
-          </div>
         </aside>
 
         <div className="modal-main">
@@ -120,13 +109,6 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
               <span className="modal-nophoto">no photo</span>
             )}
           </div>
-
-          <p className="note">
-            Drag area came out of the published top speed, grip out of era and class, and k was
-            fitted to the published 0&ndash;100
-            {spec.zeroTo100 ? "" : " (not published for this car, so k stays 1)"}. The class
-            index is a mean lap over the reference circuits, not a formula.
-          </p>
 
           <footer className="modal-foot">
             <span className="modal-rarity">{spec.rarity}</span>
