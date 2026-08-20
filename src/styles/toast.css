@@ -1,19 +1,18 @@
 /*
- * Toasts, bottom right. Top right would put them nearer the wallet they are
- * usually about, but the app column is 1040px wide and a toast is up to 320,
- * so on any ordinary window there is no clear gutter beside the content --
- * the first version sat on top of the screen's own instructions. Down here
- * the page is empty.
+ * Toasts, bottom left. The top of the page is where the content is -- an
+ * earlier version sat on top of the garage's own instruction line -- and the
+ * bottom of the page is empty on every screen. Left rather than right puts
+ * them under the reading edge, where the eye already is.
  */
 
 .toasts {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   z-index: 200;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
   /* the stack is an overlay, not a wall: only the toasts themselves take
      clicks, the empty column below them does not */
@@ -22,8 +21,12 @@
 
 .toast {
   pointer-events: auto;
-  max-width: 320px;
-  padding: 10px 14px;
+  /* 60px of it is padding, so this is ~355px of text -- enough to keep the
+     longest message ("Compraste un <marque> <model> por <price> cr") on one
+     line. Anything longer still wraps rather than being clipped. */
+  max-width: 420px;
+  padding: 20px 30px;
+  border: 0px solid var(--line-2);
   border-left: 3px solid var(--ink-4);
   border-radius: 10px;
   background: var(--panel-2);
@@ -58,7 +61,7 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateX(14px);
+    transform: translateX(-14px);
   }
   to {
     opacity: 1;
@@ -69,7 +72,7 @@
 @keyframes toast-out {
   to {
     opacity: 0;
-    transform: translateX(14px);
+    transform: translateX(-14px);
   }
 }
 
