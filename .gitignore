@@ -5,3 +5,5 @@ tools/shots/
 .DS_Store
 .vite/
 balance.txt
+
+tsconfig.tsbuildinfo
