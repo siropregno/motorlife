@@ -40,9 +40,9 @@
 
 .card-logo {
   position: relative;
-  width: 60px;
+  width: 40px;
   flex: none;
-  margin: 20px;
+  margin: 20px 14px;
   z-index: 2;
 }
 
@@ -54,7 +54,9 @@
 .card-info {
   position: relative;
   z-index: 3;
-  width: 220px;
+  width: 292px;
+  /* the title runs over the photo on a long name, so keep it readable there */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
 /*
@@ -78,6 +80,23 @@
   font-size: 14px;
   font-family: var(--text);
   color: var(--ink-2);
+}
+
+/*
+ * The model name is the only part allowed to shrink. Year and class badge are
+ * flex: none, so a long name -- "Huracan Performante", say -- truncates
+ * instead of wrapping and shoving the badge onto a second line, which is what
+ * "Chevy Super Sport" did before the name was cut down.
+ */
+.card-info h2 > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-title-light,
+.card-info h2 .klass-badge {
+  flex: none;
 }
 
 .card-title-light {
@@ -126,7 +145,7 @@
     90deg,
     #111111 10%,
     #222222 30%,
-    rgba(51, 51, 51, 1) 40%,
+    rgba(51, 51, 51, 1) 52%,
     transparent 100%
   );
   z-index: 2;

@@ -206,7 +206,7 @@ export const CARS: CarSpec[] = [
   {
     id: "chevrolet-chevy-ss",
     make: "Chevrolet",
-    model: "Chevy SS",
+    model: "Chevy Super Sport",
     year: 1972,
     kW: 114, // 3.8 I6, 155 CV
     kg: 1230,
@@ -231,6 +231,7 @@ export const CARS: CarSpec[] = [
     rarity: "uncommon",
     blurb: "Coupé",
     logo: "/renault-logo.png",
+    image: "/renault-fuego-gta-max.png",
   },
   {
     id: "ford-sierra-xr4",
@@ -326,7 +327,7 @@ export const CARS: CarSpec[] = [
   {
     id: "lancia-delta-integrale",
     make: "Lancia",
-    model: "Delta Integrale",
+    model: "Delta HF Integrale",
     year: 1990,
     kW: 147, // 16v, 200 CV
     kg: 1300,
@@ -397,6 +398,48 @@ export const CARS: CarSpec[] = [
     nm: 577,
     rarity: "apex",
     blurb: "Superdeportivo",
+  },
+  /*
+   * Both phases of the 607 V6, at Siro's call: he wants the variety even
+   * where the change is small. They are 4 hp and 20 kg apart, so expect them
+   * to rate within a point or two and to share a grid happily -- that is the
+   * cost of the pair, and it is a deliberate one.
+   *
+   * Names kept to "607 V6" and "607 V6 FII" because the card title is a flex
+   * row and "607 V6 ES9 Fase I" wraps and shoves the class badge to a second
+   * line. The years on the card do most of the telling apart anyway.
+   */
+  {
+    id: "peugeot-607-v6-f1",
+    make: "Peugeot",
+    model: "607 V6",
+    year: 2000,
+    kW: 154, // ES9J4S 3.0 V6, 207 hp
+    kg: 1580,
+    layout: "FWD",
+    cls: "saloon",
+    topKph: 235,
+    zeroTo100: 8.5,
+    nm: 285,
+    rarity: "uncommon",
+    blurb: "Sedán ejecutivo",
+    logo: "/peugeot-logo.png",
+  },
+  {
+    id: "peugeot-607-v6-f2",
+    make: "Peugeot",
+    model: "607 V6 FII",
+    year: 2005,
+    kW: 157, // ES9A 3.0 V6, 211 hp -- the facelift
+    kg: 1600,
+    layout: "FWD",
+    cls: "saloon",
+    topKph: 237,
+    zeroTo100: 8.3,
+    nm: 285,
+    rarity: "uncommon",
+    blurb: "Sedán ejecutivo",
+    logo: "/peugeot-logo.png",
   },
 ];
 export function carById(id: string): CarSpec | undefined {

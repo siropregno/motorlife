@@ -93,6 +93,15 @@ await page.reload({ waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Dealership" }).click();
 await page.waitForSelector(".shop-item");
 const before = await page.locator(".shop-item").count();
+// HURACAN PROBE: the longest plausible model name, checked live rather than
+// estimated. If it ellipsises the name column is too narrow.
+const fits = await page.locator(".shop-item .card-title-bold > span").first().evaluate((el) => {
+  el.textContent = "Huracan Performante";
+  const row = el.parentElement;
+  return { clipped: el.scrollWidth > el.clientWidth + 1, rowFits: row.scrollWidth <= row.clientWidth + 1 };
+});
+console.log(`longname: clipped=${fits.clipped} rowFits=${fits.rowFits}`);
+if (fits.clipped) errors.push("a 19-char model name is clipped on the card");
 await page.screenshot({ path: `${OUT}/4-shop-rich.png`, fullPage: true });
 await page.locator(".shop-buy .btn").first().click();
 await page.waitForTimeout(300);
