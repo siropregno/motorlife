@@ -87,9 +87,9 @@ export const CARS: CarSpec[] = [
    * three copies of the F-100 under different driver names.
    *
    * Figures are the published ones I am confident in; where a source range
-   * exists I have said so on the line rather than picking silently. No photos
-   * for these yet, and no marque logo for Dodge -- the card renders without
-   * them.
+   * exists I have said so on the line rather than picking silently. The Torino
+   * is still waiting on photos and Dodge on a marque logo -- the card renders
+   * without either.
    */
   {
     id: "renault-torino-zx",
@@ -119,6 +119,8 @@ export const CARS: CarSpec[] = [
     nm: 300,
     rarity: "uncommon",
     blurb: "Sedán deportivo",
+    colors: ["blue", "orange"],
+    photo: "ford-falcon-sprint-73",
     logo: "/ford-logo.png",
   },
   {
@@ -382,6 +384,8 @@ export const CARS: CarSpec[] = [
     nm: 284,
     rarity: "epic",
     blurb: "Deportivo",
+    colors: ["black", "bordo", "red", "white", "yellow"],
+    photo: "porsche-911-carrera-32-87",
   },
   {
     id: "honda-nsx",
@@ -433,35 +437,21 @@ export const CARS: CarSpec[] = [
     logo: "/ferrari-logo.png",
   },
   /*
-   * Both phases of the 607 V6, at Siro's call: he wants the variety even
-   * where the change is small. They are 4 hp and 20 kg apart, so expect them
-   * to rate within a point or two and to share a grid happily -- that is the
-   * cost of the pair, and it is a deliberate one.
+   * One 607, the facelift. Both phases used to be here for the variety, but
+   * they were 4 hp and 20 kg apart and rated within a point of each other, so
+   * the pair bought two rows on the forecourt and no decision for the player.
+   * The photos settled it: the render is the phase 2 body -- wide chrome
+   * grille, restyled lights -- and a card cannot say 2000 over that nose.
    *
-   * Names kept to "607 V6" and "607 V6 FII" because the card title is a flex
-   * row and "607 V6 ES9 Fase I" wraps and shoves the class badge to a second
-   * line. The years on the card do most of the telling apart anyway.
+   * The id keeps its -f2 because it is save data. A player who bought this car
+   * has `peugeot-607-v6-f2` in their garage, and renaming it now would empty
+   * that garage to make an internal string prettier. `model` is what anyone
+   * reads, and it is plain "607 V6" now that there is nothing to tell it from.
    */
-  {
-    id: "peugeot-607-v6-f1",
-    make: "Peugeot",
-    model: "607 V6 Fase 1",
-    year: 2000,
-    kW: 154, // ES9J4S 3.0 V6, 207 hp
-    kg: 1580,
-    layout: "FWD",
-    cls: "saloon",
-    topKph: 235,
-    zeroTo100: 8.5,
-    nm: 285,
-    rarity: "uncommon",
-    blurb: "Sedán ejecutivo",
-    logo: "/peugeot-logo.png",
-  },
   {
     id: "peugeot-607-v6-f2",
     make: "Peugeot",
-    model: "607 V6 Fase 2",
+    model: "607 V6",
     year: 2005,
     kW: 157, // ES9A 3.0 V6, 211 hp -- the facelift
     kg: 1600,
@@ -472,6 +462,8 @@ export const CARS: CarSpec[] = [
     nm: 285,
     rarity: "uncommon",
     blurb: "Sedán ejecutivo",
+    colors: ["black", "bordo", "gray", "white"],
+    photo: "peugeot-607-v6-phase2",
     logo: "/peugeot-logo.png",
   },
 ];

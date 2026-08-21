@@ -24,8 +24,22 @@ describe("which colours a car comes in", () => {
   it("names them in Spanish, and falls back to the slug", () => {
     expect(colorName("light-blue")).toBe("Celeste");
     expect(colorName("dark-blue")).toBe("Azul oscuro");
+    expect(colorName("bordo")).toBe("Bordó");
     expect(colorName("yellow")).toBe("Amarillo");
     expect(colorName("chartreuse")).toBe("chartreuse");
+  });
+
+  /*
+   * The fallback above is a safety net, not a licence. A colour with no entry
+   * in NAMES renders its English slug on the card -- "bordo" next to "Negro"
+   * and "Blanco" -- and nothing else in the codebase notices, because a slug
+   * IS a valid string. So the catalogue is the test: every colour any car
+   * declares has to have been translated.
+   */
+  it("has a Spanish name for every colour the catalogue actually uses", () => {
+    const used = [...new Set(CARS.flatMap((c) => colorsOf(c)))].sort();
+    const untranslated = used.filter((k) => colorName(k) === k);
+    expect(untranslated, `add these to NAMES in paint.ts`).toEqual([]);
   });
 });
 

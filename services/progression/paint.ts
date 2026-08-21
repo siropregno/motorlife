@@ -25,6 +25,7 @@ const NAMES: Record<string, string> = {
   "dark-blue": "Azul oscuro",
   silver: "Gris plata",
   gray: "Gris",
+  bordo: "Bordó",
   yellow: "Amarillo",
   orange: "Naranja",
   green: "Verde",
