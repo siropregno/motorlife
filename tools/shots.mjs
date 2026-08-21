@@ -18,6 +18,18 @@ const wallet = () => page.locator(".wallet").innerText();
 // "Race →" action share an accessible name.
 const nav = (label) => page.locator(`.topnav-btn[aria-label="${label}"]`);
 const raceNow = () => page.getByRole("button", { name: "Correr →" });
+// The shop is a hub: Comprar -> Concesionarios -> one dealer, or -> usados.
+const toDealer = async (name) => {
+  await nav("Concesionaria").click();
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page.waitForSelector(".shop-item");
+};
+const toUsed = async () => {
+  await nav("Concesionaria").click();
+  await page.getByRole("button", { name: /Mercado de usados/ }).click();
+  await page.waitForSelector(".shop-item");
+};
 
 await page.goto("http://localhost:5177/", { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.removeItem("motorlife.save"));
@@ -29,8 +41,16 @@ console.log(`garage: ${await page.locator(".car-card").count()} owned, wallet ${
 console.log(`        current car ${(await page.locator(".topcar").innerText()).replace(/\s+/g, " ")}`);
 await page.screenshot({ path: `${OUT}/1-garage.png`, fullPage: true });
 
-// --- dealership: cannot afford anything yet -------------------------------
+// --- the shop hub, then one forecourt -------------------------------------
 await nav("Concesionaria").click();
+await page.waitForSelector(".pick-card");
+console.log(`doors:  ${(await page.locator(".pick-card").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")).join("  |  ")}`);
+await page.screenshot({ path: `${OUT}/2-doors.png`, fullPage: true });
+await page.getByRole("button", { name: /Concesionarios/ }).click();
+await page.waitForSelector(".dealer-card");
+console.log(`houses: ${(await page.locator(".dealer-card").allInnerTexts()).map((t) => t.replace(/\s+/g, " ")).join("  |  ")}`);
+await page.screenshot({ path: `${OUT}/2a-dealers.png`, fullPage: true });
+await page.getByRole("button", { name: /Fierros Don Beto/ }).click();
 await page.waitForSelector(".shop-item");
 const stock = await page.locator(".shop-item .card-title-bold").allInnerTexts();
 // .shop-price was the old buy row; the price is the .shop-tag under the card
@@ -42,6 +62,18 @@ console.log(
     .join(", ")}`,
 );
 await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
+
+// --- the used lot: cheaper than the same car new, and it rotates ----------
+await toUsed();
+const used = await page.locator(".shop-item").evaluateAll((items) =>
+  items.map((el) => ({
+    name: el.querySelector(".card-title-bold")?.textContent?.replace(/\s+/g, " ").trim(),
+    price: el.querySelector(".shop-tag")?.textContent?.trim(),
+  })),
+);
+console.log(`usados: ${used.map((u) => `${u.name} ${u.price}`).join(", ")}`);
+if (await page.locator(".shopbar").count()) errors.push("the used lot has sort controls it does not need");
+await page.screenshot({ path: `${OUT}/2c-usados.png`, fullPage: true });
 
 // --- race for the money ---------------------------------------------------
 await nav("Carrera").click();
@@ -99,8 +131,7 @@ await page.evaluate(() => {
   localStorage.setItem("motorlife.save", JSON.stringify(s));
 });
 await page.reload({ waitUntil: "networkidle" });
-await nav("Concesionaria").click();
-await page.waitForSelector(".shop-item");
+await toDealer("Fierros Don Beto");
 const before = await page.locator(".shop-item").count();
 // HURACAN PROBE: the longest plausible model name, checked live rather than
 // estimated. If it ellipsises the name column is too narrow.

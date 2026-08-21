@@ -526,6 +526,167 @@ p.screen-sub {
   color: var(--ink-2);
 }
 
+/* ---------- the two doors into the shop ---------- */
+/*
+ * BACKGROUND IMAGES GO HERE. Each card reads --shot, so dropping a photo in
+ * is one line per card:
+ *
+ *     .pick-dealers { --shot: url("/shot-concesionarios.png"); }
+ *     .pick-used    { --shot: url("/shot-usados.png"); }
+ *
+ * Until then --shot is unset and only the gradient paints, which is why there
+ * is no 404 sitting in the console waiting for the art. The scrim below the
+ * image is not optional once a photo is in: white text on an unknown
+ * photograph is a coin toss, and the gradient is what makes it a guarantee.
+ */
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.pick-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 190px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  text-align: left;
+  color: var(--ink);
+  overflow: hidden;
+  background-image: var(--shot, none);
+  background-size: cover;
+  background-position: center;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.pick-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(200deg, #1d1030 0%, #120a1e 55%, #0c0713 100%);
+  opacity: var(--scrim, 1);
+  z-index: 0;
+}
+/* With a photo behind it the flat fill becomes a bottom-up scrim instead. */
+.pick-card[style*="--shot"]::before {
+  background: linear-gradient(0deg, rgba(8, 4, 14, 0.92) 0%, rgba(8, 4, 14, 0.35) 60%, rgba(8, 4, 14, 0.1) 100%);
+}
+.pick-card > * {
+  position: relative;
+  z-index: 1;
+}
+.pick-card:hover {
+  border-color: var(--purple-ink);
+  transform: translateY(-2px);
+}
+
+.pick-name {
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 22px;
+  letter-spacing: 0.03em;
+}
+
+.pick-note {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* The one thing the used lot can say that the dealers never can. */
+.pick-flag {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: var(--purple);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------- the dealer list ---------- */
+.dealer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.dealer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.dealer-card:hover:not(:disabled) {
+  border-color: var(--purple-ink);
+}
+.dealer-card:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dealer-name {
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+}
+.dealer-tagline {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.dealer-meta {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Up one level, not out of the shop -- that is what the topbar nav is for. */
+.crumb-back {
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-bottom: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+.crumb-back:hover {
+  color: var(--purple-ink);
+}
+
+.listing-meta {
+  margin: 0 0 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- dealership sort + filter ---------- */
 /*
  * A label column and a chip row per control. The label is a fixed 96px so the

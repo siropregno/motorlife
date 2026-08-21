@@ -1,172 +1,155 @@
 import { useMemo, useState } from "react";
-import type { ClassLetter } from "@sim/rating";
 import type { Save } from "@progression/save";
-import { CARS } from "@catalog/cars";
-
-import {
-  applyFilters,
-  groupBy,
-  isActive,
-  type Direction,
-  type FacetId,
-  type Selection,
-} from "@catalog/filters";
 import { priceOf, formatCredits } from "@progression/economy";
-import { CarCard } from "../components/CarCard";
-import { CarModal } from "../components/CarModal";
-import { FilterModal } from "../components/FilterModal";
-import { ShopControls } from "../components/ShopControls";
-import { classTierClass } from "../lib/tiers";
+import {
+  DEALERS,
+  dealerById,
+  stockOf,
+  usedLot,
+  usedPriceOf,
+  USED_RATE,
+} from "@progression/market";
+import { Listing } from "../components/Listing";
 
 interface Props {
   save: Save;
   onBuy: (carId: string, price: number) => void;
 }
 
+type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };
+
+/**
+ * Where you buy a car. Two doors, and the difference between them is the
+ * point:
+ *
+ *   Concesionarios are STABLE. A dealer carries what it carries, at the
+ *   catalogue price, forever. If you want the F40 you know exactly where it
+ *   is and exactly what it costs, and the only question is money.
+ *
+ *   The mercado de usados ROTATES and is cheaper. It turns over every race,
+ *   it is mostly tired sedans, and roughly three lots in ten have something
+ *   worth crossing the room for. You cannot plan for it; you can only look.
+ *
+ * One is a shopping list, the other is a reason to check back. Neither works
+ * without the other -- a shop with only the stable half is a menu, and a shop
+ * with only the rotating half means the car you want may never turn up.
+ *
+ * The view lives here rather than in the app's Screen union so the nav keeps
+ * the shop tab lit the whole way down, and so backing out of a dealer is a
+ * local move rather than a route.
+ */
 export function Shop({ save, onBuy }: Props) {
-  /**
-   * The whole catalogue, minus what you already own.
-   *
-   * This used to be a rotating six drawn by rarity weight, so a rare car
-   * surfaced only occasionally and finding one was an event. Siro wants the
-   * full list instead. The consequence is worth naming: nothing is a find any
-   * more, an F40 is permanently on the menu and the only thing between you and
-   * it is the price.
-   *
-   * Grouped into sections and sorted by rating inside each, so a long list
-   * reads as a ladder rather than a wall. Which facet does the grouping is the
-   * "Ordenar por" control; the rating ladder inside a section is not optional.
-   */
-  const unowned = useMemo(
-    () => CARS.filter((c) => !save.owned.includes(c.id)),
-    [save.owned],
-  );
+  const [view, setView] = useState<View>({ at: "choose" });
 
-  const [filter, setFilter] = useState<Selection>({});
-  /*
-   * The filter narrows the listing, but the CHIP COUNTS are measured against
-   * `unowned`, not against what is on screen. Counting the visible list would
-   * make every count read either "all of them" or zero, since the visible list
-   * is already the answer.
-   */
-  const listed = useMemo(() => applyFilters(unowned, filter), [unowned, filter]);
+  // Keyed to races run: the lot turns over when you race, which is the only
+  // clock this game has. Frozen per rotation, so filtering never reshuffles it.
+  const lot = useMemo(() => usedLot(save.racesRun, save.owned), [save.racesRun, save.owned]);
 
-  const [order, setOrder] = useState<FacetId>("clase");
-  const [dir, setDir] = useState<Direction>("asc");
-  const [advanced, setAdvanced] = useState(false);
+  if (view.at === "choose") {
+    const treasure = lot.some((c) => !["common", "uncommon"].includes(c.rarity));
+    return (
+      <>
+        <h2 className="screen-title">Comprar</h2>
+        <p className="screen-sub">Tenés {formatCredits(save.credits)} cr.</p>
 
-  /*
-   * Sections come from whichever facet you are ordering by, and the direction
-   * flips the sections and the ladder inside them together -- see groupBy.
-   */
-  const groups = useMemo(() => groupBy(listed, order, dir), [listed, order, dir]);
+        <div className="pick-grid">
+          <button className="pick-card pick-dealers" onClick={() => setView({ at: "dealers" })}>
+            <span className="pick-name">Concesionarios</span>
+            <span className="pick-note">
+              {DEALERS.length} casas · precio de lista · siempre el mismo stock
+            </span>
+          </button>
 
-  const [openId, setOpenId] = useState<string | null>(null);
-  // resolved from the whole pool rather than the filtered groups, so an open
-  // spec sheet does not vanish if the listing behind it changes
-  const openSpec = openId ? unowned.find((c) => c.id === openId) : undefined;
+          <button className="pick-card pick-used" onClick={() => setView({ at: "used" })}>
+            <span className="pick-name">Mercado de usados</span>
+            <span className="pick-note">
+              {lot.length} autos · {Math.round((1 - USED_RATE) * 100)}% menos · rota cada carrera
+            </span>
+            {treasure ? <span className="pick-flag">Hay algo bueno</span> : null}
+          </button>
+        </div>
+      </>
+    );
+  }
 
-  const total = listed.length;
-  const affordable = listed.filter((c) => save.credits >= priceOf(c)).length;
-  const filtered = isActive(filter);
+  if (view.at === "dealers") {
+    return (
+      <>
+        <Crumb onBack={() => setView({ at: "choose" })} />
+        <h2 className="screen-title">Concesionarios</h2>
+        <p className="screen-sub">Precio de lista. Lo que ves hoy es lo que hay siempre.</p>
+
+        <div className="dealer-grid">
+          {DEALERS.map((d) => {
+            const stock = stockOf(d, save.owned);
+            const cheapest = stock.length ? Math.min(...stock.map((c) => priceOf(c))) : 0;
+            return (
+              <button
+                key={d.id}
+                className="dealer-card"
+                disabled={stock.length === 0}
+                onClick={() => setView({ at: "dealer", id: d.id })}
+              >
+                <span className="dealer-name">{d.name}</span>
+                <span className="dealer-tagline">{d.tagline}</span>
+                <span className="dealer-meta">
+                  {stock.length === 0
+                    ? "Sin stock: ya tenés todo lo suyo"
+                    : `${stock.length} auto${stock.length === 1 ? "" : "s"} · desde ${formatCredits(cheapest)} cr`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
+  if (view.at === "dealer") {
+    const dealer = dealerById(view.id);
+    if (!dealer) return <p>Concesionaria no encontrada.</p>;
+    return (
+      <>
+        <Crumb onBack={() => setView({ at: "dealers" })} label="Concesionarios" />
+        <h2 className="screen-title">{dealer.name}</h2>
+        <p className="screen-sub">{dealer.tagline}</p>
+        <Listing
+          cars={stockOf(dealer, save.owned)}
+          priceFor={priceOf}
+          credits={save.credits}
+          owned={save.owned}
+          onBuy={onBuy}
+          empty="Ya tenés todo lo que vende esta casa."
+        />
+      </>
+    );
+  }
 
   return (
     <>
-      <h2 className="screen-title">Concesionaria</h2>
+      <Crumb onBack={() => setView({ at: "choose" })} />
+      <h2 className="screen-title">Mercado de usados</h2>
       <p className="screen-sub">
-        {filtered ? `${total} de ${unowned.length} autos` : `${total} auto${total === 1 ? "" : "s"}`}
-        {" en venta, "}
-        {affordable} a tu alcance.
+        {Math.round((1 - USED_RATE) * 100)}% menos que en la concesionaria. Rota cada carrera.
       </p>
-
-      {unowned.length > 0 ? (
-        <ShopControls
-          cars={unowned}
-          order={order}
-          dir={dir}
-          onOrder={setOrder}
-          onDir={setDir}
-          filter={filter}
-          onFilter={setFilter}
-          onOpenAdvanced={() => setAdvanced(true)}
-        />
-      ) : null}
-
-      {unowned.length === 0 ? (
-        <div className="panel">
-          <p className="note" style={{ margin: 0 }}>
-            No queda nada por venderte. Tenés todo el catálogo.
-          </p>
-        </div>
-      ) : total === 0 ? (
-        <div className="panel">
-          <p className="note" style={{ margin: 0 }}>
-            Ningún auto coincide con el filtro. <button className="linkish" onClick={() => setFilter({})}>Limpiar</button> para ver los {unowned.length}.
-          </p>
-        </div>
-      ) : (
-        groups.map((g) => (
-          <section key={g.value} className="shop-class">
-            {/*
-              Only the class sections get a pill, and they get the whole label
-              inside it -- "Clase D", not a bare coloured D you have to already
-              know how to read. The pill is carrying the tier colour, which is
-              the one thing worth a badge.
-
-              Década, Segmento and Marca are just words. There is no colour to
-              give them: group by década and a section holds a D and an A, so
-              a tier pill would be picking one of them to paint itself, and a
-              neutral pill is a badge that badges nothing.
-            */}
-            <h3 className="shop-class-head">
-              {order === "clase" ? (
-                <span className={`klass-badge ${classTierClass(g.value as ClassLetter)}`}>
-                  Clase {g.label}
-                </span>
-              ) : (
-                <span className="shop-group-name">{g.label}</span>
-              )}
-              <span>
-                {g.cars.length} auto{g.cars.length === 1 ? "" : "s"}
-              </span>
-            </h3>
-            <div className="card-grid">
-              {g.cars.map((spec) => {
-                const price = priceOf(spec);
-                return (
-                  <div key={spec.id} className="shop-item">
-                    <CarCard spec={spec} onOpen={setOpenId} />
-                    <span className={`shop-tag${save.credits >= price ? " afford" : ""}`}>
-                      {formatCredits(price)} cr
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))
-      )}
-
-      {advanced ? (
-        <FilterModal
-          cars={unowned}
-          value={filter}
-          onChange={setFilter}
-          onClose={() => setAdvanced(false)}
-        />
-      ) : null}
-
-      {openSpec ? (
-        <CarModal
-          spec={openSpec}
-          price={priceOf(openSpec)}
-          credits={save.credits}
-          owned={save.owned.includes(openSpec.id)}
-          onBuy={onBuy}
-          onClose={() => setOpenId(null)}
-        />
-      ) : null}
-
+      <Listing
+        cars={lot}
+        priceFor={usedPriceOf}
+        credits={save.credits}
+        owned={save.owned}
+        onBuy={onBuy}
+        controls={false}
+        empty="Hoy no hay nada. Corré una carrera y volvé."
+      />
     </>
+  );
+}
+
+/** The way back up. The topbar nav gets you out of the shop, not around it. */
+function Crumb({ onBack, label = "Comprar" }: { onBack: () => void; label?: string }) {
+  return (
+    <button className="crumb-back" onClick={onBack}>
+      ← {label}
+    </button>
   );
 }

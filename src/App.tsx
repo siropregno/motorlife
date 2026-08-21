@@ -32,6 +32,22 @@ export default function App() {
     setup: { aero: 0, gearing: 0, springs: 0, brakeBias: 0 },
   }));
 
+  /*
+   * The shop has its own navigation inside it -- chooser, dealer list, one
+   * dealer, the used lot -- and that state only resets when Shop unmounts,
+   * which is when you LEAVE the shop. So pressing the shop tab while already
+   * standing in a dealer did nothing at all.
+   *
+   * Bumping a key on every press of that tab remounts it, which is what a nav
+   * tab should do: take you to the top of its section, from anywhere,
+   * including from inside it.
+   */
+  const [shopEpoch, setShopEpoch] = useState(0);
+  const go = useCallback((next: Screen) => {
+    if (next === "shop") setShopEpoch((n) => n + 1);
+    setScreen(next);
+  }, []);
+
   useEffect(() => writeSave(save), [save]);
 
   const track = trackById(trackId) ?? TRACKS[0]!;
@@ -111,7 +127,7 @@ export default function App() {
           <img src="/logo.png" alt="Motorlife" />
         </h1>
         <div className="topbar-right">
-          <TopNav screen={screen} onGo={setScreen} />
+          <TopNav screen={screen} onGo={go} />
           {car && rating ? (
             <span className="topcar">
               <span className="topcar-logo">
@@ -144,7 +160,7 @@ export default function App() {
       )}
 
       {screen === "shop" && (
-        <Shop save={save} onBuy={buy} />
+        <Shop key={shopEpoch} save={save} onBuy={buy} />
       )}
 
       {screen === "setup" && (
