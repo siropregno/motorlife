@@ -49,9 +49,8 @@ export function CarCard({ spec, onOpen, onContextMenu }: Props) {
           </span>
         </h2>
         <p className="card-text-light">
-          {hp} Hp{spec.nm ? ` / ${spec.nm} Nm` : ""}
+          {hp} CV{spec.nm ? ` / ${spec.nm} Nm` : ""}
         </p>
-        <p className="card-text-light">{spec.blurb}</p>
       </span>
 
       <span className="card-car">

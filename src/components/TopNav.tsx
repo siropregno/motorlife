@@ -16,9 +16,9 @@ interface Props {
  * So the Race tab lands on Setup, and stays lit through the race itself.
  */
 const TABS: { to: Screen; lit: Screen[]; icon: string; label: string }[] = [
-  { to: "garage", lit: ["garage"], icon: "/icon-garage.png", label: "Garage" },
-  { to: "shop", lit: ["shop"], icon: "/icon-shop.png", label: "Dealership" },
-  { to: "setup", lit: ["setup", "race"], icon: "/icon-race.png", label: "Race" },
+  { to: "garage", lit: ["garage"], icon: "/icon-garage.png", label: "Garaje" },
+  { to: "shop", lit: ["shop"], icon: "/icon-shop.png", label: "Concesionaria" },
+  { to: "setup", lit: ["setup", "race"], icon: "/icon-race.png", label: "Carrera" },
 ];
 
 export function TopNav({ screen, onGo }: Props) {

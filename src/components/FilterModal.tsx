@@ -63,7 +63,7 @@ export function FilterModal({ cars, value, onChange, onClose }: Props) {
 
         <footer className="filter-modal-foot">
           <span className="filter-total">
-            {n} of {cars.length} cars
+            {n} de {cars.length} autos
           </span>
           <button className="btn primary" onClick={() => ref.current?.close()}>
             Ver

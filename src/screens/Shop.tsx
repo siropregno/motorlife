@@ -72,12 +72,11 @@ export function Shop({ save, onBuy }: Props) {
 
   return (
     <>
-      <h2 className="screen-title">Dealership</h2>
+      <h2 className="screen-title">Concesionaria</h2>
       <p className="screen-sub">
-        {filtered ? `${total} of ${unowned.length} cars` : `${total} car${total === 1 ? "" : "s"}`}
-        {" for sale, "}
-        {affordable} you can afford.{" "}
-        {dir === "asc" ? "Cheapest ladder first" : "Fastest first"} inside each group.
+        {filtered ? `${total} de ${unowned.length} autos` : `${total} auto${total === 1 ? "" : "s"}`}
+        {" en venta, "}
+        {affordable} a tu alcance.
       </p>
 
       {unowned.length > 0 ? (
@@ -96,13 +95,13 @@ export function Shop({ save, onBuy }: Props) {
       {unowned.length === 0 ? (
         <div className="panel">
           <p className="note" style={{ margin: 0 }}>
-            Nothing left to sell you. You own the whole catalogue.
+            No queda nada por venderte. Tenés todo el catálogo.
           </p>
         </div>
       ) : total === 0 ? (
         <div className="panel">
           <p className="note" style={{ margin: 0 }}>
-            No car matches that filter. <button className="linkish" onClick={() => setFilter({})}>Limpiar</button> to see all {unowned.length}.
+            Ningún auto coincide con el filtro. <button className="linkish" onClick={() => setFilter({})}>Limpiar</button> para ver los {unowned.length}.
           </p>
         </div>
       ) : (
@@ -128,7 +127,7 @@ export function Shop({ save, onBuy }: Props) {
                 <span className="shop-group-name">{g.label}</span>
               )}
               <span>
-                {g.cars.length} car{g.cars.length === 1 ? "" : "s"}
+                {g.cars.length} auto{g.cars.length === 1 ? "" : "s"}
               </span>
             </h3>
             <div className="card-grid">

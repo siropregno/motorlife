@@ -17,7 +17,7 @@ const wallet = () => page.locator(".wallet").innerText();
 // Selected by class rather than role, because the nav Race tab and Setup's
 // "Race →" action share an accessible name.
 const nav = (label) => page.locator(`.topnav-btn[aria-label="${label}"]`);
-const raceNow = () => page.getByRole("button", { name: "Race →" });
+const raceNow = () => page.getByRole("button", { name: "Correr →" });
 
 await page.goto("http://localhost:5177/", { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.removeItem("motorlife.save"));
@@ -30,16 +30,21 @@ console.log(`        current car ${(await page.locator(".topcar").innerText()).r
 await page.screenshot({ path: `${OUT}/1-garage.png`, fullPage: true });
 
 // --- dealership: cannot afford anything yet -------------------------------
-await nav("Dealership").click();
+await nav("Concesionaria").click();
 await page.waitForSelector(".shop-item");
 const stock = await page.locator(".shop-item .card-title-bold").allInnerTexts();
-const prices = await page.locator(".shop-price").allInnerTexts();
-const buyLabels = await page.locator(".shop-tag").allInnerTexts();
-console.log(`shop:   ${stock.length} listed -> ${stock.map((s, i) => `${s.trim()} ${prices[i]} [${buyLabels[i]}]`).join(", ")}`);
+// .shop-price was the old buy row; the price is the .shop-tag under the card
+// now, so reading both printed every listing as "undefined [14.000 cr]".
+const prices = await page.locator(".shop-tag").allInnerTexts();
+console.log(
+  `shop:   ${stock.length} listed -> ${stock
+    .map((s, i) => `${s.replace(/\s+/g, " ").trim()} ${prices[i]}`)
+    .join(", ")}`,
+);
 await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
 
 // --- race for the money ---------------------------------------------------
-await nav("Race").click();
+await nav("Carrera").click();
 await page.waitForSelector(".feel");
 
 // There is no predicted lap any more, so there is nothing to hill-climb.
@@ -51,18 +56,18 @@ const setSlider = (name, v) =>
     set.call(el, String(val));
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }, v);
-for (const [name, v] of [["Aero", 0.5], ["Gearing", -0.25], ["Springs", 0.35], ["Brake bias", 0.35]]) {
+for (const [name, v] of [["Aero", 0.5], ["Relación", -0.25], ["Suspensión", 0.35], ["Reparto de freno", 0.35]]) {
   await setSlider(name, v);
   await page.waitForTimeout(60);
 }
 await page.screenshot({ path: `${OUT}/2b-setup.png`, fullPage: true });
-console.log(`feel:   ${(await page.locator(".feel").innerText()).replace(/s+/g, " | ")}`);
-if (await page.locator(".laptime").count()) errors.push("the predicted lap is still on the Setup screen");
+console.log(`feel:   ${(await page.locator(".feel").innerText()).replace(/\s+/g, " | ")}`);
+if (await page.locator(".laptime").count()) errors.push("la vuelta estimada volvió a la pantalla de puesta a punto");
 await raceNow().click();
 await page.waitForSelector(".tower-row");
 const heading = (await page.locator(".screen-sub").innerText()).replace(/\s+/g, " ");
 console.log(`race:   ${heading}`);
-await page.getByRole("button", { name: /Skip to flag/ }).click();
+await page.getByRole("button", { name: /Ir a la bandera/ }).click();
 await page.waitForTimeout(700);
 const rows = await page.locator(".tower-row").allInnerTexts();
 console.log("final classification (class cap should keep these close):");
@@ -74,11 +79,11 @@ const race1 = rows.map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
 
 // --- race the SAME setup again: it must be a different event --------------
 const rerun = async () => {
-  await nav("Race").click();
+  await nav("Carrera").click();
   await page.waitForSelector(".feel");
   await raceNow().click();
   await page.waitForSelector(".tower-row");
-  await page.getByRole("button", { name: /Skip to flag/ }).click();
+  await page.getByRole("button", { name: /Ir a la bandera/ }).click();
   await page.waitForTimeout(700);
   return (await page.locator(".tower-row").allInnerTexts()).map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
 };
@@ -94,7 +99,7 @@ await page.evaluate(() => {
   localStorage.setItem("motorlife.save", JSON.stringify(s));
 });
 await page.reload({ waitUntil: "networkidle" });
-await nav("Dealership").click();
+await nav("Concesionaria").click();
 await page.waitForSelector(".shop-item");
 const before = await page.locator(".shop-item").count();
 // HURACAN PROBE: the longest plausible model name, checked live rather than
@@ -110,9 +115,9 @@ await page.screenshot({ path: `${OUT}/4-shop-rich.png`, fullPage: true });
 await page.locator(".shop-item .car-card").first().click();
 await page.waitForSelector("dialog.modal[open]");
 console.log(`modal:  ${(await page.locator(".modal-title h2").innerText()).trim()} | ${(await page.locator(".modal-price").innerText()).trim()}`);
-console.log(`        ${(await page.locator(".modal-specs").innerText()).replace(/s+/g, " ")}`);
+console.log(`        ${(await page.locator(".modal-specs").innerText()).replace(/\s+/g, " ")}`);
 await page.screenshot({ path: `${OUT}/4b-modal.png`, fullPage: false });
-await page.getByRole("button", { name: "Buy", exact: true }).click();
+await page.getByRole("button", { name: "Comprar", exact: true }).click();
 await page.waitForTimeout(300);
 if (await page.locator("dialog.modal[open]").count()) errors.push("the spec sheet stayed open after buying");
 await page.waitForTimeout(300);
@@ -121,7 +126,7 @@ console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).repl
 const buyToast = await page.locator(".toast").innerText().catch(() => "");
 console.log(`toast:  "${buyToast.replace(/\s+/g, " ")}"`);
 if (!/^Compraste un /.test(buyToast)) errors.push(`no buy toast, got "${buyToast}"`);
-await nav("Garage").click();
+await nav("Garaje").click();
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);
 await page.screenshot({ path: `${OUT}/5-garage-two.png`, fullPage: true });
@@ -135,7 +140,7 @@ await page.locator(".car-card").nth(1).click();
 await page.waitForTimeout(200);
 console.log(`click:  ${await screen()} screen, topcar ${beforeClick} -> ${await topcar()}`);
 if ((await topcar()) !== beforeClick) errors.push("left-clicking a card still changed the car");
-if ((await screen()) !== "garage") errors.push("left-clicking a card navigated somewhere");
+if ((await screen()) !== "garaje") errors.push("left-clicking a card navigated somewhere");
 
 // --- right-click menu ------------------------------------------------------
 await page.locator(".car-card").nth(1).click({ button: "right" });
@@ -148,7 +153,7 @@ await page.getByRole("menuitem", { name: "Subirse al auto" }).click();
 await page.waitForTimeout(250);
 console.log(`drive:  topcar ${beforeClick} -> ${await topcar()}, still on ${await screen()}`);
 if ((await topcar()) === beforeClick) errors.push("Subirse al auto did not change the car");
-if ((await screen()) !== "garage") errors.push("Subirse al auto navigated away from the garage");
+if ((await screen()) !== "garaje") errors.push("Subirse al auto navigated away from the garage");
 const driveToast = (await page.locator(".toast").last().innerText().catch(() => "")).replace(/\s+/g, " ");
 console.log(`toast:  "${driveToast}"`);
 if (!/^Te subiste a tu .+$/.test(driveToast)) errors.push(`wrong drive toast: "${driveToast}"`);

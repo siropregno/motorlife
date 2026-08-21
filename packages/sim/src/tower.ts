@@ -55,10 +55,10 @@ export function buildTower(result: RaceResult, entries: Entry[]): TowerTick[] {
       const name = label.get(r.entryId) ?? r.entryId;
       if (rec.pitted) {
         const prev = lap > 1 ? positionAt(result, r.entryId, lap - 1) : 0;
-        events.push({ text: `${name} pits from P${prev}`, kind: "" });
+        events.push({ text: `${name} entra a boxes desde P${prev}`, kind: "" });
       }
       if (rec.timeS === result.fastestLapS) {
-        events.push({ text: `${name} fastest lap  ${fmt(rec.timeS)}`, kind: "fastest" });
+        events.push({ text: `${name} vuelta rápida  ${fmt(rec.timeS)}`, kind: "fastest" });
       }
     }
     if (lap === result.laps) {
@@ -67,7 +67,7 @@ export function buildTower(result: RaceResult, entries: Entry[]): TowerTick[] {
       if (first && second) {
         const name = label.get(first.entryId) ?? first.entryId;
         events.push({
-          text: `${name} wins by ${(second.totalS - first.totalS).toFixed(3)}`,
+          text: `${name} gana por ${(second.totalS - first.totalS).toFixed(3)}`,
           kind: "good",
         });
       }
@@ -96,7 +96,7 @@ export function fmt(seconds: number): string {
   return `${m}:${s < 10 ? "0" : ""}${s.toFixed(3)}`;
 }
 
-/** +s.mmm, or LEADER for the car in front. */
+/** +s.mmm, or LÍDER for the car in front. */
 export function fmtGap(gap: number): string {
-  return gap === 0 ? "LEADER" : `+${gap.toFixed(3)}`;
+  return gap === 0 ? "LÍDER" : `+${gap.toFixed(3)}`;
 }

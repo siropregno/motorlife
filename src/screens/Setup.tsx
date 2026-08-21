@@ -24,13 +24,20 @@ const SLIDERS: {
   low: string;
   high: string;
 }[] = [
-  { key: "aero", name: "Aero", low: "Low drag", high: "More wing" },
-  { key: "gearing", name: "Gearing", low: "Short", high: "Long" },
-  { key: "springs", name: "Springs", low: "Soft", high: "Stiff" },
-  { key: "brakeBias", name: "Brake bias", low: "Forward", high: "Rearward" },
+  { key: "aero", name: "Aero", low: "Poca carga", high: "Más ala" },
+  { key: "gearing", name: "Relación", low: "Corta", high: "Larga" },
+  { key: "springs", name: "Suspensión", low: "Blanda", high: "Dura" },
+  { key: "brakeBias", name: "Reparto de freno", low: "Adelante", high: "Atrás" },
 ];
 
 const COMPOUNDS: Compound[] = ["soft", "medium", "hard"];
+
+/** The compound stays "soft" everywhere the sim can see it; only the chip reads Spanish. */
+const COMPOUND_LABEL: Record<Compound, string> = {
+  soft: "Blando",
+  medium: "Medio",
+  hard: "Duro",
+};
 
 export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: Props) {
   const spec = carById(carId);
@@ -58,33 +65,33 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
     const grip = (c: typeof now) => c.muLateral * (1 + c.clA);
     return [
       {
-        name: "Straights",
+        name: "Rectas",
         level: step(flat.cda / now.cda, 0.3),
-        words: ["Very draggy", "Draggy", "Stock", "Slippery", "Very slippery"],
+        words: ["Muy pesado", "Pesado", "De fábrica", "Ligero", "Muy ligero"],
       },
       {
-        name: "Corners",
+        name: "Curvas",
         level: step(grip(now) / grip(flat), 0.35),
-        words: ["Very loose", "Loose", "Stock", "Planted", "Very planted"],
+        words: ["Muy suelto", "Suelto", "De fábrica", "Pegado", "Muy pegado"],
       },
       {
-        name: "Tyre life",
+        name: "Gomas",
         level: step(1 / wearMultiplier(build.setup), 0.18),
-        words: ["Burns them", "Short", "Stock", "Long", "Very long"],
+        words: ["Las quema", "Corta", "De fábrica", "Larga", "Muy larga"],
       },
     ];
   }, [car, build]);
 
-  if (!spec || !car) return <p>Car not found.</p>;
+  if (!spec || !car) return <p>Auto no encontrado.</p>;
 
   const set = (key: keyof SetupValues, v: number) =>
     onBuild({ ...build, setup: { ...build.setup, [key]: v } });
 
   return (
     <>
-      <h2 className="screen-title">Setup</h2>
+      <h2 className="screen-title">Puesta a punto</h2>
       <p className="screen-sub">
-        Every slider has an optimum, and on most of them it moves with the circuit.
+        Cada regulación tiene un óptimo, y en casi todas se mueve con el circuito.
       </p>
 
       <div className="setup-grid">
@@ -92,7 +99,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
           <CarCard spec={spec} />
 
           <div className="panel">
-            <h3>Car feel</h3>
+            <h3>Comportamiento</h3>
             <div className="feel">
               {feel.map((f) => (
                 <div className="feel-row" key={f.name}>
@@ -106,44 +113,12 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
                 </div>
               ))}
             </div>
-            <p className="note">
-              No lap time on purpose. These three fight each other -- wing buys corners and
-              spends straights and tyres -- and which one is worth having is a property of the
-              circuit, not of the car. Read the track, then decide.
-            </p>
-          </div>
-
-          <div className="panel">
-            <h3>What the sim worked out</h3>
-            <dl className="stats">
-              <div>
-                <dt>Derived CdA</dt>
-                <dd>{car.cda.toFixed(3)} m²</dd>
-              </div>
-              <div>
-                <dt>Lateral grip</dt>
-                <dd>{car.muLateral.toFixed(3)} g</dd>
-              </div>
-              <div>
-                <dt>Power / tonne</dt>
-                <dd>{car.kWPerTonne.toFixed(0)} kW</dd>
-              </div>
-              <div>
-                <dt>Calibration k</dt>
-                <dd>{car.k.toFixed(3)}</dd>
-              </div>
-            </dl>
-            <p className="note">
-              Only the six typed fields are real input. CdA came out of the published top speed,
-              grip out of era and class, and k was fitted to the published 0&ndash;100
-              {spec.zeroTo100 ? "" : " (not published for this car, so k stays 1)"}.
-            </p>
           </div>
         </div>
 
         <div style={{ display: "grid", gap: 20 }}>
           <div className="panel">
-            <h3>Circuit</h3>
+            <h3>Circuito</h3>
             <div className="track-pick">
               {TRACKS.map((t) => (
                 <button
@@ -153,7 +128,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
                 >
                   <span>{t.name}</span>
                   <span className="meta">
-                    {(t.publishedM / 1000).toFixed(3)} km · {t.corners} corners
+                    {(t.publishedM / 1000).toFixed(3)} km · {t.corners} curvas
                   </span>
                 </button>
               ))}
@@ -161,7 +136,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
           </div>
 
           <div className="panel">
-            <h3>Tyres</h3>
+            <h3>Gomas</h3>
             <div className="chips">
               {COMPOUNDS.map((c) => (
                 <button
@@ -169,17 +144,14 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
                   className={`chip${build.compound === c ? " on" : ""}`}
                   onClick={() => onBuild({ ...build, compound: c })}
                 >
-                  {c}
+                  {COMPOUND_LABEL[c]}
                 </button>
               ))}
             </div>
-            <p className="note">
-              Softer is quicker while it lasts. Over a stint that stops being true.
-            </p>
           </div>
 
           <div className="panel">
-            <h3>Setup</h3>
+            <h3>Regulaciones</h3>
             {SLIDERS.map((s) => (
               <div className="slider" key={s.key}>
                 <div className="slider-head">
@@ -205,7 +177,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
               </div>
             ))}
             <button className="btn ghost" onClick={() => onBuild({ ...build, setup: FLAT })}>
-              Reset
+              Reiniciar
             </button>
           </div>
         </div>
@@ -213,7 +185,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
 
       <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
         <button className="btn primary" onClick={onRace}>
-          Race →
+          Correr →
         </button>
       </div>
     </>

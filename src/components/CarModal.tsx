@@ -13,12 +13,22 @@ interface Props {
   onClose: () => void;
 }
 
+/** Motor / eje motriz. "Central" for MR is what the Argentine press called it. */
 const LAYOUT: Record<string, string> = {
-  FWD: "Front / front",
-  FR: "Front / rear",
-  MR: "Mid / rear",
-  RR: "Rear / rear",
-  AWD: "All-wheel",
+  FWD: "Delantero / delantera",
+  FR: "Delantero / trasera",
+  MR: "Central / trasera",
+  RR: "Trasero / trasera",
+  AWD: "Integral",
+};
+
+const RARITY: Record<string, string> = {
+  common: "común",
+  uncommon: "poco común",
+  rare: "rara",
+  epic: "épica",
+  legendary: "legendaria",
+  apex: "suprema",
 };
 
 function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
@@ -70,15 +80,15 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
     >
       <div className="modal-grid">
         <aside className="modal-specs">
-          <h3 className="modal-section">As published</h3>
+          <h3 className="modal-section">Ficha técnica</h3>
           <div className="spec-list">
-            <Row k="Power" v={`${hp} hp`} alt={`${spec.kW} kW`} />
-            <Row k="Mass" v={`${spec.kg} kg`} />
-            <Row k="Top speed" v={spec.topKph ? `${spec.topKph} km/h` : "—"} />
+            <Row k="Potencia" v={`${hp} CV`} alt={`${spec.kW} kW`} />
+            <Row k="Peso" v={`${spec.kg} kg`} />
+            <Row k="Velocidad máx." v={spec.topKph ? `${spec.topKph} km/h` : "—"} />
             <Row k="0–100" v={spec.zeroTo100 ? `${spec.zeroTo100.toFixed(1)} s` : "—"} />
-            <Row k="Torque" v={spec.nm ? `${spec.nm} Nm` : "—"} />
-            <Row k="Layout" v={LAYOUT[spec.layout] ?? spec.layout} />
-            <Row k="Year" v={String(spec.year)} />
+            <Row k="Par motor" v={spec.nm ? `${spec.nm} Nm` : "—"} />
+            <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
+            <Row k="Año" v={String(spec.year)} />
           </div>
         </aside>
 
@@ -97,7 +107,7 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
               {rating.letter}
               {rating.index}
             </span>
-            <button className="modal-x" onClick={() => ref.current?.close()} aria-label="Close">
+            <button className="modal-x" onClick={() => ref.current?.close()} aria-label="Cerrar">
               ×
             </button>
           </header>
@@ -106,16 +116,16 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
             {spec.image ? (
               <img src={spec.image} alt={`${spec.make} ${spec.model}`} />
             ) : (
-              <span className="modal-nophoto">no photo</span>
+              <span className="modal-nophoto">sin foto</span>
             )}
           </div>
 
           <footer className="modal-foot">
-            <span className="modal-rarity">{spec.rarity}</span>
+            <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
             <span className="modal-price">{formatCredits(price)} cr</span>
             {owned ? (
               <button className="btn" disabled>
-                Owned
+                En tu garaje
               </button>
             ) : (
               <button
@@ -126,7 +136,7 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
                   ref.current?.close();
                 }}
               >
-                {afford ? "Buy" : `Short ${formatCredits(price - credits)} cr`}
+                {afford ? "Comprar" : `Faltan ${formatCredits(price - credits)} cr`}
               </button>
             )}
           </footer>

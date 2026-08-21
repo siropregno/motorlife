@@ -52,10 +52,9 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
 
   return (
     <>
-      <h2 className="screen-title">Garage</h2>
+      <h2 className="screen-title">Garaje</h2>
       <p className="screen-sub">
-        {cars.length} of {CARS.length} cars owned. A collection is a hand of cards, and a circuit
-        is the question it answers. Right-click a car for what you can do with it.
+        {cars.length} de {CARS.length} autos. Clic derecho en un auto para sus opciones.
       </p>
 
       <div className="card-grid">

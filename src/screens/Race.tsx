@@ -215,7 +215,7 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
     const list: Entry[] = [
       {
         id: "you",
-        label: "YOU",
+        label: "VOS",
         car: you,
         build,
         consistency: 0.82,
@@ -345,26 +345,25 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
 
   return (
     <>
-      <h2 className="screen-title">Race</h2>
+      <h2 className="screen-title">Carrera</h2>
       <p className="screen-sub">
-        Class {rating?.letter} · purse {formatCredits(purse)} cr. The race finished computing
-        before the first row moved; this is playback.
+        Clase {rating?.letter} · premio {formatCredits(purse)} cr.
       </p>
 
       <div className="tower">
         <div className="tower-top">
           <span className="tower-track">{track.name}</span>
           <span className="tower-lap">
-            LAP <b>{lap}</b> / {REG.laps}
+            VUELTA <b>{lap}</b> / {REG.laps}
           </span>
         </div>
 
         <div className="tower-head">
           <span>Pos</span>
-          <span>Driver</span>
-          <span style={{ textAlign: "right" }}>Gap</span>
-          <span className="ty">Tyre</span>
-          <span style={{ textAlign: "right" }}>Last</span>
+          <span>Piloto</span>
+          <span style={{ textAlign: "right" }}>Dif</span>
+          <span className="ty">Goma</span>
+          <span style={{ textAlign: "right" }}>Última</span>
         </div>
 
         <div className="tower-body" style={{ ["--rows" as string]: String(entries.length) }}>
@@ -412,7 +411,7 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
           </span>
         ) : (
           <button className="btn ghost" onClick={skipToFlag}>
-            Skip to flag
+            Ir a la bandera
           </button>
         )}
       </div>

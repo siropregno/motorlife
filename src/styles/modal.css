@@ -172,7 +172,7 @@
      aspect ratio: the box must not change size because one car has a longer
      spec list or a narrower column. A car with no photo gets the same frame
      with a placeholder in it, so the layout never moves between cars. */
-  height: 236px;
+  height: 300px;
   flex: none;
 }
 .modal-hero img {
