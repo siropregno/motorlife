@@ -81,6 +81,11 @@ try {
     "/car-key.png /paint-brush.png /sell.svg",
   );
   check(
+    "and the back arrow is a glyph too, not the word Cancelar",
+    await page.locator(".modal-acts .btn").evaluateAll((els) => els.some((e) => e.textContent.trim() === "Cancelar")),
+    false,
+  );
+  check(
     "and every one of them actually loaded",
     await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.every((e) => e.complete && e.naturalWidth > 0)),
     true,
@@ -90,10 +95,10 @@ try {
   await page.locator('.modal-acts .btn[aria-label="Repintar"]').click();
   await page.waitForSelector(".paint-swatches");
   check(
-    "every colour is a dot, and the one it wears is dead",
+    "every colour is a dot, the current one marked and still clickable",
     await page.locator(".paint-dot").evaluateAll((els) =>
-      els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" ")),
-    "Negro* Rojo Blanco Amarillo",
+      els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" | ")),
+    "Negro, el color actual | Rojo | Blanco | Amarillo",
   );
   check(
     "each dot is painted its own colour rather than a default",
@@ -105,7 +110,18 @@ try {
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
   check("the hero previews the colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
   check("previewing is free", await wallet(), walletBefore);
-  check("the confirm says what it costs", await page.locator(".modal-acts .btn").last().innerText(), "PINTAR POR 5.700 CR");
+  check("the confirm is the price and nothing else", await page.locator(".modal-acts .btn").last().innerText(), "5.700 CR");
+
+  // Picking the colour it already is: allowed, but there is nothing to buy.
+  await page.locator('.paint-dot[aria-label="Negro, el color actual"]').click();
+  check("the current colour is selectable", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-black.png");
+  check(
+    "and cannot be paid for",
+    await page.locator(".modal-acts .btn").last().evaluate((e) => e.disabled),
+    true,
+  );
+  await page.locator('.paint-dot[aria-label="Amarillo"]').click();
+  check("picking a real change arms the price again", await page.locator(".modal-acts .btn").last().evaluate((e) => e.disabled), false);
 
   await page.locator(".modal-acts .btn").last().click();
   await page.waitForSelector(".paint-swatches", { state: "detached" });

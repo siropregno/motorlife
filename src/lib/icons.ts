@@ -10,4 +10,5 @@ export const ICON = {
   drive: "/car-key.png",
   paint: "/paint-brush.png",
   sell: "/sell.svg",
+  back: "/back.png",
 } as const;

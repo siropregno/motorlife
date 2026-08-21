@@ -125,6 +125,12 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
   const sellValue = sellValueFor(spec, km);
   const driveLabel =
     sheet.kind === "garage" && sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto";
+  /** Something picked, something different, and the money for it. */
+  const payable =
+    preview !== null &&
+    preview !== color &&
+    sheet.kind === "garage" &&
+    sheet.credits >= repaintPrice;
 
   const close = () => ref.current?.close();
 
@@ -219,30 +225,47 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
                   <button
                     key={c}
                     type="button"
-                    className={`paint-dot${shown === c ? " on" : ""}`}
+                    className={`paint-dot${shown === c ? " on" : ""}${c === color ? " current" : ""}`}
                     style={{ "--dot": colorSwatch(c) } as CSSProperties}
-                    // The colour it already wears is not a purchase, so it is
-                    // not offered as one. repaintCar refuses it too.
-                    disabled={c === color}
-                    aria-label={colorName(c)}
-                    title={colorName(c)}
-                  onClick={() => setPreview(c)}
+                    // Every dot is live, the colour it already wears included:
+                    // clicking that one is how you get back to the car as it
+                    // stands after previewing something else. What it does not
+                    // do is arm the price -- see `payable`.
+                    aria-label={c === color ? `${colorName(c)}, el color actual` : colorName(c)}
+                    title={c === color ? `${colorName(c)} · el color actual` : colorName(c)}
+                    onClick={() => setPreview(c)}
                   />
                 ))}
               </div>
               <div className="modal-acts">
                 <button
-                  className="btn ghost"
+                  className="btn"
+                  aria-label="Volver"
+                  title="Volver"
                   onClick={() => {
                     setPicking(false);
                     setPreview(null);
                   }}
                 >
-                  Cancelar
+                  <Glyph src={ICON.back} />
                 </button>
+                {/*
+                 * The label is the number and nothing else. "Pintar por 5.700
+                 * cr" said the verb twice -- the brush got you here and the
+                 * dots are the choice; what is left to say is the price.
+                 *
+                 * It goes dead, not the dot, when the colour picked is the one
+                 * the car already wears. You can select it -- backing out of a
+                 * preview to see the car as it stands is the obvious thing to
+                 * want, and a dot you cannot click cannot do it -- but there is
+                 * nothing to buy, and repaintCar refuses the same case anyway.
+                 */}
                 <button
-                  className={`btn${preview && sheet.credits >= repaintPrice ? " primary" : ""}`}
-                  disabled={!preview || sheet.credits < repaintPrice}
+                  className={`btn${payable ? " primary" : ""}`}
+                  disabled={!payable}
+                  title={
+                    preview === color ? "Ya es de este color" : preview ? undefined : "Elegí un color"
+                  }
                   onClick={() => {
                     if (preview) sheet.onRepaint(preview);
                     setPicking(false);
@@ -251,7 +274,7 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
                 >
                   {sheet.credits < repaintPrice
                     ? `Faltan ${formatCredits(repaintPrice - sheet.credits)} cr`
-                    : `Pintar por ${formatCredits(repaintPrice)} cr`}
+                    : `${formatCredits(repaintPrice)} cr`}
                 </button>
               </div>
             </footer>

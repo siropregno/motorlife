@@ -362,14 +362,21 @@
     0 0 0 4px var(--purple);
 }
 /*
- * The colour it already wears: shown, so the palette is complete, but dead.
- * Not dimmed much further than this -- Negro at 0.3 on a near-black panel was
- * an empty ring rather than a dark dot, and "the colour you are already" is a
- * thing the row should still be able to say.
+ * The colour it already wears. It used to be disabled; it is clickable now,
+ * because going back to the car as it stands after previewing something else
+ * is the obvious thing to want and a dead dot could not do it. What marks it
+ * is a gap in the ring rather than dimming -- dimming said "unavailable",
+ * which was the wrong word for "this is where you started".
  */
-.paint-dot:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.paint-dot.current {
+  box-shadow:
+    0 0 0 1px var(--panel),
+    0 0 0 3px var(--ink-4);
+}
+.paint-dot.current.on {
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 0 4px var(--ink-3);
 }
 
 .modal-rarity {
