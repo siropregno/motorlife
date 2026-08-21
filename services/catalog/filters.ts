@@ -175,7 +175,12 @@ export function selectedOne(sel: Selection, id: FacetId): string {
 
 export interface Group {
   value: string;
-  /** "Clase D", "Década 1970s" -- the facet name carries into the heading. */
+  /**
+   * The bucket's own name and nothing else: "D", "1970s", "Pickup",
+   * "Volkswagen". Not prefixed with the facet. Only the class sections wear
+   * their facet name, because a lone "A" needs saying what it is an A of,
+   * and the screen composes that -- a Group does not know how it is drawn.
+   */
   label: string;
   cars: CarSpec[];
 }
@@ -201,7 +206,7 @@ export function groupBy(cars: CarSpec[], id: FacetId, dir: Direction = "asc"): G
   const groups = facet.options
     .map((o) => ({
       value: o.value,
-      label: `${facet.label} ${o.label}`,
+      label: o.label,
       cars: cars
         .filter((c) => facet.bucket(c) === o.value)
         .sort((a, b) => sign * (ratingOf(a).index - ratingOf(b).index)),

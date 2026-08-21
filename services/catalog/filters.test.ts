@@ -143,11 +143,14 @@ describe("grouping", () => {
     expect(groupBy(CARS, "clase").map((g) => g.value)).toEqual(["D", "C", "B", "A"]);
   });
 
-  it("names the section with the facet, not just the bucket", () => {
-    expect(groupBy(CARS, "clase")[0]!.label).toBe("Clase D");
-    expect(groupBy(CARS, "decada")[0]!.label).toBe("Década 1970s");
-    expect(groupBy(CARS, "traccion").map((g) => g.label)).toContain("Tracción Integral");
-    expect(groupBy(CARS, "marca")[0]!.label).toBe("Marca BMW");
+  it("labels a section with the bucket alone, never the facet name", () => {
+    // the screen decides whether a heading needs saying what it is a heading
+    // OF -- "Clase D" for a lone letter, plain "BMW" for a marque
+    expect(groupBy(CARS, "clase")[0]!.label).toBe("D");
+    expect(groupBy(CARS, "decada")[0]!.label).toBe("1970s");
+    expect(groupBy(CARS, "traccion").map((g) => g.label)).toContain("Integral");
+    expect(groupBy(CARS, "marca")[0]!.label).toBe("BMW");
+    expect(groupBy(CARS, "segmento").map((g) => g.label)).toContain("Pickup");
   });
 
   it("orders marques A to Z, and Z to A reversed", () => {
@@ -182,7 +185,7 @@ describe("grouping", () => {
   it("drops empty sections rather than showing a heading over nothing", () => {
     const oneCar = CARS.filter((c) => c.id === "ferrari-f40");
     expect(groupBy(oneCar, "clase")).toHaveLength(1);
-    expect(groupBy(oneCar, "clase")[0]!.label).toBe("Clase A");
+    expect(groupBy(oneCar, "clase")[0]!.label).toBe("A");
   });
 });
 

@@ -702,6 +702,20 @@ p.screen-sub {
   font-weight: 400;
 }
 
+/*
+ * The heading for a section that has no pill. It has to hold the same weight
+ * on the page that the class badge does, or the list looks like it lost its
+ * headings when you switch the order away from Clase -- so it takes the
+ * display face while the count beside it stays the quiet mono of the row.
+ */
+.shop-group-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+}
+
 /* Price under the card. The buy button moved into the spec sheet, so this is
    a label, not a control -- the whole card is the control now. */
 .shop-tag {

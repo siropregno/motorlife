@@ -110,23 +110,24 @@ export function Shop({ save, onBuy, onBack }: Props) {
         groups.map((g) => (
           <section key={g.value} className="shop-class">
             {/*
-              The whole label goes inside the pill -- "Clase D", not a bare
-              coloured D that you have to already know how to read.
+              Only the class sections get a pill, and they get the whole label
+              inside it -- "Clase D", not a bare coloured D you have to already
+              know how to read. The pill is carrying the tier colour, which is
+              the one thing worth a badge.
 
-              The tier colour is only honest when the sections ARE the classes.
-              Group by década and a section holds a D and an A, so the pill
-              goes neutral rather than picking one of them to paint itself.
+              Década, Segmento and Marca are just words. There is no colour to
+              give them: group by década and a section holds a D and an A, so
+              a tier pill would be picking one of them to paint itself, and a
+              neutral pill is a badge that badges nothing.
             */}
             <h3 className="shop-class-head">
-              <span
-                className={
-                  order === "clase"
-                    ? `klass-badge ${classTierClass(g.value as ClassLetter)}`
-                    : "klass-badge neutral"
-                }
-              >
-                {g.label}
-              </span>
+              {order === "clase" ? (
+                <span className={`klass-badge ${classTierClass(g.value as ClassLetter)}`}>
+                  Clase {g.label}
+                </span>
+              ) : (
+                <span className="shop-group-name">{g.label}</span>
+              )}
               <span>
                 {g.cars.length} car{g.cars.length === 1 ? "" : "s"}
               </span>
