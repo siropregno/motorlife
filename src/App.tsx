@@ -118,6 +118,21 @@ export default function App() {
       const el = stage.current;
       if (el) el.style.setProperty("--stage-h", `${el.offsetHeight}px`);
 
+      /*
+       * Arrive at the top of the new section.
+       *
+       * Without this you keep the scroll position of the section you left, so
+       * walking out of the bottom of a long garage drops you into the middle
+       * of the shop with its title off-screen above you. Now that the topbar
+       * is sticky there is not even a header in view to tell you that is what
+       * happened.
+       *
+       * "auto" rather than "smooth" on purpose: the screens are already moving
+       * sideways, and a page gliding upward at the same time is two animations
+       * fighting. This one should be instant and invisible under the slide.
+       */
+      window.scrollTo({ top: 0, behavior: "auto" });
+
       // A slide already running is abandoned rather than queued. Pressing
       // three tabs quickly should land on the third, not play three
       // animations in a row.
@@ -364,6 +379,23 @@ export default function App() {
           {renderScreen(screen)}
         </div>
       </div>
+
+      {/*
+        * Outside the stage, so it stays put while the sections slide past it.
+        * It belongs to the app rather than to any one screen, and a credit
+        * that slid off the left edge with the garage would be claiming to be
+        * part of the garage.
+        *
+        * rel="noreferrer" alongside target: opening a tab with window.opener
+        * live hands the other page a handle back to this one, and there is no
+        * reason to.
+        */}
+      <footer className="credit">
+        <span>De</span>{" "}
+        <a href="https://www.tikitikistudios.online/es" target="_blank" rel="noreferrer">
+          Tiki Tiki Studios
+        </a>
+      </footer>
 
       {/*
         * The tower, over whatever section you were in.

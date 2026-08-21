@@ -720,6 +720,77 @@ try {
   check("with the cars in it", (await page.locator(".car-card").count()) > 0, true);
   check("and the money still there", await wallet(), paidWallet);
 
+  /*
+   * The two bars: the topbar that follows you down, and the credit pinned to
+   * the bottom of the window.
+   *
+   * Needs a garage tall enough to scroll, so it seeds its own. A first attempt
+   * at this used six cars in an 800px viewport and the page did not overflow
+   * at all -- every assertion passed against a page that never moved, which is
+   * the quiet way a sticky test proves nothing.
+   */
+  console.log("\nthe bars that stay put");
+  await page.setViewportSize({ width: 1100, height: 620 });
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 3,
+    credits: 900_000,
+    racesRun: 4,
+    owned: [
+      { id: "ferrari-f40", km: 12_000, color: "red" },
+      { id: "honda-nsx", km: 90_000, color: "white" },
+      { id: "bmw-m3-e30", km: 200_000, color: "black" },
+      { id: "renault-12-tl", km: 214_000, color: "light-blue" },
+      { id: "peugeot-504-tn", km: 250_000, color: "blue" },
+      { id: "fiat-128-iava", km: 180_000, color: "red" },
+      { id: "ford-f-100", km: 300_000, color: "red" },
+      { id: "bmw-m5-e60", km: 95_000, color: "white" },
+    ],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".car-card");
+  await settled();
+
+  const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  check("the page is long enough that scrolling means something", room > 100, true);
+
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await page.waitForTimeout(150);
+  const bars = await page.evaluate(() => {
+    const t = document.querySelector(".topbar").getBoundingClientRect();
+    const f = document.querySelector(".credit").getBoundingClientRect();
+    return {
+      scrolled: Math.round(window.scrollY) > 0,
+      topStuck: Math.round(t.top) === 0,
+      footPinned: Math.round(f.bottom) === window.innerHeight,
+      // Opaque, or the cards passing behind would read straight through it.
+      topOpaque: getComputedStyle(document.querySelector(".topbar")).backgroundImage !== "none",
+    };
+  });
+  check("the page actually scrolled", bars.scrolled, true);
+  check("the topbar stays at the top of the window", bars.topStuck, true);
+  check("the credit stays at the bottom of it", bars.footPinned, true);
+  check("and the topbar is opaque, so nothing reads through it", bars.topOpaque, true);
+
+  check(
+    "the credit says who made it, and links out",
+    await page.locator(".credit").innerText(),
+    "De Tiki Tiki Studios",
+  );
+  check(
+    "to the studio, in a new tab, without handing it a window handle",
+    await page.locator(".credit a").evaluate((a) => `${a.href} ${a.target} ${a.rel}`),
+    "https://www.tikitikistudios.online/es _blank noreferrer",
+  );
+
+  // Changing section from halfway down must land at the top of the new one,
+  // not keep the old scroll -- with a sticky topbar there is no header left in
+  // view to tell you that is what happened.
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await settled();
+  check("arriving at a section puts you at the top of it", await page.evaluate(() => window.scrollY), 0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 
   /*

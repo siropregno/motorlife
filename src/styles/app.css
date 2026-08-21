@@ -4,14 +4,45 @@
   padding: 32px 20px 80px;
 }
 
+/*
+ * The topbar follows you down the page.
+ *
+ * It carries the only two things you need continuously -- what car you are in
+ * and what you can afford -- and the nav that gets you out of wherever you
+ * are. In a long garage all three used to scroll away, so buying a car meant
+ * scrolling back up to find out whether you could.
+ *
+ * `top: 0` and a background are both required, and the background is the part
+ * that is easy to miss: .app's own ground is the page gradient, so without an
+ * opaque fill here the cards would slide UNDER a transparent bar and stay
+ * legible through it.
+ *
+ * The fill is the PAGE'S OWN GRADIENT, repeated, not a flat colour. html paints
+ * `linear-gradient(45deg, ...)` with background-attachment: fixed, which means
+ * it is locked to the viewport and does not move when you scroll -- so painting
+ * the identical fixed gradient here lands every pixel exactly where the page
+ * would have put it, and the bar is invisible against its own background. A
+ * flat --ground would be right in the top-left corner and visibly wrong by the
+ * top-right, where the gradient has moved on to --ground-2.
+ *
+ * The negative top margin cancels .app's 32px of top padding so the bar sits
+ * flush with the top of the window when stuck, then the padding is put back
+ * inside the bar itself. Sticking it without that leaves a 32px window of page
+ * gradient above it that content scrolls through.
+ */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 14px;
-  margin-bottom: 26px;
+  margin: -32px -20px 26px;
+  padding: 32px 20px 14px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(45deg, var(--ground) 33%, var(--ground-2) 66%);
+  background-attachment: fixed;
 }
 
 /*
@@ -182,6 +213,57 @@
   .screen.going {
     display: none;
   }
+}
+
+/*
+ * The credit bar, pinned to the bottom of the window.
+ *
+ * Fixed rather than sitting at the end of the page: it is the studio's mark on
+ * the whole app, not a line you have to scroll to the bottom of a long garage
+ * to find. Black, so content passing under it is properly hidden rather than
+ * showing through -- this one is NOT the page gradient, unlike the topbar,
+ * because a solid strip along the bottom edge is what makes it read as chrome
+ * rather than as more page.
+ *
+ * .app already ends in 80px of bottom padding, which is what keeps the last
+ * row of cards from finishing underneath this. If that padding ever shrinks,
+ * this bar starts covering content.
+ *
+ * Quiet on purpose: --ink-4 is the dimmest ink in the set. It is a signature,
+ * not a call to action, so it should not compete with anything you came here
+ * to press.
+ *
+ * The link is underlined rather than only coloured. A colour change alone is
+ * not a link affordance for someone who cannot separate these two greys, and
+ * at this size --purple-ink on black is the sort of low-contrast pairing that
+ * makes that likely.
+ */
+.credit {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  padding: 9px 20px;
+  border-top: 1px solid var(--line);
+  background: #000;
+  font-size: 12px;
+  color: var(--ink-4);
+  text-align: center;
+}
+
+.credit a {
+  color: var(--ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-2);
+  transition:
+    color 0.15s,
+    text-decoration-color 0.15s;
+}
+.credit a:hover {
+  color: var(--purple-ink);
+  text-decoration-color: var(--purple-ink);
 }
 
 /*
