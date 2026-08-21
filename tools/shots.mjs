@@ -31,7 +31,7 @@ const toUsed = async () => {
   await page.waitForSelector(".shop-item");
 };
 
-await page.goto("http://localhost:5177/", { waitUntil: "networkidle" });
+await page.goto("http://localhost:5174/", { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.removeItem("motorlife.save"));
 await page.reload({ waitUntil: "networkidle" });
 
@@ -97,7 +97,10 @@ console.log(`feel:   ${(await page.locator(".feel").innerText()).replace(/\s+/g,
 if (await page.locator(".laptime").count()) errors.push("la vuelta estimada volvió a la pantalla de puesta a punto");
 await raceNow().click();
 await page.waitForSelector(".tower-row");
-const heading = (await page.locator(".screen-sub").innerText()).replace(/\s+/g, " ");
+// The race lost its "Carrera / Clase A · premio N cr" heading: it cost 53px to
+// repeat what the tower says anyway. The circuit and the class now live in the
+// tower's own top bar, which is what this reads.
+const heading = (await page.locator(".tower-top").innerText()).replace(/\s+/g, " ");
 console.log(`race:   ${heading}`);
 await page.getByRole("button", { name: /Ir a la bandera/ }).click();
 await page.waitForTimeout(700);
@@ -110,7 +113,21 @@ await page.screenshot({ path: `${OUT}/3-race.png`, fullPage: true });
 const race1 = rows.map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
 
 // --- race the SAME setup again: it must be a different event --------------
+/*
+ * Leave the tower before navigating.
+ *
+ * This used to click the Carrera tab with the race dialog still open, and a
+ * <dialog> opened with showModal() swallows every click outside it -- so the
+ * script sat there retrying the same click for thirty seconds and died on a
+ * timeout. It has been broken for as long as the race has been a dialog; it
+ * only surfaced now because nothing was reading this far down the output.
+ *
+ * "Al garaje" is the one way out, which is the rule the race enforces on a
+ * player too.
+ */
 const rerun = async () => {
+  await page.locator(".race-out").click();
+  await page.waitForSelector("dialog.race-modal", { state: "detached" });
   await nav("Carrera").click();
   await page.waitForSelector(".feel");
   await raceNow().click();
@@ -172,6 +189,10 @@ await page.waitForTimeout(200);
 console.log(`click:  ${await screen()} screen, topcar ${beforeClick} -> ${await topcar()}`);
 if ((await topcar()) !== beforeClick) errors.push("left-clicking a card still changed the car");
 if ((await screen()) !== "garaje") errors.push("left-clicking a card navigated somewhere");
+// That click opened the spec sheet, and it is modal: everything below here
+// right-clicks cards behind it, which a showModal() dialog swallows.
+await page.locator("dialog.modal .modal-x").click();
+await page.waitForSelector("dialog.modal", { state: "detached" });
 
 // --- right-click menu ------------------------------------------------------
 await page.locator(".car-card").nth(1).click({ button: "right" });
@@ -201,19 +222,28 @@ await page.waitForTimeout(150);
 if (await page.locator(".ctx").count()) errors.push("Escape did not close the menu");
 
 // --- sell the car we are sitting in: the selection has to repair itself ----
+/*
+ * Selling asks in a dialog now, not by arming the menu row.
+ *
+ * This waited for .ctx-item.armed -- a click-the-row-twice pattern that was
+ * replaced by the Confirm box some time ago -- and sat there until it timed
+ * out. Same question, asked in words and naming the car, which is what
+ * flows.mjs already checks in detail; here it just has to be answered.
+ */
 await page.locator(".car-card").nth(1).click({ button: "right" });
 await page.waitForSelector(".ctx");
 await page.getByRole("menuitem", { name: /Vender/ }).click();
-await page.waitForSelector(".ctx-item.armed");
-const armedLabel = (await page.locator(".ctx-item.armed").innerText()).replace(/\s+/g, " ");
+await page.waitForSelector("dialog.confirm");
+const asked = (await page.locator(".confirm-q").innerText()).replace(/\s+/g, " ");
 const stillOwned = await page.locator(".car-card").count();
-console.log(`arm:    "${armedLabel}", still ${stillOwned} owned (must be 2)`);
+console.log(`ask:    "${asked}", still ${stillOwned} owned (must be 2)`);
 await page.screenshot({ path: `${OUT}/8-menu-armed.png`, fullPage: true });
-if (stillOwned !== 2) errors.push("sell fired on the first click, before confirming");
+if (stillOwned !== 2) errors.push("sell fired before the question was answered");
 
 const soldCar = await topcar();
 const beforeSell = await wallet();
-await page.locator(".ctx-item.armed").click();
+await page.locator(".confirm-acts .btn.danger").click();
+await page.waitForSelector("dialog.confirm", { state: "detached" });
 await page.waitForTimeout(300);
 const leftInGarage = await page.locator(".car-card").count();
 console.log(`sell:   ${stillOwned} -> ${leftInGarage} owned, wallet ${beforeSell.replace(/\s+/g, " ")} -> ${(await wallet()).replace(/\s+/g, " ")}`);

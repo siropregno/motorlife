@@ -93,13 +93,16 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
 
   return (
     <>
-      <h2 className="screen-title">Puesta a punto</h2>
-      <p className="screen-sub">
-        Cada regulación tiene un óptimo, y en casi todas se mueve con el circuito.
-      </p>
+      <div className="screen-head">
+        <h2 className="screen-title">Puesta a punto</h2>
+        <p className="screen-sub">
+          Cada regulación tiene un óptimo, y en casi todas se mueve con el circuito.
+        </p>
+      </div>
 
-      <div className="setup-grid">
-        <div style={{ display: "grid", gap: 20 }}>
+      <div className="screen-body">
+        <div className="setup-grid">
+        <div className="setup-col">
           <CarCard spec={spec} km={km} image={image} />
 
           <div className="panel">
@@ -120,7 +123,7 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: 20 }}>
+        <div className="setup-col">
           <div className="panel">
             <h3>Circuito</h3>
             <div className="track-pick">
@@ -185,9 +188,16 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
             </button>
           </div>
         </div>
+        </div>
       </div>
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
+      {/*
+        * Correr is a FOOT, outside the scroll box, so it is on screen whatever
+        * you are doing with the sliders. It used to sit at the end of the page
+        * under the last panel, which meant the button that starts the race was
+        * the one thing you had to go looking for.
+        */}
+      <div className="screen-foot">
         <button className="btn primary" onClick={onRace}>
           Correr →
         </button>

@@ -102,36 +102,19 @@ export default function App() {
       if (screen === next) return;
 
       /*
-       * Remember the height before anything moves.
-       *
-       * It becomes a FLOOR under the stage for the length of the slide, not a
-       * fixed height. The leaving screen goes position:absolute, so without
-       * this the frame would snap to the arriving screen's height the instant
-       * the transition starts -- and going from a tall section to a short one
-       * that yanks the page up under the cursor mid-click.
-       *
-       * A floor rather than a pin because the arriving screen may well be
-       * TALLER. Pinning it cropped every such arrival at the old screen's
-       * height: the shop's cards were cut in half, names missing, until the
-       * timer released the clamp a third of a second later.
-       */
-      const el = stage.current;
-      if (el) el.style.setProperty("--stage-h", `${el.offsetHeight}px`);
-
-      /*
        * Arrive at the top of the new section.
        *
-       * Without this you keep the scroll position of the section you left, so
-       * walking out of the bottom of a long garage drops you into the middle
-       * of the shop with its title off-screen above you. Now that the topbar
-       * is sticky there is not even a header in view to tell you that is what
-       * happened.
+       * Each screen owns its own scroll box, so this is not one element to
+       * reset but "whichever list the section you are arriving at has". The
+       * arriving screen has not rendered yet at this point, so the reset is
+       * queued for after it has -- see the effect below.
        *
-       * "auto" rather than "smooth" on purpose: the screens are already moving
-       * sideways, and a page gliding upward at the same time is two animations
-       * fighting. This one should be instant and invisible under the slide.
+       * Nothing measures or pins a height here any more. The stage is the size
+       * of the frame whatever is in it, so there is no jump to prevent: the
+       * old code remembered the outgoing height and held it as a floor,
+       * because back then the stage was as tall as its content and swapping a
+       * tall section for a short one collapsed the page under the cursor.
        */
-      window.scrollTo({ top: 0, behavior: "auto" });
 
       // A slide already running is abandoned rather than queued. Pressing
       // three tabs quickly should land on the third, not play three
@@ -142,11 +125,30 @@ export default function App() {
       sweep.current = setTimeout(() => {
         setLeaving(null);
         sweep.current = null;
-        stage.current?.style.removeProperty("--stage-h");
       }, SLIDE_MS);
     },
     [screen],
   );
+
+  /**
+   * Put the arriving section at the top of its own list.
+   *
+   * Keyed to `screen` so it runs after the new one has rendered -- doing it
+   * inside `go` would reset the list of the section you are LEAVING, which is
+   * the one still on screen at that moment.
+   *
+   * Scoped to `.screen.coming` rather than to every .screen-body on the page:
+   * during a slide there are two, and resetting the outgoing one would make it
+   * jump to its top while it is still visibly sliding away.
+   *
+   * Without this you keep the offset of the section you left, so walking out
+   * of the bottom of a long garage drops you into the middle of the shop. The
+   * topbar and the section title never move now, so there is not even a header
+   * scrolling back into view to tell you that is what happened.
+   */
+  useEffect(() => {
+    stage.current?.querySelector(".screen.coming .screen-body")?.scrollTo({ top: 0 });
+  }, [screen, shopEpoch]);
 
   /** Ajustes is a dialog over the current screen, not a screen of its own. */
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -346,13 +348,22 @@ export default function App() {
       </header>
 
       {/*
-        * The stage: the arriving screen, and the leaving one while it leaves.
+        * The frame, and inside it the stage.
         *
-        * Only during a slide are there two. The leaving one is lifted out of
-        * the flow by CSS; the arriving one stays in it and is what gives the
-        * stage its height, so the frame ends up the size of the screen you are
-        * going to be looking at. `go` measures the old height first and leaves
-        * it as a floor, so the page cannot jump upward mid-slide.
+        * Nothing here scrolls. The app is the height of the window, the topbar
+        * and the credit are rows of it that never move, and this is the row in
+        * between -- so the stage is a box of known size rather than something
+        * as tall as whatever is in it.
+        *
+        * That is what lets each SCREEN keep its own header on-screen and
+        * scroll only its list. The scrollbar ends up beside the cards, next to
+        * the thing it actually scrolls, instead of running down the edge of
+        * the whole window past two bars that are pinned in place.
+        *
+        * The stage: the arriving screen, and the leaving one while it leaves.
+        * Only during a slide are there two, and they are dealt into the same
+        * grid cell -- already the same size, already stacked, which is why
+        * neither has to be lifted out of the flow any more.
         *
         * The KEY is what animates each of them. A CSS animation runs once when
         * an element is created, so keying on the screen name hands React a new
@@ -364,27 +375,38 @@ export default function App() {
         * shopEpoch is in the key because pressing the shop tab while already
         * in the shop remounts Shop to take you back to its top level.
         */}
-      <div ref={stage} className={`stage${leaving ? " sliding" : ""}`}>
-        {leaving ? (
-          <div className="screen going" data-dir={leaving.dir} key={`out-${leaving.screen}`} aria-hidden="true">
-            {renderScreen(leaving.screen)}
-          </div>
-        ) : null}
+      <div className="frame">
+        <div ref={stage} className={`stage${leaving ? " sliding" : ""}`}>
+          {/* The section's own name rides along as a class, so a screen that
+              needs a different row layout -- setup pins its Correr button as a
+              third row -- can say so in the stylesheet without App having to
+              know why. */}
+          {leaving ? (
+            <div
+              className={`screen going ${leaving.screen}`}
+              data-dir={leaving.dir}
+              key={`out-${leaving.screen}`}
+              aria-hidden="true"
+            >
+              {renderScreen(leaving.screen)}
+            </div>
+          ) : null}
 
-        <div
-          className="screen coming"
-          data-dir={leaving ? leaving.dir : 0}
-          key={`in-${screen}-${screen === "shop" ? shopEpoch : 0}`}
-        >
-          {renderScreen(screen)}
+          <div
+            className={`screen coming ${screen}`}
+            data-dir={leaving ? leaving.dir : 0}
+            key={`in-${screen}-${screen === "shop" ? shopEpoch : 0}`}
+          >
+            {renderScreen(screen)}
+          </div>
         </div>
       </div>
 
       {/*
-        * Outside the stage, so it stays put while the sections slide past it.
-        * It belongs to the app rather than to any one screen, and a credit
-        * that slid off the left edge with the garage would be claiming to be
-        * part of the garage.
+        * Outside the scroller, so it stays put while the sections slide and
+        * scroll past it. It belongs to the app rather than to any one screen,
+        * and a credit that slid off the left edge with the garage would be
+        * claiming to be part of the garage.
         *
         * rel="noreferrer" alongside target: opening a tab with window.opener
         * live hands the other page a handle back to this one, and there is no

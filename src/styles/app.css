@@ -1,48 +1,97 @@
+/*
+ * The app is the WINDOW, and it does not scroll.
+ *
+ * It used to be a tall document with a sticky bar at the top and a fixed strip
+ * at the bottom, which is the arrangement that puts the browser's own
+ * scrollbar down the right edge of the whole page -- past the topbar, past the
+ * credit, over the gradient. Two pieces of chrome that never move, with a bar
+ * sliding along beside them claiming the whole window is in motion.
+ *
+ * Now the frame is exactly the viewport and the only thing inside it that
+ * scrolls is the part that actually has more to show: the section. The topbar
+ * and the credit are rows of a grid rather than elements lifted out of the
+ * flow, so they hold their edges without position: sticky or fixed -- there is
+ * nothing left for them to be stuck to.
+ *
+ * min-height: 0 on the middle row is the part that is easy to miss. A grid row
+ * sized 1fr still refuses to shrink below the content inside it, so without
+ * this the scroller grows to fit the garage and pushes the credit off the
+ * bottom of the window instead of scrolling.
+ */
 .app {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 32px 20px 80px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100dvh;
 }
 
 /*
- * The topbar follows you down the page.
+ * The topbar: the first row of the frame, and it no longer goes anywhere.
  *
  * It carries the only two things you need continuously -- what car you are in
  * and what you can afford -- and the nav that gets you out of wherever you
- * are. In a long garage all three used to scroll away, so buying a car meant
- * scrolling back up to find out whether you could.
- *
- * `top: 0` and a background are both required, and the background is the part
- * that is easy to miss: .app's own ground is the page gradient, so without an
- * opaque fill here the cards would slide UNDER a transparent bar and stay
- * legible through it.
+ * are.
  *
  * The fill is the PAGE'S OWN GRADIENT, repeated, not a flat colour. html paints
  * `linear-gradient(45deg, ...)` with background-attachment: fixed, which means
- * it is locked to the viewport and does not move when you scroll -- so painting
- * the identical fixed gradient here lands every pixel exactly where the page
- * would have put it, and the bar is invisible against its own background. A
- * flat --ground would be right in the top-left corner and visibly wrong by the
- * top-right, where the gradient has moved on to --ground-2.
+ * it is locked to the viewport -- so painting the identical fixed gradient here
+ * lands every pixel exactly where the page would have put it, and the bar is
+ * invisible against its own background. A flat --ground would be right in the
+ * top-left corner and visibly wrong by the top-right, where the gradient has
+ * moved on to --ground-2.
  *
- * The negative top margin cancels .app's 32px of top padding so the bar sits
- * flush with the top of the window when stuck, then the padding is put back
- * inside the bar itself. Sticking it without that leaves a 32px window of page
- * gradient above it that content scrolls through.
+ * Still opaque, and still for the original reason: the section scrolls
+ * underneath it, so a transparent bar would have cards reading through it.
  */
 .topbar {
-  position: sticky;
-  top: 0;
   z-index: 20;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin: -32px -20px 26px;
-  padding: 32px 20px 14px;
+  padding: 20px 20px 14px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(45deg, var(--ground) 33%, var(--ground-2) 66%);
   background-attachment: fixed;
+}
+
+/*
+ * The middle row: the frame a section is drawn in. It does NOT scroll.
+ *
+ * Nothing at this level scrolls, and that is the whole arrangement. The page
+ * does not scroll, this does not scroll, the stage does not scroll -- the
+ * scrolling happens one level further in, inside each screen, around the part
+ * of it that is actually a list. So a dealer's sort bar and title stay on
+ * screen and the cars move underneath them, rather than the sort bar being the
+ * first thing to leave the moment you go looking for a car to sort.
+ *
+ * min-height: 0 is what lets that work. A grid row sized 1fr refuses by
+ * default to shrink below the content inside it, so without it the screen
+ * grows to fit its longest list and pushes the credit off the bottom of the
+ * window rather than handing the list a fixed box to scroll inside.
+ *
+ * The horizontal clip stays here because it is where the slide happens: a
+ * screen on its way out spends the transition a full width off to one side.
+ */
+.frame {
+  display: grid;
+  min-height: 0;
+  overflow-x: clip;
+  padding: 26px 20px 0;
+}
+
+/*
+ * The content sits in the same 1040px column it always did.
+ *
+ * On .app before, which is why it can come off it now: the column has to be
+ * established INSIDE the frame so each screen's own scroll box is measured
+ * against it, and so a screen's scrollbar sits at the right edge of the
+ * content rather than out on the window.
+ */
+.frame > .stage {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  min-height: 0;
 }
 
 /*
@@ -76,6 +125,42 @@
  * vertical scrollbar inside the stage. clip on one axis and visible on the
  * other is the pairing that is actually allowed to mean "clip sideways only".
  */
+/*
+ * The stage is a single grid CELL that every screen is dealt into, and it is
+ * the height of the frame rather than the height of its content.
+ *
+ * That is the change that makes a pinned header possible. When the stage was
+ * as tall as whatever was inside it, a screen had no fixed height to divide
+ * up, so there was no "leftover space" for a list to scroll inside -- the
+ * list simply made the page taller. Now the stage is a known box, a screen can
+ * be a header plus a body that takes what is left.
+ *
+ * Both screens occupy the SAME cell (1fr / 1fr) rather than stacking, which is
+ * also what replaces most of the old slide plumbing: during a transition the
+ * two screens are laid on top of each other by the grid instead of one being
+ * lifted out of the flow to stop it pushing the other down the page.
+ */
+.stage {
+  display: grid;
+  grid-template: 1fr / 1fr;
+  min-height: 0;
+}
+
+.stage > .screen {
+  grid-area: 1 / 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/*
+ * Sliding needs a containing block for the two screens and needs to clip them
+ * sideways.
+ *
+ * overflow-y stays VISIBLE, and it still matters: a screen's own scroll box
+ * draws its scrollbar inside itself, but menus, the shop's dropdown list and
+ * the toast stack are allowed to escape the stage. Clipping both axes here
+ * would cut them off at the frame's edge.
+ */
 .stage.sliding {
   position: relative;
   overflow-x: clip;
@@ -83,32 +168,24 @@
 }
 
 /*
- * ONLY the leaving screen comes out of the flow.
+ * Neither screen is lifted out of the flow any more, and there is no height
+ * floor, because the problem both of those solved no longer exists.
  *
- * The arriving one stays in it, and that is what gives the stage its height:
- * it is the screen you are going to be looking at, so the frame should be its
- * size, growing or shrinking to fit as the slide lands.
+ * The history is worth keeping, since it is the reason this looks so much
+ * simpler than it used to. The stage was once as tall as its content, so
+ * during a slide the two screens were of DIFFERENT heights and the frame had
+ * to be talked out of jumping between them: the leaving screen went
+ * position: absolute so it stopped contributing height, and --stage-h held the
+ * old height as a floor so a tall screen replaced by a short one did not yank
+ * the page up under the cursor. Earlier still, both were lifted and the stage
+ * was PINNED, which cropped every taller arrival -- the shop's cards arrived
+ * cut in half, names missing, for a third of a second.
  *
- * The first version lifted BOTH and pinned the stage to the height of the
- * screen being replaced. That cropped every arrival at the outgoing screen's
- * height -- go from a garage holding one car to the shop and the shop's cards
- * were guillotined mid-way down, names and all, because the stage was still
- * one-car tall and clipping.
- *
- * --stage-h survives as a FLOOR rather than a fixed height. Without it the
- * frame would snap to the new screen's height the instant the slide starts,
- * which yanks the page up under the cursor when a tall screen is replaced by a
- * short one. As a min-height it holds the old height while the movement runs
- * and lets a taller arrival exceed it, which is both halves of the problem.
+ * The stage is now exactly the height of the frame, always, whatever is in it.
+ * Two screens dealt into one grid cell are therefore already the same size and
+ * already on top of each other, so there is nothing left to jump between and
+ * nothing to hold up with a floor.
  */
-.stage.sliding .screen.going {
-  position: absolute;
-  inset: 0 0 auto 0;
-}
-
-.stage.sliding {
-  min-height: var(--stage-h, 0px);
-}
 
 /*
  * The travel is the SCREEN'S OWN WIDTH, in percent, not a nudge in pixels.
@@ -216,18 +293,16 @@
 }
 
 /*
- * The credit bar, pinned to the bottom of the window.
+ * The credit bar: the last row of the frame.
  *
- * Fixed rather than sitting at the end of the page: it is the studio's mark on
- * the whole app, not a line you have to scroll to the bottom of a long garage
- * to find. Black, so content passing under it is properly hidden rather than
- * showing through -- this one is NOT the page gradient, unlike the topbar,
- * because a solid strip along the bottom edge is what makes it read as chrome
- * rather than as more page.
+ * It used to be position: fixed, and it does not need to be any more -- the
+ * app is the height of the window and this is the row at the bottom of it, so
+ * it sits on the bottom edge by being there rather than by being lifted out of
+ * the flow and pinned. It also means it can no longer cover the last row of
+ * cards, which the old version did whenever .app's bottom padding was touched.
  *
- * .app already ends in 80px of bottom padding, which is what keeps the last
- * row of cards from finishing underneath this. If that padding ever shrinks,
- * this bar starts covering content.
+ * Black, not the page gradient, unlike the topbar: a solid strip along the
+ * bottom edge is what makes it read as chrome rather than as more page.
  *
  * Quiet on purpose: --ink-4 is the dimmest ink in the set. It is a signature,
  * not a call to action, so it should not compete with anything you came here
@@ -239,10 +314,6 @@
  * makes that likely.
  */
 .credit {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
   z-index: 15;
   padding: 9px 20px;
   border-top: 1px solid var(--line);
@@ -286,6 +357,114 @@
   width: auto;
 }
 
+/* ---------- the shape every screen has ---------- */
+/*
+ * A screen is a HEAD that stays and a BODY that scrolls.
+ *
+ * Every section is built this way -- garage, shop, setup -- so the app behaves
+ * the same wherever you are: the thing that tells you where you are, and the
+ * controls that act on the list, are always on screen, and the list moves
+ * underneath them. Before this the title and the dealer's sort bar were simply
+ * the first things to scroll away, which is backwards: the sort bar is most
+ * wanted at the moment you are deep in the list it sorts.
+ *
+ * grid-template-rows: auto 1fr is the whole mechanism. The head takes what it
+ * needs, the body takes the rest, and because the stage is a known height the
+ * "rest" is a real number rather than however tall the content happens to be.
+ */
+.screen {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+/*
+ * The part that does not move. Its bottom padding is the gap to the list, so
+ * the list starts clear of it rather than touching.
+ *
+ * The right padding matches the scrollbar gutter the body below reserves, so
+ * the header's right edge lines up with the cards' right edge instead of
+ * running 10px past them. Without it the sort bar is visibly wider than the
+ * list it sorts, which is the sort of half-pixel wrongness that makes a
+ * layout feel unfinished without anyone being able to say why.
+ */
+.screen-head {
+  padding-bottom: 18px;
+  padding-right: var(--gutter, 0px);
+}
+
+/* Only screens whose body actually reserves a gutter need the matching inset;
+   a still body has no scrollbar to line up with. */
+.screen:has(.screen-body:not(.still)) {
+  --gutter: 10px;
+}
+
+/*
+ * The part that does.
+ *
+ * The bottom padding is INSIDE the scroll box on purpose: it is what lets the
+ * last row of cards clear the credit bar when you reach the end, and putting
+ * it on the frame instead would leave a dead strip that the list scrolls
+ * behind.
+ *
+ * scrollbar-gutter keeps the column from shifting sideways when a filter takes
+ * the list from scrolling to not scrolling -- without it, clearing a filter
+ * makes every card jump a few pixels right as the scrollbar disappears.
+ *
+ * overscroll-behavior stops a flick at the end of a long list from chaining
+ * out to whatever is behind it.
+ */
+.screen-body {
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 26px;
+  min-height: 0;
+}
+
+/*
+ * A screen with nothing to scroll -- the shop's two doors, the dealer list --
+ * says so, and gets the plain block behaviour back. Handing a six-item grid a
+ * scroll box is how you get a scrollbar track down the side of a page that
+ * has nothing below the fold.
+ */
+.screen-body.still {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+
+/*
+ * The scrollbar itself, drawn to belong to the app rather than to the OS.
+ *
+ * Thin and dim: it sits beside the cards now rather than out at the edge of
+ * the window, so a default chrome-grey bar reads as a piece of furniture
+ * dropped into the middle of the layout. WebKit's pseudo-elements and the
+ * standard two properties are both set, since neither is supported everywhere.
+ */
+.screen-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.screen-body::-webkit-scrollbar {
+  width: 10px;
+}
+.screen-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.screen-body::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 6px;
+  /* Drawn inside a transparent border so the thumb reads as a slim pill with
+     air around it instead of a bar wedged against the content. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.screen-body::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-4);
+  background-clip: content-box;
+}
+
 .crumb {
   font-family: var(--mono);
   font-size: 11px;
@@ -294,17 +473,83 @@
   color: var(--ink-4);
 }
 
+/*
+ * The title line: the way back and the name of the place, on ONE row.
+ *
+ * The breadcrumb used to be a row of its own above the title -- eleven pixels
+ * of small caps, alone on a line, with the title underneath it. Two rows to
+ * say one thing, and the arrow ended up so far from the name it returns to
+ * that it read as a stray label rather than as a control.
+ *
+ * CENTER, not baseline. Baseline was the first attempt and it looked subtly
+ * broken: the back button is a padded pill around 11px text and the title is
+ * 24px, so sitting their two text baselines on one line hangs the pill's box
+ * well below the title's and the pair reads as two rows that failed to line
+ * up. Two elements this different in size only look like one row when their
+ * BOXES are centred on each other, whatever their text is doing.
+ */
+.head-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
 h2.screen-title {
   font-family: var(--display);
   font-weight: 700;
   text-transform: uppercase;
   font-size: 24px;
   letter-spacing: 0.03em;
-  margin: 0 0 4px;
+  margin: 0;
+  /* The text is uppercase, so the line box carries descender space nothing
+     ever uses. Trimming it to 1 means centring the back button against this
+     box centres it against the letters you can actually see. */
+  line-height: 1;
+}
+
+/*
+ * The way back up, in the title line.
+ *
+ * It keeps the quiet mono of the old breadcrumb -- it is not competing with
+ * the title beside it -- but it is unmistakably a control now: it has a
+ * surface, it lights on hover, and it names where it goes rather than just
+ * saying "back".
+ */
+.head-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink-4);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.head-back:hover {
+  background: var(--panel-2);
+  color: var(--ink-2);
+}
+
+/* The destination is dropped on a narrow window; the arrow still works, and
+   the accessible name carries the full "Volver a Concesionarios". */
+@media (max-width: 560px) {
+  .head-back-to {
+    display: none;
+  }
 }
 
 p.screen-sub {
-  margin: 0 0 22px;
+  margin: 0;
   color: var(--ink-3);
   font-size: 14px;
 }
@@ -361,6 +606,15 @@ p.screen-sub {
 }
 
 /* ---------- setup screen ---------- */
+/*
+ * Three rows rather than two: the setup screen keeps its action on screen.
+ * Correr is the point of the section, and having to scroll past four panels of
+ * sliders to find it made it the hardest thing on the page to reach.
+ */
+.screen.setup {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
 .setup-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -371,6 +625,30 @@ p.screen-sub {
     grid-template-columns: 470px 1fr;
     align-items: start;
   }
+}
+
+/* Was an inline style on both columns, which is two copies of one rule that
+   have to be edited together. */
+.setup-col {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+/*
+ * A pinned row of actions at the bottom of a screen. It sits on the app's own
+ * ground rather than on a panel, and the hairline is what separates it from
+ * the list scrolling underneath -- without it the button appears to float over
+ * cards that pass behind it.
+ */
+.screen-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
 }
 
 .panel {
@@ -962,22 +1240,74 @@ p.screen-sub {
 
 /* ---------- dealership sort + filter ---------- */
 /*
- * A label column and a chip row per control. The label is a fixed 96px so the
- * rows start on one left edge -- ragged starts are what makes a stack of rows
- * read as separate widgets instead of one control.
+ * ONE strip, on one line, that reads as a single control.
+ *
+ * The old bar was a row of stacked pairs: a small-caps label above each
+ * dropdown, the whole thing two rows tall with a ragged top edge, and "Filtro
+ * avanzado" pushed to the far right by an auto margin across an empty gap the
+ * width of the screen. Four widgets sharing a line, none of them apparently
+ * related to the others.
+ *
+ * Now it is a panel with everything inside it, in reading order: the word
+ * Ordenar, what to order by, which way, a divider, the one filter worth having
+ * to hand, the door to the rest, and the count of what came out. The surface
+ * is what makes the difference -- it is a thing, so its contents are parts of
+ * that thing rather than loose furniture.
  */
 .shopbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  border-radius: 14px;
-  padding: 10px 0;
-  margin-bottom: 26px;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--panel);
 }
 
-/* A label stacked over its control, so the row reads left to right as one
-   sentence rather than as label/field pairs fighting for the same baseline. */
+/* The word that scopes the two controls after it. Quiet: it is a preposition,
+   not a heading. */
+.shopbar-lead {
+  padding-left: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/*
+ * Between "which order" and "which cars" -- two different questions, and the
+ * bar should not read as one run-on list of four dropdowns. A hairline is the
+ * whole signal, the same one the topnav uses to fence the gear off.
+ */
+.shopbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--line);
+}
+
+/*
+ * How many cars are below, hard right.
+ *
+ * The auto margin here is what the "Filtro avanzado" button used to have, and
+ * it is doing an honest job now: the gap separates the controls that CHANGE
+ * the list from the number that REPORTS it, instead of stranding a button.
+ */
+.shopbar-count {
+  margin-left: auto;
+  padding-right: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A label stacked over its control. Still used by the advanced filter dialog,
+   where the facets DO need naming -- there is no surrounding sentence there to
+   say which dropdown is which. */
 .control {
   display: flex;
   flex-direction: column;
@@ -1007,7 +1337,14 @@ p.screen-sub {
 .select,
 .dirbtn,
 .shopbar .btn {
-  height: 36px;
+  height: 34px;
+}
+
+/* Inside the bar the controls sit on the panel's own ground, a shade up from
+   it, so they read as insets in a strip rather than as free-floating chips. */
+.shopbar .select,
+.shopbar .dirbtn {
+  background-color: var(--panel-2);
 }
 
 .select {
@@ -1079,15 +1416,20 @@ p.screen-sub {
  * vertical padding this takes away. Both collapsed to the height of their own
  * text. Screen-specific sizing goes on a screen-specific class.
  */
+/*
+ * No margin-left: auto any more. It used to shove this button to the far right
+ * of the bar across an empty gap; the count owns that position now, and this
+ * sits with the filter control it belongs to.
+ */
 .btn.advanced {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
   padding: 0 13px;
   font-size: 11px;
   letter-spacing: 0.1em;
   border-radius: 8px;
+  background: var(--panel-2);
 }
 
 .filter-grid {
@@ -1185,6 +1527,11 @@ p.screen-sub {
 /* 26 cars in one grid is a wall. Grouped by class it reads as a ladder. */
 .shop-class {
   margin-bottom: 30px;
+}
+/* The last section's margin is dead space at the bottom of the scroll box --
+   the box has its own bottom padding for that. */
+.shop-class:last-child {
+  margin-bottom: 0;
 }
 
 .shop-class-head {

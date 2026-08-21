@@ -106,35 +106,39 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
 
   return (
     <>
-      <h2 className="screen-title">Garaje</h2>
-      <p className="screen-sub">
-        {cars.length} de {CARS.length} autos. Clic en un auto para su ficha, clic derecho para sus
-        opciones.
-      </p>
+      <div className="screen-head">
+        <h2 className="screen-title">Garaje</h2>
+        <p className="screen-sub">
+          {cars.length} de {CARS.length} autos. Clic en un auto para su ficha, clic derecho para sus
+          opciones.
+        </p>
+      </div>
 
-      <div className="card-grid">
-        {cars.map(({ spec: c, km, image }) => (
-          <CarCard
-            key={c.id}
-            spec={c}
-            km={km}
-            image={image}
-            onOpen={setOpenId}
-            onContextMenu={(e, id) => {
-              e.preventDefault();
-              // The Menu key and Shift+F10 fire contextmenu with zeroed
-              // coordinates. Fall back to the card itself so the menu opens
-              // next to what it belongs to rather than in the top corner.
-              const kbd = e.clientX <= 0 && e.clientY <= 0;
-              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              setMenu({
-                x: kbd ? r.left + 24 : e.clientX,
-                y: kbd ? r.bottom - 12 : e.clientY,
-                id,
-              });
-            }}
-          />
-        ))}
+      <div className="screen-body">
+        <div className="card-grid">
+          {cars.map(({ spec: c, km, image }) => (
+            <CarCard
+              key={c.id}
+              spec={c}
+              km={km}
+              image={image}
+              onOpen={setOpenId}
+              onContextMenu={(e, id) => {
+                e.preventDefault();
+                // The Menu key and Shift+F10 fire contextmenu with zeroed
+                // coordinates. Fall back to the card itself so the menu opens
+                // next to what it belongs to rather than in the top corner.
+                const kbd = e.clientX <= 0 && e.clientY <= 0;
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenu({
+                  x: kbd ? r.left + 24 : e.clientX,
+                  y: kbd ? r.bottom - 12 : e.clientY,
+                  id,
+                });
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {menu && items.length > 0 ? (

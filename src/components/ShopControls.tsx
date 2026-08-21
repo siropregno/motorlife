@@ -11,6 +11,8 @@ interface Props {
   filter: Selection;
   onFilter: (next: Selection) => void;
   onOpenAdvanced: () => void;
+  /** "26 autos", or "9 de 26" with a filter on. */
+  count: string;
 }
 
 /**
@@ -51,27 +53,42 @@ export function ShopControls({
   filter,
   onFilter,
   onOpenAdvanced,
+  count,
 }: Props) {
   const lit = activeCount(filter);
   const [asc, desc] = DIR_HINT[order];
 
+  /*
+   * The bar is ONE strip on one line, not a row of stacked label/control
+   * pairs.
+   *
+   * It used to draw a small-caps label above each control -- "ORDENAR POR"
+   * over the dropdown, "TRACCIÓN" over the next -- which made the bar two rows
+   * tall, gave it a ragged top edge, and said out loud what the dropdowns
+   * already say: the sort select reads "Clase", and nobody wonders what a
+   * dropdown next to a sort arrow does. The labels survive as aria-label,
+   * where they are actually needed.
+   *
+   * The word "Ordenar" is drawn once, at the head of the strip, because it
+   * scopes the two controls after it and turns the row into a sentence:
+   * Ordenar [Clase] [↑] · [Todas] · 26 autos.
+   */
   return (
     <section className="shopbar" aria-label="Ordenar y filtrar">
-      <label className="control">
-        <span className="control-label">Ordenar por</span>
-        <select
-          className="select"
-          value={order}
-          aria-label="Ordenar por"
-          onChange={(e) => onOrder(e.target.value as FacetId)}
-        >
-          {ORDERS.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <span className="shopbar-lead">Ordenar</span>
+
+      <select
+        className="select"
+        value={order}
+        aria-label="Ordenar por"
+        onChange={(e) => onOrder(e.target.value as FacetId)}
+      >
+        {ORDERS.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
 
       <button
         className="dirbtn"
@@ -84,12 +101,22 @@ export function ShopControls({
         {dir === "asc" ? "↑" : "↓"}
       </button>
 
-      <FacetSelect cars={cars} id="traccion" value={filter} onChange={onFilter} />
+      <span className="shopbar-sep" aria-hidden="true" />
+
+      <FacetSelect cars={cars} id="traccion" value={filter} onChange={onFilter} showLabel={false} />
 
       <button className="btn ghost advanced" onClick={onOpenAdvanced}>
-        Filtro avanzado
+        Filtro
         {lit > 0 ? <span className="chip-badge">{lit}</span> : null}
       </button>
+
+      {/*
+        * How many cars are below. It sits at the far right of the bar rather
+        * than in a line of its own, which is where the old "Filtro avanzado"
+        * button sat marooned across a wide empty gap -- the gap is doing
+        * something now.
+        */}
+      <span className="shopbar-count">{count}</span>
     </section>
   );
 }

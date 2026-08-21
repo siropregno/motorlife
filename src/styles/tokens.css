@@ -92,9 +92,21 @@
  * The gradient goes on html, not just body. With it only on body, any page
  * taller than the viewport shows the html element's default white below the
  * body box -- which is exactly what the first screenshot caught.
+ *
+ * The document itself does not scroll: the app is a frame the height of the
+ * window with one scrolling row inside it, so there is nothing here to scroll
+ * and `overflow: hidden` makes sure the browser does not draw a track for it
+ * anyway. Without this a stray margin on any descendant is enough to raise a
+ * second scrollbar down the outside of a page that cannot move -- which is the
+ * exact scrollbar the layout is arranged to get rid of.
  */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 html {
-  min-height: 100%;
   background: linear-gradient(45deg, var(--ground) 33%, var(--ground-2) 66%);
   background-attachment: fixed;
 }
@@ -102,7 +114,6 @@ html {
 body {
   margin: 0;
   padding: 0;
-  min-height: 100vh;
   background: transparent;
   color: var(--ink);
   font-family: var(--text);

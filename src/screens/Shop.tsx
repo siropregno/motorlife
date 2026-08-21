@@ -9,6 +9,7 @@ import {
   USED_RATE,
 } from "@progression/market";
 import { Listing } from "../components/Listing";
+import { ScreenHead } from "../components/ScreenHead";
 
 interface Props {
   save: Save;
@@ -48,24 +49,27 @@ export function Shop({ save, onBuy }: Props) {
     const treasure = lot.some((o) => o.condition.band === "survivor" || !!["rare","epic","legendary","apex"].includes(o.spec.rarity));
     return (
       <>
-        <h2 className="screen-title">Comprar</h2>
-        <p className="screen-sub">Tenés {formatCredits(save.credits)} cr.</p>
+        <ScreenHead title="Comprar" sub={`Tenés ${formatCredits(save.credits)} cr.`} />
 
-        <div className="pick-grid">
-          <button className="pick-card pick-dealers" onClick={() => setView({ at: "dealers" })}>
-            <span className="pick-name">Concesionarios</span>
-            <span className="pick-note">
-              {DEALERS.length} casas · precio de lista · siempre el mismo stock
-            </span>
-          </button>
+        {/* Two cards and nothing below them: no scroll box, or the shop's front
+            door draws a scrollbar track down a page with nothing under it. */}
+        <div className="screen-body still">
+          <div className="pick-grid">
+            <button className="pick-card pick-dealers" onClick={() => setView({ at: "dealers" })}>
+              <span className="pick-name">Concesionarios</span>
+              <span className="pick-note">
+                {DEALERS.length} casas · precio de lista · siempre el mismo stock
+              </span>
+            </button>
 
-          <button className="pick-card pick-used" onClick={() => setView({ at: "used" })}>
-            <span className="pick-name">Marketplace</span>
-            <span className="pick-note">
-              {lot.length} autos · {Math.round((1 - USED_RATE) * 100)}% menos · rota cada carrera
-            </span>
-            {treasure ? <span className="pick-flag">Hay algo bueno</span> : null}
-          </button>
+            <button className="pick-card pick-used" onClick={() => setView({ at: "used" })}>
+              <span className="pick-name">Marketplace</span>
+              <span className="pick-note">
+                {lot.length} autos · {Math.round((1 - USED_RATE) * 100)}% menos · rota cada carrera
+              </span>
+              {treasure ? <span className="pick-flag">Hay algo bueno</span> : null}
+            </button>
+          </div>
         </div>
       </>
     );
@@ -74,31 +78,35 @@ export function Shop({ save, onBuy }: Props) {
   if (view.at === "dealers") {
     return (
       <>
-        <Crumb onBack={() => setView({ at: "choose" })} />
-        <h2 className="screen-title">Concesionarios</h2>
-        <p className="screen-sub">Precio de lista. Lo que ves hoy es lo que hay siempre.</p>
+        <ScreenHead
+          title="Concesionarios"
+          sub="Precio de lista. Lo que ves hoy es lo que hay siempre."
+          back={{ label: "Comprar", onBack: () => setView({ at: "choose" }) }}
+        />
 
-        <div className="dealer-grid">
-          {DEALERS.map((d) => {
-            const stock = stockOf(d, ownedIds(save));
-            const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
-            return (
-              <button
-                key={d.id}
-                className="dealer-card"
-                disabled={stock.length === 0}
-                onClick={() => setView({ at: "dealer", id: d.id })}
-              >
-                <span className="dealer-name">{d.name}</span>
-                <span className="dealer-tagline">{d.tagline}</span>
-                <span className="dealer-meta">
-                  {stock.length === 0
-                    ? "Sin stock: ya tenés todo lo suyo"
-                    : `${stock.length} auto${stock.length === 1 ? "" : "s"} · desde ${formatCredits(cheapest)} cr`}
-                </span>
-              </button>
-            );
-          })}
+        <div className="screen-body">
+          <div className="dealer-grid">
+            {DEALERS.map((d) => {
+              const stock = stockOf(d, ownedIds(save));
+              const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
+              return (
+                <button
+                  key={d.id}
+                  className="dealer-card"
+                  disabled={stock.length === 0}
+                  onClick={() => setView({ at: "dealer", id: d.id })}
+                >
+                  <span className="dealer-name">{d.name}</span>
+                  <span className="dealer-tagline">{d.tagline}</span>
+                  <span className="dealer-meta">
+                    {stock.length === 0
+                      ? "Sin stock: ya tenés todo lo suyo"
+                      : `${stock.length} auto${stock.length === 1 ? "" : "s"} · desde ${formatCredits(cheapest)} cr`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </>
     );
@@ -108,45 +116,30 @@ export function Shop({ save, onBuy }: Props) {
     const dealer = dealerById(view.id);
     if (!dealer) return <p>Concesionaria no encontrada.</p>;
     return (
-      <>
-        <Crumb onBack={() => setView({ at: "dealers" })} label="Concesionarios" />
-        <h2 className="screen-title">{dealer.name}</h2>
-        <p className="screen-sub">{dealer.tagline}</p>
-        <Listing
-          offers={stockOf(dealer, ownedIds(save))}
-          credits={save.credits}
-          owned={ownedIds(save)}
-          onBuy={onBuy}
-          empty="Ya tenés todo lo que vende esta casa."
-        />
-      </>
+      <Listing
+        offers={stockOf(dealer, ownedIds(save))}
+        credits={save.credits}
+        owned={ownedIds(save)}
+        onBuy={onBuy}
+        title={dealer.name}
+        sub={dealer.tagline}
+        back={{ label: "Concesionarios", onBack: () => setView({ at: "dealers" }) }}
+        empty="Ya tenés todo lo que vende esta casa."
+      />
     );
   }
 
   return (
-    <>
-      <Crumb onBack={() => setView({ at: "choose" })} />
-      <h2 className="screen-title">Marketplace</h2>
-      <p className="screen-sub">
-        {Math.round((1 - USED_RATE) * 100)}% menos que en la concesionaria. Rota cada carrera.
-      </p>
-      <Listing
-        offers={lot}
-        credits={save.credits}
-        owned={ownedIds(save)}
-        onBuy={onBuy}
-        controls={false}
-        empty="Hoy no hay nada. Corré una carrera y volvé."
-      />
-    </>
-  );
-}
-
-/** The way back up. The topbar nav gets you out of the shop, not around it. */
-function Crumb({ onBack, label = "Comprar" }: { onBack: () => void; label?: string }) {
-  return (
-    <button className="crumb-back" onClick={onBack}>
-      ← {label}
-    </button>
+    <Listing
+      offers={lot}
+      credits={save.credits}
+      owned={ownedIds(save)}
+      onBuy={onBuy}
+      controls={false}
+      title="Marketplace"
+      sub={`${Math.round((1 - USED_RATE) * 100)}% menos que en la concesionaria. Rota cada carrera.`}
+      back={{ label: "Comprar", onBack: () => setView({ at: "choose" }) }}
+      empty="Hoy no hay nada. Corré una carrera y volvé."
+    />
   );
 }

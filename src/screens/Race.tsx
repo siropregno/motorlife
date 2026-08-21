@@ -4,13 +4,14 @@ import type { TrackSpec, Regulation } from "@contracts/track";
 import type { CarSpec } from "@contracts/car";
 import { carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
-import { eligibleFor, purseFor, payoutFor, formatCredits } from "@progression/economy";
+import { eligibleFor, payoutFor, formatCredits } from "@progression/economy";
 import { derive } from "@sim/derive";
 import { applySetup } from "@sim/setup";
 import { lapTime } from "@sim/lap";
 import { simulateRace } from "@sim/race";
 import { buildTower, fmt, fmtGap } from "@sim/tower";
 import { hashSeed, mulberry32 } from "@sim/rng";
+import { classTierClass } from "../lib/tiers";
 
 interface Props {
   carId: string;
@@ -166,8 +167,8 @@ export function Race({ carId, build, track, racesRun, onFinish, onClose }: Props
    */
   const [eventSeed] = useState(() => hashSeed(`${racesRun}|${carId}|${track.id}`));
 
-  const { ticks, entries, purse } = useMemo(() => {
-    if (!you || !rating) return { ticks: [], entries: [] as Entry[], purse: 0 };
+  const { ticks, entries } = useMemo(() => {
+    if (!you || !rating) return { ticks: [], entries: [] as Entry[] };
 
     /**
      * The field is drawn from cars eligible for YOUR class. That is the whole
@@ -277,7 +278,6 @@ export function Race({ carId, build, track, racesRun, onFinish, onClose }: Props
     return {
       ticks: buildTower(result, list),
       entries: list,
-      purse: purseFor(rating.letter),
     };
   }, [carId, build, track, you, rating, eventSeed]);
 
@@ -375,14 +375,21 @@ export function Race({ carId, build, track, racesRun, onFinish, onClose }: Props
       }}
     >
       <div className="race-body">
-      <h2 className="screen-title">Carrera</h2>
-      <p className="screen-sub">
-        Clase {rating?.letter} · premio {formatCredits(purse)} cr.
-      </p>
-
+      {/*
+        * No "Carrera" heading and no separate prize line.
+        *
+        * They cost 53px of the tallest thing in the game to say what the rest
+        * of the dialog already says: you can see it is a race, the circuit is
+        * named in the tower's own top bar an inch below, and the purse was
+        * only ever interesting as the number you end up being paid -- which
+        * the payout line states exactly, at the end, in credits you actually
+        * got. The class is the one fact worth keeping, so it moves into the
+        * tower's top bar beside the track it applies to.
+        */}
       <div className="tower">
         <div className="tower-top">
           <span className="tower-track">{track.name}</span>
+          {rating ? <span className={`klass-badge ${classTierClass(rating.letter)}`}>{rating.letter}</span> : null}
           <span className="tower-lap">
             VUELTA <b>{lap}</b> / {REG.laps}
           </span>
@@ -425,13 +432,25 @@ export function Race({ carId, build, track, racesRun, onFinish, onClose }: Props
           })}
         </div>
 
-        <div className="tower-feed">
-          {feed.map((f, i) => (
-            <div key={`${f.text}-${i}`} className={f.kind}>
-              {f.text}
-            </div>
-          ))}
-        </div>
+        {/*
+          * The feed only exists when it has something in it.
+          *
+          * It was a fixed 78px box reserving four lines, and for most of a
+          * race it held nothing at all -- an empty grey panel taking up more
+          * height than two timing rows, at the bottom of a dialog already
+          * complaining about its height. Rendering nothing when there is
+          * nothing to say costs the layout a small jump when the first event
+          * lands, which is a far better trade than 78px of permanent blank.
+          */}
+        {feed.length > 0 ? (
+          <div className="tower-feed">
+            {feed.map((f, i) => (
+              <div key={`${f.text}-${i}`} className={f.kind}>
+                {f.text}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/*

@@ -553,8 +553,15 @@
  * its own shadow, so leaving the dialog's background on would frame a panel
  * inside a panel.
  */
+/*
+ * Wider than it was, because the tower is a TABLE and tables want width.
+ *
+ * At 760 the five columns were squeezed while the dialog complained about its
+ * height -- the wrong axis was under pressure. The extra width goes to the
+ * driver column, which is the one that had to ellipsise a car name.
+ */
 .race-modal {
-  width: min(760px, calc(100vw - 32px));
+  width: min(880px, calc(100vw - 32px));
   background: transparent;
   box-shadow: none;
   overflow: visible;
@@ -573,14 +580,16 @@
   padding: 4px;
 }
 
-/* The title sits on the backdrop rather than on a panel, so it needs no box
-   of its own -- but it does need to not hug the top edge of the viewport. */
-.race-body .screen-title {
-  margin-top: 0;
-}
-
+/*
+ * Closer to the tower than it was.
+ *
+ * 26px of gap made sense under a screen title and a prize line, when the
+ * dialog was a little page with a heading. With those gone the tower IS the
+ * dialog, and the row of actions belongs to it rather than floating a
+ * paragraph-break away.
+ */
 .race-foot {
-  margin-top: 26px;
+  margin-top: 14px;
   justify-content: flex-end;
 }
 

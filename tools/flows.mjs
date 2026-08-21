@@ -512,26 +512,33 @@ try {
   check("and the new one comes in from the left", back.coming?.name, "screen-in-left");
 
   /*
-   * Both screens must be out of the flow: each spends part of the slide a full
-   * screen-width off to one side, and an in-flow element there drags the
-   * document's width past the viewport. The stage has to hold its height while
-   * they are both lifted, or the page collapses under the cursor.
+   * The two screens share one grid cell, which is what replaced the old
+   * arrangement of lifting the leaving one out of the flow and holding the
+   * stage up with a height floor. Dealt into the same cell they are already
+   * the same size and already stacked, so there is nothing to hold up.
+   *
+   * The stage still clips sideways -- each screen spends part of the slide a
+   * full width off to one side -- and still must NOT clip vertically, because
+   * menus and dropdowns are allowed to escape it.
    */
   const geom = await page.evaluate(() => {
     const st = document.querySelector(".stage");
     const go = document.querySelector(".screen.going");
     const co = document.querySelector(".screen.coming");
+    const cell = (el) => (el ? getComputedStyle(el).gridArea : "none");
     return {
-      goLifted: go ? getComputedStyle(go).position : "none",
-      coInFlow: co ? getComputedStyle(co).position : "none",
+      sameCell: go && co && cell(go) === cell(co),
+      sameSize: go && co
+        ? Math.abs(go.getBoundingClientRect().height - co.getBoundingClientRect().height) < 1
+        : false,
       clipX: getComputedStyle(st).overflowX,
       clipY: getComputedStyle(st).overflowY,
       held: st.getBoundingClientRect().height > 100,
       noHScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     };
   });
-  check("the leaving screen is out of the flow", geom.goLifted, "absolute");
-  check("the arriving one stays in it, so it can set the height", geom.coInFlow, "static");
+  check("both screens are dealt into the same grid cell", geom.sameCell, true);
+  check("so they are the same size without anything holding them there", geom.sameSize, true);
   check("the stage holds its height rather than collapsing", geom.held, true);
   check("the stage clips sideways", geom.clipX, "clip");
   check("but never vertically", geom.clipY, "visible");
@@ -570,14 +577,20 @@ try {
   );
 
   /*
-   * A TALL screen arriving over a SHORT one must not be cropped.
+   * An arriving screen must not be cropped, whatever is on it.
    *
-   * This is the bug that shipped. The stage was pinned to the height of the
-   * screen being replaced and clipped with overflow: hidden, so arriving at
-   * the shop from a one-car garage cut the shop's cards in half -- their names
-   * and notes simply absent -- until the timer released the clamp a third of a
-   * second later. It looked exactly like content loading in late, which is the
-   * worst kind of bug: the explanation that comes to mind is the wrong one.
+   * This is the bug that shipped once. The stage was pinned to the height of
+   * the screen being replaced and clipped with overflow: hidden, so arriving
+   * at the shop from a one-car garage cut the shop's cards in half -- their
+   * names and notes simply absent -- until the timer released the clamp a
+   * third of a second later. It looked exactly like content loading in late,
+   * which is the worst kind of bug: the explanation that comes to mind is the
+   * wrong one.
+   *
+   * The stage is the height of the frame now whatever is in it, so the
+   * mismatch that caused this cannot arise -- and the check stays, aimed at
+   * the thing that actually matters: everything on the arriving screen is
+   * inside the frame while the slide is running.
    *
    * Checked DURING the slide, with the animations paused, because afterwards
    * everything is correct. The whole failure lived inside those 340ms.
@@ -594,8 +607,8 @@ try {
       if (a) { a.pause(); a.currentTime = a.effect.getTiming().duration / 2; }
     }
     const st = document.querySelector(".stage").getBoundingClientRect();
-    // The last thing on the arriving screen. If the stage is clamped short,
-    // this sits below its bottom edge and is invisible to the player.
+    // The last thing on the arriving screen. If the stage were clamped short,
+    // this would sit below its bottom edge, invisible to the player.
     const cards = [...document.querySelectorAll(".screen.coming .pick-card")];
     const lowest = Math.max(...cards.map((c) => c.getBoundingClientRect().bottom));
     const named = cards.every((c) => {
@@ -607,7 +620,7 @@ try {
     }
     return { fits: lowest <= st.bottom + 1, named, stage: st.height };
   });
-  check("mid-slide, the stage grew for the taller screen", crop.stage > gh, true);
+  check("mid-slide, the stage is still the height of the frame", Math.abs(crop.stage - gh) < 1, true);
   check("the arriving cards are not cut off by the frame", crop.fits, true);
   check("and every one of them still has its name visible", crop.named, true);
   await settled();
@@ -721,15 +734,25 @@ try {
   check("and the money still there", await wallet(), paidWallet);
 
   /*
-   * The two bars: the topbar that follows you down, and the credit pinned to
-   * the bottom of the window.
+   * The frame, and what scrolls inside it.
+   *
+   * The app is exactly the height of the window: the topbar and the credit are
+   * rows of it that cannot move, and the only thing that scrolls is the list
+   * inside the current section. That is the whole arrangement, and each half
+   * of it is checked -- that the document itself CANNOT scroll matters as much
+   * as that the list can, because the bug being prevented is a second
+   * scrollbar running down the outside of the window past two pinned bars.
    *
    * Needs a garage tall enough to scroll, so it seeds its own. A first attempt
    * at this used six cars in an 800px viewport and the page did not overflow
    * at all -- every assertion passed against a page that never moved, which is
-   * the quiet way a sticky test proves nothing.
+   * the quiet way a scrolling test proves nothing.
+   *
+   * The eighth car was "ford-f-100", which is not a car: the id is "ford-f100",
+   * so the garage quietly had seven and the check below counting on a tall page
+   * was doing it with one card less than it thought.
    */
-  console.log("\nthe bars that stay put");
+  console.log("\nthe frame, and the scrolling inside it");
   await page.setViewportSize({ width: 1100, height: 620 });
   await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
     version: 3,
@@ -742,7 +765,7 @@ try {
       { id: "renault-12-tl", km: 214_000, color: "light-blue" },
       { id: "peugeot-504-tn", km: 250_000, color: "blue" },
       { id: "fiat-128-iava", km: 180_000, color: "red" },
-      { id: "ford-f-100", km: 300_000, color: "red" },
+      { id: "ford-f100", km: 300_000, color: "red" },
       { id: "bmw-m5-e60", km: 95_000, color: "white" },
     ],
   });
@@ -750,26 +773,105 @@ try {
   await page.waitForSelector(".car-card");
   await settled();
 
-  const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
-  check("the page is long enough that scrolling means something", room > 100, true);
+  const frame = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const body = document.querySelector(".screen.coming .screen-body");
+    return {
+      docCanScroll: doc.scrollHeight > doc.clientHeight,
+      docHasScrollbar: window.innerWidth - doc.clientWidth > 0,
+      listOverflows: body.scrollHeight - body.clientHeight > 100,
+      appFitsWindow: Math.round(document.querySelector(".app").getBoundingClientRect().height)
+        === window.innerHeight,
+    };
+  });
+  check("the garage is long enough that scrolling means something", frame.listOverflows, true);
+  check("the app is exactly the height of the window", frame.appFitsWindow, true);
+  check("the document itself cannot scroll", frame.docCanScroll, false);
+  check("so the window never draws a scrollbar of its own", frame.docHasScrollbar, false);
 
-  await page.evaluate(() => window.scrollTo(0, 400));
+  // Scrolling the LIST must not move the frame around it.
+  await page.evaluate(() => document.querySelector(".screen.coming .screen-body").scrollTo(0, 400));
   await page.waitForTimeout(150);
   const bars = await page.evaluate(() => {
     const t = document.querySelector(".topbar").getBoundingClientRect();
     const f = document.querySelector(".credit").getBoundingClientRect();
     return {
-      scrolled: Math.round(window.scrollY) > 0,
+      listScrolled: Math.round(document.querySelector(".screen.coming .screen-body").scrollTop) > 0,
+      windowStillZero: Math.round(window.scrollY) === 0,
       topStuck: Math.round(t.top) === 0,
       footPinned: Math.round(f.bottom) === window.innerHeight,
       // Opaque, or the cards passing behind would read straight through it.
       topOpaque: getComputedStyle(document.querySelector(".topbar")).backgroundImage !== "none",
     };
   });
-  check("the page actually scrolled", bars.scrolled, true);
+  check("the list actually scrolled", bars.listScrolled, true);
+  check("and the window did not move with it", bars.windowStillZero, true);
   check("the topbar stays at the top of the window", bars.topStuck, true);
   check("the credit stays at the bottom of it", bars.footPinned, true);
   check("and the topbar is opaque, so nothing reads through it", bars.topOpaque, true);
+
+  /*
+   * The header stays while its own list moves.
+   *
+   * This is the point of the whole arrangement and the thing a page-level
+   * scroll cannot do: on a dealer's forecourt the sort bar is wanted most when
+   * you are deep in the list it sorts, and it used to be the first thing to
+   * leave the screen.
+   */
+  console.log("\nthe header that stays while the list moves");
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await settled();
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: /Don Beto/ }).click();
+  await page.waitForSelector(".shop-item");
+  const pinned = await page.evaluate(() => {
+    const at = () => ({
+      title: Math.round(document.querySelector(".screen-title").getBoundingClientRect().top),
+      bar: Math.round(document.querySelector(".shopbar").getBoundingClientRect().top),
+      back: Math.round(document.querySelector(".head-back").getBoundingClientRect().top),
+      card: Math.round(document.querySelector(".shop-item").getBoundingClientRect().top),
+    });
+    const body = document.querySelector(".screen.coming .screen-body");
+    const before = at();
+    body.scrollTo(0, 500);
+    const after = at();
+    return {
+      moved: Math.round(body.scrollTop) > 0,
+      titleHeld: before.title === after.title,
+      barHeld: before.bar === after.bar,
+      backHeld: before.back === after.back,
+      cardsMoved: before.card !== after.card,
+    };
+  });
+  check("the list scrolled", pinned.moved, true);
+  check("the title did not move with it", pinned.titleHeld, true);
+  check("nor did the sort bar", pinned.barHeld, true);
+  check("nor the way back up", pinned.backHeld, true);
+  check("but the cars did", pinned.cardsMoved, true);
+
+  /*
+   * The way back up is IN the title line now, not a breadcrumb floating on a
+   * row above it -- and being two very different type sizes, they only read as
+   * one line if their boxes are centred on each other. Measured, because
+   * "looks aligned" is the entire reason this changed.
+   */
+  const aligned = await page.evaluate(() => {
+    const mid = (s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      return r.top + r.height / 2;
+    };
+    return Math.abs(mid(".head-back") - mid(".screen-title"));
+  });
+  check("the back button is centred against the title, not hanging below it", aligned <= 1, true);
+
+  // A screen with nothing below the fold must not draw a scroll box.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await settled();
+  check(
+    "the shop's front door has no scroll box, having nothing to scroll",
+    await page.locator(".screen.coming .screen-body.still").count(),
+    1,
+  );
 
   check(
     "the credit says who made it, and links out",
@@ -782,13 +884,37 @@ try {
     "https://www.tikitikistudios.online/es _blank noreferrer",
   );
 
-  // Changing section from halfway down must land at the top of the new one,
-  // not keep the old scroll -- with a sticky topbar there is no header left in
-  // view to tell you that is what happened.
-  await page.evaluate(() => window.scrollTo(0, 400));
+  /*
+   * Changing section from halfway down a list must land at the top of the new
+   * one, not keep the old offset. Nothing scrolls back into view to tell you
+   * otherwise now: the topbar and the section title both stay put, so arriving
+   * mid-list looks like a section that simply starts in the middle.
+   *
+   * Each section owns its own scroll box, so this asks the arriving one where
+   * it is rather than asking the window.
+   */
+  await garage();
+  await settled();
+  await page.evaluate(() => document.querySelector(".screen.coming .screen-body").scrollTo(0, 400));
+  await page.waitForTimeout(100);
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
   await settled();
-  check("arriving at a section puts you at the top of it", await page.evaluate(() => window.scrollY), 0);
+  check(
+    "arriving at a section puts you at the top of it",
+    await page.evaluate(() => {
+      const b = document.querySelector(".screen.coming .screen-body");
+      return b ? Math.round(b.scrollTop) : 0;
+    }),
+    0,
+  );
+  // And the section you left is back at its own top when you return to it.
+  await garage();
+  await settled();
+  check(
+    "and going back does not restore the old offset either",
+    await page.evaluate(() => Math.round(document.querySelector(".screen.coming .screen-body").scrollTop)),
+    0,
+  );
   await page.setViewportSize({ width: 1280, height: 900 });
 
   check("nothing 404ed and nothing threw", noise.join(", "), "");
