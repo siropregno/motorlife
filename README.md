@@ -14,6 +14,55 @@ pnpm test       # gate tests, ~2s
 pnpm build
 ```
 
+## Deploying
+
+A static site: `pnpm build` writes `dist/`, and any host that serves a folder
+can serve it. There is no server, no API and no database — the save lives in
+the player's own `localStorage`, which is also why there are no accounts yet.
+
+Vercel needs no configuration in its dashboard. `vercel.json` sets the build
+command, the output directory and two cache rules, and the framework preset
+does the rest. The two rules differ on purpose:
+
+- `/assets/*` is `immutable` for a year. Vite content-hashes those filenames,
+  so a change is a new name and a stale copy is impossible.
+- Photos and glyphs get a day plus a week of `stale-while-revalidate`, NOT
+  `immutable`. Their names are stable (`bmw-m3-e30-red.webp`), so re-rendering
+  a car reuses the name; a year of `immutable` would leave players looking at
+  the old photo with no way to bust it short of renaming every file.
+
+There is deliberately no SPA catch-all rewrite. Screens are React state and the
+URL never changes, so a rewrite would only turn a genuinely missing asset into
+a 200 with HTML in it.
+
+`packageManager` is pinned in package.json. Only `pnpm-lock.yaml` is committed,
+so the host picks pnpm on its own, but pinning the version is what stops a
+"works locally" build from breaking on a different pnpm major.
+
+Before pushing a deploy, this is the sequence that has actually caught things:
+
+```
+pnpm install --frozen-lockfile   # what the host runs; fails if the lock drifted
+pnpm build
+pnpm exec vite preview --port 5200
+node tools/flows.mjs 5200        # the flows against the BUILT site, not dev
+```
+
+## Photos
+
+Car photos are WebP at about q82, 1376x768. `npx tsx tools/photos.ts` is the
+checker and it fails anything over 400KB; `node tools/shrink.mjs <files>` is
+the converter that fixes them.
+
+They were PNG once, at roughly 1.5MB each, which is what a lossless format does
+with a photograph — `public/` was 58MB and every car cost a second and a half
+on a phone. The same frames as WebP are about 40KB and the difference is not
+visible in a 205px card strip or a 448px hero. The whole deploy is now 2.4MB.
+
+The extension lives in one place, `PHOTO_EXT` in `services/progression/paint.ts`,
+because `imageFor` builds the filenames and `tools/photos.ts` checks them — two
+copies of "png" would let the checker pass a set of photos the app cannot load.
+
 ## Layout
 
 ```

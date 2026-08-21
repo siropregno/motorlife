@@ -10,7 +10,7 @@ import { hashSeed, mulberry32 } from "@sim/rng";
  * same red Fiat every render and the one you buy stays the colour you bought.
  *
  * The photo is DERIVED from the pair rather than stored per colour in the
- * catalogue: `/bmw-m3-e30-yellow.png`. That is the whole reason the files were
+ * catalogue: `/bmw-m3-e30-yellow.webp`. That is the whole reason the files were
  * renamed to match car ids -- an id plus a colour has to be enough to name the
  * file, or every new colour means another line of catalogue to forget.
  */
@@ -93,11 +93,27 @@ export function photoStem(spec: CarSpec): string {
 }
 
 /**
+ * The extension every colour photo carries.
+ *
+ * WebP, and named once rather than written into the template below, because
+ * tools/photos.ts builds the same filenames to check them and the two have to
+ * agree -- a checker looking at .png files while the app asks for .webp would
+ * pass a set of photos that never load.
+ *
+ * The renders arrive as PNG at about 1.5MB each, which is what a lossless
+ * format does with a photograph. At q82 the same frame is around 40KB and the
+ * difference is not visible in a 205px card strip or a 448px hero. That is 58MB
+ * of public/ down to under 3MB, which is the difference between a car photo
+ * being instant and being a progress bar on a phone.
+ */
+export const PHOTO_EXT = "webp";
+
+/**
  * The photo for this exact car. Falls back to the car's single `image` when it
  * has no colours, and to `image` again if a colour somehow has no file -- a
  * missing photo should be a car without a picture, never a broken one.
  */
 export function imageFor(spec: CarSpec, color?: string): string | undefined {
-  if (color && colorsOf(spec).includes(color)) return `/${photoStem(spec)}-${color}.png`;
+  if (color && colorsOf(spec).includes(color)) return `/${photoStem(spec)}-${color}.${PHOTO_EXT}`;
   return spec.image;
 }

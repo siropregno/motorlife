@@ -64,7 +64,7 @@ export interface CarSpec {
   image?: string;
   /**
    * Paint options, as filename slugs. The photo for each is
-   * `/<photo|id>-<color>.png`, so adding a colour is a file plus a word here.
+   * `/<photo|id>-<color>.webp`, so adding a colour is a file plus a word here.
    */
   colors?: string[];
   /**

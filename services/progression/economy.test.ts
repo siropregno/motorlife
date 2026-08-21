@@ -18,7 +18,7 @@ import {
 } from "./economy";
 import type { Save } from "./save";
 import { ownedIds, colorOwned, colorOfHeld } from "./save";
-import { colorsOf, imageFor } from "./paint";
+import { colorsOf, imageFor, PHOTO_EXT } from "./paint";
 import { priceWithKm } from "./mileage";
 import {
   loadSave,
@@ -190,7 +190,7 @@ describe("save", () => {
       expect(colorsOf(car), `${car.id} got a colour it does not come in`).toContain(color);
       // the point of all of it: the card shows a photo instead of a hole
       expect(imageFor(car, color), `${car.id} still has no photo`).toBe(
-        `/${car.photo ?? car.id}-${color}.png`,
+        `/${car.photo ?? car.id}-${color}.${PHOTO_EXT}`,
       );
       expect(colorOfHeld(save.owned[0]!)).toBe(color);
     }

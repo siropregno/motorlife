@@ -134,13 +134,13 @@ try {
 
   const walletBefore = await wallet();
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
-  check("the photo previews the colour", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
+  check("the photo previews the colour", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.webp");
   check("previewing is free", await wallet(), walletBefore);
   check("the price is the label and nothing else", await pay.innerText(), "5.700 CR");
 
   // Picking the colour it already is: allowed, but there is nothing to buy.
   await page.locator('.paint-dot[aria-label="Negro, el color actual"]').click();
-  check("the current colour is selectable", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-black.png");
+  check("the current colour is selectable", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-black.webp");
   check("and cannot be paid for", await pay.evaluate((e) => e.disabled), true);
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
   check("picking a real change arms the price again", await pay.evaluate((e) => e.disabled), false);
@@ -148,14 +148,14 @@ try {
   await pay.click();
   await page.waitForSelector("dialog.paint-modal", { state: "detached" });
   check("paying charges exactly that", await wallet(), "114.300CR");
-  check("the sheet behind it kept the new colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
+  check("the sheet behind it kept the new colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.webp");
   await page.locator(".modal-x").click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
-  check("so does the card behind it", await photo("M3 E30"), "/bmw-m3-e30-yellow.png");
+  check("so does the card behind it", await photo("M3 E30"), "/bmw-m3-e30-yellow.webp");
 
   await page.reload({ waitUntil: "networkidle" });
   await garage();
-  check("and it survives a reload, so it reached the save", await photo("M3 E30"), "/bmw-m3-e30-yellow.png");
+  check("and it survives a reload, so it reached the save", await photo("M3 E30"), "/bmw-m3-e30-yellow.webp");
 
   console.log("\nwhat the sheet refuses");
   await card("Chevy 250").click();

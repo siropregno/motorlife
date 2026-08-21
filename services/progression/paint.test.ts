@@ -87,16 +87,16 @@ describe("the colour of a listing", () => {
 
 describe("the photo for a car", () => {
   it("is derived from the stem and the colour", () => {
-    expect(imageFor(m3, "yellow")).toBe("/bmw-m3-e30-yellow.png");
+    expect(imageFor(m3, "yellow")).toBe("/bmw-m3-e30-yellow.webp");
     // stem != id: the renders came named after the car, not the id
     expect(photoStem(carById("renault-fuego-gta")!)).toBe("renault-fuego-gta-max");
     expect(imageFor(carById("renault-fuego-gta")!, "dark-blue")).toBe(
-      "/renault-fuego-gta-max-dark-blue.png",
+      "/renault-fuego-gta-max-dark-blue.webp",
     );
-    expect(imageFor(carById("ford-taunus-gt")!, "red")).toBe("/ford-taunus-2300gt-red.png");
+    expect(imageFor(carById("ford-taunus-gt")!, "red")).toBe("/ford-taunus-2300gt-red.webp");
     expect(photoStem(m3)).toBe(m3.id);
     expect(imageFor(carById("renault-12-tl")!, "light-blue")).toBe(
-      "/renault-12-tl-light-blue.png",
+      "/renault-12-tl-light-blue.webp",
     );
   });
 

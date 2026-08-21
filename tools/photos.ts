@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { CARS } from "@catalog/cars";
-import { photoStem } from "@progression/paint";
+import { PHOTO_EXT, photoStem } from "@progression/paint";
 
 /**
  * Checks every car photo against the house standard. Run it before dropping a
@@ -34,7 +34,7 @@ import { photoStem } from "@progression/paint";
  * strip (410x236) several times over.
  *
  * COLOURS. A car with `colors` has one file per colour, named
- * `<stem>-<colour>.png`, where the stem is the car id unless the car declares
+ * `<stem>-<colour>.webp`, where the stem is the car id unless the car declares
  * a `photo` -- the renders arrive named after the car as it is spoken about,
  * not after the id. This walks those too; they are the photos that actually
  * reach the screen.
@@ -117,7 +117,7 @@ console.log("owner                     file                            size     
  */
 const photos: { owner: string; path: string }[] = CARS.flatMap((car) =>
   (car.colors?.length
-    ? car.colors.map((c) => `/${photoStem(car)}-${c}.png`)
+    ? car.colors.map((c) => `/${photoStem(car)}-${c}.${PHOTO_EXT}`)
     : car.image
       ? [car.image]
       : []
