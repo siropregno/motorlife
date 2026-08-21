@@ -9,14 +9,20 @@
 
 import { carById } from "@catalog/cars";
 import { kmFor } from "./mileage";
+import { colorFor } from "./paint";
 
 export const SAVE_KEY = "motorlife.save";
-export const SAVE_VERSION = 2 as const;
+export const SAVE_VERSION = 3 as const;
 
-/** The odometer a v1 car arrives with: an ordinary one for its year. */
+/** What an already-owned car arrives with when a field is added under it. */
 function kmForOwned(id: string): number {
   const spec = carById(id);
   return spec ? kmFor(spec, "garage") : 0;
+}
+
+function colorForOwned(id: string): string | undefined {
+  const spec = carById(id);
+  return spec ? colorFor(spec, "garage") : undefined;
 }
 
 /**
@@ -31,6 +37,8 @@ function kmForOwned(id: string): number {
 export interface OwnedCar {
   id: string;
   km: number;
+  /** Absent for a car that only comes in one colour. */
+  color?: string;
 }
 
 export interface Save {
@@ -44,7 +52,7 @@ export interface Save {
 export const STARTING_SAVE: Save = {
   version: SAVE_VERSION,
   credits: 6_000,
-  owned: [{ id: "renault-12-tl", km: 214_000 }],
+  owned: [{ id: "renault-12-tl", km: 214_000, color: "light-blue" }],
   racesRun: 0,
 };
 
@@ -53,6 +61,8 @@ export const ownsCar = (save: Save, id: string): boolean =>
   save.owned.some((o) => o.id === id);
 export const kmOwned = (save: Save, id: string): number | undefined =>
   save.owned.find((o) => o.id === id)?.km;
+export const colorOwned = (save: Save, id: string): string | undefined =>
+  save.owned.find((o) => o.id === id)?.color;
 
 function isSave(v: unknown): v is Save {
   if (typeof v !== "object" || v === null) return false;
@@ -69,16 +79,29 @@ function isSave(v: unknown): v is Save {
 }
 
 /**
- * v1 -> v2. Carries the garage across rather than wiping it: an existing save
- * has real credits and real cars in it, and "start again" is a bad answer to
- * a field being added. The cars arrive with an honest odometer for their year
- * -- there is no record of what they had, and pretending they were all shed
- * finds would hand every old save a windfall on the first sale.
+ * Older shapes, and the way up from each.
+ *
+ * An existing save has real credits and real cars in it, so "start again" is
+ * a bad answer to a field being added. Every version knows how to become the
+ * current one, and the chain runs oldest to newest -- add a v4 and v1 still
+ * arrives, because v1 becomes v2 becomes v3 becomes v4 rather than each
+ * version needing a route from every other.
+ *
+ * What a migrated car gets is deliberately ORDINARY. There is no record of
+ * what these cars had on the clock, and handing them all a shed-find odometer
+ * would be a windfall on the first sale.
  */
 interface SaveV1 {
   version: 1;
   credits: number;
   owned: string[];
+  racesRun: number;
+}
+
+interface SaveV2 {
+  version: 2;
+  credits: number;
+  owned: { id: string; km: number }[];
   racesRun: number;
 }
 
@@ -94,13 +117,42 @@ function isSaveV1(v: unknown): v is SaveV1 {
   );
 }
 
-export function migrate(v1: SaveV1, kmOf: (id: string) => number): Save {
-  return {
-    version: SAVE_VERSION,
-    credits: v1.credits,
-    racesRun: v1.racesRun,
-    owned: v1.owned.map((id) => ({ id, km: kmOf(id) })),
-  };
+function isSaveV2(v: unknown): v is SaveV2 {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SaveV2>;
+  return (
+    s.version === 2 &&
+    typeof s.credits === "number" &&
+    Array.isArray(s.owned) &&
+    s.owned.every(
+      (x) => typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.km === "number",
+    ) &&
+    typeof s.racesRun === "number"
+  );
+}
+
+const v1ToV2 = (s: SaveV1): SaveV2 => ({
+  version: 2,
+  credits: s.credits,
+  racesRun: s.racesRun,
+  owned: s.owned.map((id) => ({ id, km: kmForOwned(id) })),
+});
+
+const v2ToV3 = (s: SaveV2): Save => ({
+  version: SAVE_VERSION,
+  credits: s.credits,
+  racesRun: s.racesRun,
+  owned: s.owned.map((o) => {
+    const color = colorForOwned(o.id);
+    return color === undefined ? { id: o.id, km: o.km } : { id: o.id, km: o.km, color };
+  }),
+});
+
+/** Any shape we have ever written, brought to the current one. */
+export function migrate(old: unknown): Save | null {
+  if (isSaveV1(old)) return v2ToV3(v1ToV2(old));
+  if (isSaveV2(old)) return v2ToV3(old);
+  return null;
 }
 
 export function loadSave(): Save {
@@ -110,7 +162,8 @@ export function loadSave(): Save {
     if (!raw) return { ...STARTING_SAVE };
     const parsed: unknown = JSON.parse(raw);
     if (isSave(parsed)) return parsed;
-    if (isSaveV1(parsed)) return migrate(parsed, kmForOwned);
+    const up = migrate(parsed);
+    if (up) return up;
     // unknown or future shape: start fresh rather than half-reading it
     return { ...STARTING_SAVE };
   } catch {

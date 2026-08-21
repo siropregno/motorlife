@@ -38,14 +38,48 @@ const inPublic = (p: string) => files.has(p.replace(/^\//, ""));
 const slug = (make: string) => make.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 describe("catalogue assets", () => {
+  /** Every path a car names, including one per colour. */
+  const pathsOf = (c: (typeof CARS)[number]): string[] => [
+    ...(c.logo ? [c.logo] : []),
+    ...(c.colors?.length ? c.colors.map((k) => `/${c.id}-${k}.png`) : c.image ? [c.image] : []),
+  ];
+
   it("points every logo and photo at a file that exists", () => {
     const missing = CARS.flatMap((c) =>
-      [c.logo, c.image]
-        .filter((p): p is string => typeof p === "string")
+      pathsOf(c)
         .filter((p) => !inPublic(p))
         .map((p) => `${c.id} -> ${p}`),
     );
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * A coloured car derives its photo from id + colour, so the two must not
+   * disagree. This is the test that catches a colour added to the catalogue
+   * without the file, or a file dropped in under the wrong name.
+   */
+  it("has a file for every colour, and a colour for every file", () => {
+    const coloured = CARS.filter((c) => c.colors?.length);
+    expect(coloured.length).toBeGreaterThan(0);
+    for (const c of coloured) {
+      expect(c.image, `${c.id} has colours AND a single image`).toBeUndefined();
+      for (const k of c.colors!) {
+        expect(inPublic(`/${c.id}-${k}.png`), `${c.id} is missing ${k}`).toBe(true);
+      }
+    }
+    // The other direction: a paint file in public/ that the catalogue never
+    // lists renders for nobody. Judged on the SUFFIX being a colour word --
+    // bmw-m3-e30-87.png is an old base render, not a colour called "87", and
+    // flagging it would be crying wolf.
+    const declared = new Set(coloured.flatMap((c) => c.colors!.map((k) => `${c.id}-${k}.png`)));
+    const known = new Set(coloured.flatMap((c) => c.colors!));
+    const orphans = [...files].filter((f) => {
+      const owner = coloured.find((c) => f.startsWith(`${c.id}-`));
+      if (!owner) return false;
+      const suffix = f.slice(owner.id.length + 1).replace(/\.png$/, "");
+      return known.has(suffix) && !declared.has(f);
+    });
+    expect(orphans).toEqual([]);
   });
 
   it("keeps every asset path lowercase", () => {

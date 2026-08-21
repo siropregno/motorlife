@@ -3,8 +3,9 @@ import type { Build } from "@contracts/race";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
-import { loadSave, writeSave, kmOwned, ownsCar, type Save } from "@progression/save";
+import { loadSave, writeSave, colorOwned, kmOwned, ownsCar, type Save } from "@progression/save";
 import { buyCar, formatCredits, payoutFor, sellCar } from "@progression/economy";
+import { imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
@@ -68,8 +69,8 @@ export default function App() {
    * functions return the save unchanged when the move is illegal -- comparing
    * by identity out here is what lets a refused click stay silent.
    */
-  const buy = (id: string, price: number, km: number) => {
-    const next = buyCar(save, id, price, km);
+  const buy = (id: string, price: number, km: number, color?: string) => {
+    const next = buyCar(save, id, price, km, color);
     if (next === save) return;
     setSave(next);
     const name = nameOf(id);
@@ -167,6 +168,7 @@ export default function App() {
         <SetupScreen
           carId={carId}
           km={kmOwned(save, carId) ?? 0}
+          image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
           build={build}
           onBuild={setBuild}
           track={track}

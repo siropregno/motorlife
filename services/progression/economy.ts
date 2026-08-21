@@ -73,16 +73,19 @@ export function sellValueFor(spec: CarSpec, km: number): number {
  * return the save UNCHANGED when the move is illegal rather than throwing:
  * the caller is a click handler, and a rejected click should do nothing.
  */
-export function buyCar(save: Save, carId: string, price: number, km: number): Save {
+export function buyCar(
+  save: Save,
+  carId: string,
+  price: number,
+  km: number,
+  color?: string,
+): Save {
   if (ownsCar(save, carId)) return save;
   if (!carById(carId)) return save;
   if (save.credits < price) return save;
   // the odometer travels with the car; see sellValueFor for why it must
-  return {
-    ...save,
-    credits: save.credits - price,
-    owned: [...save.owned, { id: carId, km }],
-  };
+  const held = color === undefined ? { id: carId, km } : { id: carId, km, color };
+  return { ...save, credits: save.credits - price, owned: [...save.owned, held] };
 }
 
 export function sellCar(save: Save, carId: string): Save {

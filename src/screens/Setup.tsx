@@ -11,6 +11,8 @@ interface Props {
   carId: string;
   /** The odometer of the car you are in, straight off the save. */
   km: number;
+  /** Its photo, in the colour you own it in. */
+  image?: string | undefined;
   build: Build;
   onBuild: (b: Build) => void;
   track: TrackSpec;
@@ -41,7 +43,7 @@ const COMPOUND_LABEL: Record<Compound, string> = {
   hard: "Duro",
 };
 
-export function SetupScreen({ carId, km, build, onBuild, track, onTrack, onRace }: Props) {
+export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, onRace }: Props) {
   const spec = carById(carId);
   const car = useMemo(() => (spec ? derive(spec) : null), [spec]);
 
@@ -98,7 +100,7 @@ export function SetupScreen({ carId, km, build, onBuild, track, onTrack, onRace 
 
       <div className="setup-grid">
         <div style={{ display: "grid", gap: 20 }}>
-          <CarCard spec={spec} km={km} />
+          <CarCard spec={spec} km={km} image={image} />
 
           <div className="panel">
             <h3>Comportamiento</h3>

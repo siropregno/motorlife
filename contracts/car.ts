@@ -57,7 +57,16 @@ export interface CarSpec {
   rarity: Rarity;
   /** Free-text class shown on the card, e.g. "Super Sedan". */
   blurb: string;
+  /**
+   * The single photo, for a car that comes in one colour only. A car with
+   * `colors` derives its photo per colour instead and ignores this.
+   */
   image?: string;
+  /**
+   * Paint options, as filename slugs. The photo for each is
+   * `/<id>-<color>.png`, so adding a colour is a file plus a word here.
+   */
+  colors?: string[];
   logo?: string;
 }
 

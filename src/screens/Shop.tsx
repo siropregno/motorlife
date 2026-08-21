@@ -12,7 +12,7 @@ import { Listing } from "../components/Listing";
 
 interface Props {
   save: Save;
-  onBuy: (carId: string, price: number, km: number) => void;
+  onBuy: (carId: string, price: number, km: number, color?: string) => void;
 }
 
 type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };

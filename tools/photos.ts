@@ -8,37 +8,51 @@ import { CARS } from "@catalog/cars";
  *
  *     npx tsx tools/photos.ts
  *
- * The standard, and where each number comes from -- all measured off the real
- * DOM, not read off the CSS:
+ * 1376x768 -- 16:9 -- Siro's call, matching the colour renders.
  *
- *   RATIO 1.90. A photo is drawn into exactly two boxes. The card strip is a
- *   fixed 235x118 (ratio 1.958) and the modal hero is 448x236 (1.898) at any
- *   viewport wide enough to keep the spec sheet in two columns. Both use
- *   object-fit: cover, and cover crops whichever axis is in excess. Keeping the
- *   source NARROWER than both boxes is the whole point: then the excess is
- *   always height, so the crop eats sky and tarmac instead of the front and
- *   rear of the car. A 2:1 photo is wider than both boxes and gets its bumpers
- *   trimmed instead.
+ * A photo is drawn into exactly two boxes, both object-fit: cover, both
+ * measured off the real DOM rather than read off the CSS:
  *
- *   SIZE 1140x600. The hero is the binding box and it is widest, 542x236, at a
- *   620px viewport -- the moment the grid collapses to one column. At 2x that
- *   is 1084x472, so 1140x600 covers every box on a retina screen with a little
- *   left over. Below 480px viewport the hero gets narrow enough to crop sides
- *   again; that is a phone looking at a 470px-wide card layout and not worth
- *   sizing for.
+ *     card strip           205x118   ratio 1.737   fixed, never changes
+ *     modal hero           448x252   ratio 1.778   any viewport wide enough
+ *                                                  to keep two columns
+ *     modal hero, widest   542x252   ratio 2.151   at a 620px viewport, the
+ *                                                  moment the grid collapses
  *
- *   FORMAT the extension has to match the actual bytes. This is not
- *   pedantry: four of the first six photos were JPEG or WebP named .png,
- *   which works only because browsers sniff the content type. The two that
- *   really were PNG were also the two worst offenders on size, because PNG is
- *   lossless and a photograph is the one thing it is bad at.
+ * 16:9 fits both far better than the 3:2 it replaced. The card strip is
+ * already 1.737, so a 16:9 source loses 2.3% off the WIDTH instead of the
+ * 24.7% of height 3:2 was costing -- the headroom rule that used to matter
+ * here is gone, and the card shows very nearly the frame you cropped.
+ *
+ * The hero had to move with it: at 300 tall it was 1.493, and cover took 16%
+ * off the width of a 16:9 photo -- the nose and the tail, which is the one
+ * crop a car photo cannot afford. 252 is 448 / (16/9), so it now shows the
+ * whole frame.
+ *
+ * On resolution, 1376x768 clears the widest hero at 2x (1084x504) and the card
+ * strip (410x236) several times over.
+ *
+ * COLOURS. A car with `colors` has one file per colour, named
+ * `<car-id>-<colour>.png`, and no `image` at all. This walks those too --
+ * they are the photos that actually reach the screen.
+ *
+ * Never upscale to hit the number. Enlarging a small source adds no detail,
+ * just bytes and a softer image. If a source is too small, get a better one.
+ *
+ * FORMAT: the extension has to match the actual bytes. Not pedantry -- four
+ * of the first six photos were JPEG or WebP named .png, which works only
+ * because browsers sniff content type. The two that really were PNG were also
+ * the two worst on bytes-per-pixel, because PNG is lossless and a photograph
+ * is the one thing it is bad at. WebP at about q82, or JPEG if the tool to
+ * hand cannot write WebP.
  */
 
-const MIN_W = 1140;
-const MIN_H = 600;
-const RATIO_LO = 1.8;
-const RATIO_HI = 1.95;
-/** Anything past this for a ~1140x600 photo means it was saved as PNG. */
+const WIDTH = 1376;
+const HEIGHT = 768;
+/** A rounding of 16:9 either way, not a licence to drift. */
+const RATIO_LO = 1.77;
+const RATIO_HI = 1.80;
+/** Anything past this at 1376x768 means it was saved as PNG. */
 const MAX_KB = 400;
 
 const publicDir = fileURLToPath(new URL("../public/", import.meta.url));
@@ -87,24 +101,41 @@ function probe(buf: Buffer): Probe | null {
 
 const EXT_ALIASES: Record<string, string> = { jpeg: "jpg" };
 
-console.log(`standard: at least ${MIN_W}x${MIN_H}, ratio ${RATIO_LO}-${RATIO_HI}, extension matches the bytes\n`);
-console.log("car                       file                        size        ratio  fmt   on disk  verdict");
+console.log(
+  `standard: ${WIDTH}x${HEIGHT} (16:9), extension matches the bytes, under ${MAX_KB}KB.\n` +
+    `the hero shows the whole frame; the card strip trims 2% off the width.\n`,
+);
+console.log("car                       file                            size        ratio  fmt   on disk  verdict");
+
+/**
+ * Every photo that can reach a screen. A car with `colors` has one file per
+ * colour and no `image` at all, and those are the ones players actually see --
+ * walking `image` alone checked the files nothing renders.
+ */
+const photos = CARS.flatMap((car) =>
+  (car.colors?.length
+    ? car.colors.map((c) => `/${car.id}-${c}.png`)
+    : car.image
+      ? [car.image]
+      : []
+  ).map((path) => ({ car, path })),
+);
 
 let bad = 0;
-for (const car of CARS) {
-  if (!car.image) continue;
-  const name = car.image.replace(/^\//, "");
+let soft = 0;
+for (const { car, path } of photos) {
+  const name = path.replace(/^\//, "");
   let buf: Buffer;
   try {
     buf = readFileSync(new URL(name, `file://${publicDir.replaceAll("\\", "/")}`));
   } catch {
-    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(27)} MISSING`);
+    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} MISSING`);
     bad++;
     continue;
   }
   const p = probe(buf);
   if (!p) {
-    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(27)} UNRECOGNISED FORMAT`);
+    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} UNRECOGNISED FORMAT`);
     bad++;
     continue;
   }
@@ -113,18 +144,34 @@ for (const car of CARS) {
   const ratio = p.w / p.h;
 
   const faults: string[] = [];
-  if (p.w < MIN_W || p.h < MIN_H) faults.push(`under ${MIN_W}x${MIN_H}`);
-  if (ratio < RATIO_LO || ratio > RATIO_HI) faults.push(`ratio ${ratio.toFixed(2)}`);
+  const notes: string[] = [];
+  if (p.w !== WIDTH || p.h !== HEIGHT) {
+    // Right shape, wrong scale is a resize. Wrong shape is a re-crop, and if
+    // the source cannot reach the standard after that crop it needs replacing.
+    const reachable = Math.min(p.w, Math.round(p.h * (WIDTH / HEIGHT))) >= WIDTH;
+    faults.push(
+      reachable ? `resize to ${WIDTH}x${HEIGHT}` : `too small, crops to at most ${Math.min(p.w, Math.round(p.h * (WIDTH / HEIGHT)))}px wide`,
+    );
+  }
+  if (ratio < RATIO_LO || ratio > RATIO_HI) faults.push(`ratio ${ratio.toFixed(2)}, not 16:9`);
   if (ext !== p.format) faults.push(`${p.format} named .${ext}`);
   if (kb > MAX_KB) faults.push(`${kb.toFixed(0)}KB`);
   if (faults.length) bad++;
+  else if (notes.length) soft++;
 
+  const verdict = faults.length
+    ? "FAIL  " + faults.join(", ")
+    : notes.length
+      ? "note  " + notes.join(", ")
+      : "ok";
   console.log(
-    `  ${(car.id + " ").padEnd(24)} ${name.padEnd(27)} ${`${p.w}x${p.h}`.padEnd(11)} ${ratio.toFixed(3)}  ${p.format.padEnd(5)} .${ext.padEnd(7)} ${
-      faults.length ? "FAIL  " + faults.join(", ") : "ok"
-    }`,
+    `  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} ${`${p.w}x${p.h}`.padEnd(11)} ${ratio.toFixed(3)}  ${p.format.padEnd(5)} .${ext.padEnd(7)} ${verdict}`,
   );
 }
 
-const shot = CARS.filter((c) => c.image).length;
-console.log(`\n${shot} of ${CARS.length} cars have a photo; ${bad} need work.`);
+const shot = CARS.filter((c) => c.image || c.colors?.length).length;
+console.log(
+  `\n${photos.length} photos across ${shot} of ${CARS.length} cars; ${bad} need work` +
+    (soft ? `, ${soft} would be sharper with more pixels` : "") +
+    ".",
+);

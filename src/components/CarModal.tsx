@@ -3,11 +3,14 @@ import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { formatCredits } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
+import { colorName } from "@progression/paint";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
   km: number;
+  color?: string | undefined;
+  image?: string | undefined;
   price: number;
   credits: number;
   owned: boolean;
@@ -58,7 +61,7 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, km, price, credits, owned, onBuy, onClose }: Props) {
+export function CarModal({ spec, km, color, image = spec.image, price, credits, owned, onBuy, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
@@ -94,6 +97,7 @@ export function CarModal({ spec, km, price, credits, owned, onBuy, onClose }: Pr
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
+            {color ? <Row k="Color" v={colorName(color)} /> : null}
           </div>
         </aside>
 
@@ -118,8 +122,8 @@ export function CarModal({ spec, km, price, credits, owned, onBuy, onClose }: Pr
           </header>
 
           <div className="modal-hero">
-            {spec.image ? (
-              <img src={spec.image} alt={`${spec.make} ${spec.model}`} />
+            {image ? (
+              <img src={image} alt={`${spec.make} ${spec.model}`} />
             ) : (
               <span className="modal-nophoto">sin foto</span>
             )}

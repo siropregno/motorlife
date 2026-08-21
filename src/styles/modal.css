@@ -171,8 +171,12 @@
   /* A FIXED frame, identical for every car. Not flex-to-fill and not an
      aspect ratio: the box must not change size because one car has a longer
      spec list or a narrower column. A car with no photo gets the same frame
-     with a placeholder in it, so the layout never moves between cars. */
-  height: 300px;
+     with a placeholder in it, so the layout never moves between cars.
+
+     252 is 448 / (16/9). At 300 the box was 1.49 against a 16:9 photo and
+     cover took 16% off the WIDTH -- the nose and the tail of the car -- which
+     is the one crop a car photo cannot afford. */
+  height: 252px;
   flex: none;
 }
 .modal-hero img {

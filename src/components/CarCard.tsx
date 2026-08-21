@@ -11,6 +11,8 @@ interface Props {
    * Absent on the Setup screen, where the card is just "the car you drive".
    */
   km?: number;
+  /** Overrides spec.image: the photo of THIS car, in its colour. */
+  image?: string | undefined;
   /** Opens the spec sheet. A card does nothing else on click. */
   onOpen?: (id: string) => void;
   onContextMenu?: (e: MouseEvent, id: string) => void;
@@ -31,7 +33,7 @@ interface Props {
  * from the right-click menu now, and the topbar says which one you are in.
  * Opening a read-only sheet is the one thing a click can safely mean.
  */
-export function CarCard({ spec, km, onOpen, onContextMenu }: Props) {
+export function CarCard({ spec, km, image = spec.image, onOpen, onContextMenu }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
@@ -63,7 +65,7 @@ export function CarCard({ spec, km, onOpen, onContextMenu }: Props) {
       </span>
 
       <span className="card-car">
-        {spec.image ? <img src={spec.image} alt={`${spec.make} ${spec.model}`} /> : null}
+        {image ? <img src={image} alt={`${spec.make} ${spec.model}`} /> : null}
       </span>
     </>
   );

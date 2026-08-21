@@ -45,7 +45,7 @@ export const CARS: CarSpec[] = [
     nm: 94,
     rarity: "common",
     blurb: "Compacto",
-    image: "/renault-12.png",
+    colors: ["light-blue", "silver"],
     logo: "/renault-logo.png",
   },
   {
@@ -133,6 +133,7 @@ export const CARS: CarSpec[] = [
     nm: 100,
     rarity: "uncommon",
     blurb: "Compacto deportivo",
+    colors: ["blue", "orange", "red"],
     logo: "/fiat-a-logo.png",
   },
   {
@@ -345,6 +346,7 @@ export const CARS: CarSpec[] = [
     nm: 230,
     rarity: "epic",
     blurb: "Coupé de carrera",
+    colors: ["black", "red", "white", "yellow"],
     logo: "/bmw-logo.png",
   },
   {
@@ -392,6 +394,7 @@ export const CARS: CarSpec[] = [
     rarity: "legendary",
     blurb: "Superdeportivo",
     logo: "/honda-logo.png",
+    colors: ["black", "red", "white"],
   },
   {
     id: "subaru-impreza-22b",
@@ -423,6 +426,7 @@ export const CARS: CarSpec[] = [
     rarity: "apex",
     blurb: "Superdeportivo",
     logo: "/ferrari-logo.png",
+    image: "/ferrari-f40.png",
   },
   /*
    * Both phases of the 607 V6, at Siro's call: he wants the variety even

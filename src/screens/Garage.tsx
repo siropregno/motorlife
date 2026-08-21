@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { CARS, carById } from "@catalog/cars";
 import type { OwnedCar } from "@progression/save";
+import { imageFor } from "@progression/paint";
 
 import { formatCredits, sellValueFor } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
@@ -24,7 +25,7 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
   const cars = useMemo(
     () => owned.flatMap((o) => {
       const spec = CARS.find((c) => c.id === o.id);
-      return spec ? [{ spec, km: o.km }] : [];
+      return spec ? [{ spec, km: o.km, image: imageFor(spec, o.color) }] : [];
     }),
     [owned],
   );
@@ -67,11 +68,12 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
       </p>
 
       <div className="card-grid">
-        {cars.map(({ spec: c, km }) => (
+        {cars.map(({ spec: c, km, image }) => (
           <CarCard
             key={c.id}
             spec={c}
             km={km}
+            image={image}
             onContextMenu={(e, id) => {
               e.preventDefault();
               // The Menu key and Shift+F10 fire contextmenu with zeroed

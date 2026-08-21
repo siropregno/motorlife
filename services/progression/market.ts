@@ -4,6 +4,7 @@ import { CARS } from "@catalog/cars";
 import { mulberry32 } from "@sim/rng";
 import { priceOf } from "./economy";
 import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
+import { colorFor, imageFor } from "./paint";
 
 /**
  * A car with a price on it, at one place, on one day.
@@ -16,14 +17,20 @@ import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
 export interface Offer {
   spec: CarSpec;
   km: number;
+  /** Absent for a car that only comes in one colour. */
+  color?: string | undefined;
+  /** The photo for THIS car: the colour if it has one, the single image if not. */
+  image?: string | undefined;
   price: number;
   condition: Condition;
 }
 
 function offer(spec: CarSpec, salt: string, rate = 1): Offer {
   const km = kmFor(spec, salt);
+  const color = colorFor(spec, salt);
   const price = Math.round((priceWithKm(priceOf(spec), spec, km) * rate) / 100) * 100;
-  return { spec, km, price, condition: conditionOf(spec, km) };
+  const base = { spec, km, price, condition: conditionOf(spec, km), image: imageFor(spec, color) };
+  return color === undefined ? base : { ...base, color };
 }
 
 /**

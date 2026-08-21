@@ -21,7 +21,7 @@ interface Props {
   offers: Offer[];
   credits: number;
   owned: string[];
-  onBuy: (carId: string, price: number, km: number) => void;
+  onBuy: (carId: string, price: number, km: number, color?: string) => void;
   /** Filters and sort. Off for a six-car lot, where they are furniture. */
   controls?: boolean;
   empty: string;
@@ -109,7 +109,7 @@ export function Listing({ offers, credits, owned, onBuy, controls = true, empty 
                 const o = byId.get(spec.id)!;
                 return (
                   <div key={spec.id} className="shop-item">
-                    <CarCard spec={spec} km={o.km} onOpen={setOpenId} />
+                    <CarCard spec={spec} km={o.km} image={o.image} onOpen={setOpenId} />
                     <span className={`shop-tag${credits >= o.price ? " afford" : ""}`}>
                       {o.condition.band === "survivor" || o.condition.band === "cero" ? (
                         <b className="shop-flag">{o.condition.label}</b>
@@ -137,10 +137,12 @@ export function Listing({ offers, credits, owned, onBuy, controls = true, empty 
         <CarModal
           spec={open.spec}
           km={open.km}
+          color={open.color}
+          image={open.image}
           price={open.price}
           credits={credits}
           owned={owned.includes(open.spec.id)}
-          onBuy={onBuy}
+          onBuy={(id, price, km) => onBuy(id, price, km, open.color)}
           onClose={() => setOpenId(null)}
         />
       ) : null}
