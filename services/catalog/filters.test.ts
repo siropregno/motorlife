@@ -12,6 +12,8 @@ import {
   activeCount,
   clearFacet,
   groupBy,
+  selectOne,
+  selectedOne,
   isActive,
   toggle,
   optionCounts,
@@ -137,10 +139,56 @@ describe("grouping", () => {
     expect(groupBy(CARS, "traccion").map((g) => g.label)).toContain("Tracción Integral");
   });
 
+  it("flips the sections AND the ladder inside them", () => {
+    const asc = groupBy(CARS, "clase", "asc");
+    const desc = groupBy(CARS, "clase", "desc");
+    expect(asc.map((g) => g.value)).toEqual(["D", "C", "B", "A"]);
+    expect(desc.map((g) => g.value)).toEqual(["A", "B", "C", "D"]);
+    // half-reversed is the bug this guards: a section headed A whose slowest
+    // car is still on top
+    const ascA = asc.find((g) => g.value === "A")!.cars.map((c) => c.id);
+    const descA = desc.find((g) => g.value === "A")!.cars.map((c) => c.id);
+    expect(descA).toEqual([...ascA].reverse());
+  });
+
+  it("defaults to ascending", () => {
+    expect(groupBy(CARS, "decada")).toEqual(groupBy(CARS, "decada", "asc"));
+  });
+
+  it("keeps every car in both directions", () => {
+    for (const dir of ["asc", "desc"] as const) {
+      const seen = groupBy(CARS, "segmento", dir).flatMap((g) => g.cars.map((c) => c.id));
+      expect(new Set(seen).size).toBe(CARS.length);
+    }
+  });
+
   it("drops empty sections rather than showing a heading over nothing", () => {
     const oneCar = CARS.filter((c) => c.id === "ferrari-f40");
     expect(groupBy(oneCar, "clase")).toHaveLength(1);
     expect(groupBy(oneCar, "clase")[0]!.label).toBe("Clase A");
+  });
+});
+
+describe("single-choice dropdowns on a multi-value model", () => {
+  it("sets exactly one value and reads it back", () => {
+    const sel = selectOne(EMPTY, "clase", "A");
+    expect(sel.clase).toEqual(["A"]);
+    expect(selectedOne(sel, "clase")).toBe("A");
+    expect(selectOne(sel, "clase", "B").clase).toEqual(["B"]);
+  });
+
+  it("treats the empty string as no preference", () => {
+    const sel = selectOne({ clase: ["A"] }, "clase", "");
+    expect(sel.clase).toEqual([]);
+    expect(selectedOne(sel, "clase")).toBe("");
+    expect(isActive(sel)).toBe(false);
+    expect(applyFilters(CARS, sel)).toHaveLength(CARS.length);
+  });
+
+  it("leaves the other facets alone", () => {
+    const sel = selectOne({ traccion: ["integral"] }, "clase", "B");
+    expect(sel.traccion).toEqual(["integral"]);
+    expect(sel.clase).toEqual(["B"]);
   });
 });
 

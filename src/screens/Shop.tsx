@@ -2,8 +2,15 @@ import { useMemo, useState } from "react";
 import type { ClassLetter } from "@sim/rating";
 import type { Save } from "@progression/save";
 import { CARS } from "@catalog/cars";
-import { ratingOf } from "@catalog/rating";
-import { applyFilters, groupBy, isActive, type FacetId, type Selection } from "@catalog/filters";
+
+import {
+  applyFilters,
+  groupBy,
+  isActive,
+  type Direction,
+  type FacetId,
+  type Selection,
+} from "@catalog/filters";
 import { priceOf, formatCredits } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
@@ -46,21 +53,14 @@ export function Shop({ save, onBuy, onBack }: Props) {
   const listed = useMemo(() => applyFilters(unowned, filter), [unowned, filter]);
 
   const [order, setOrder] = useState<FacetId>("clase");
+  const [dir, setDir] = useState<Direction>("asc");
   const [advanced, setAdvanced] = useState(false);
 
   /*
-   * Sections come from whichever facet you are ordering by; inside a section
-   * the cars stay on the rating ladder regardless, so the cheapest thing that
-   * will do the job is always the top of its group.
+   * Sections come from whichever facet you are ordering by, and the direction
+   * flips the sections and the ladder inside them together -- see groupBy.
    */
-  const groups = useMemo(
-    () =>
-      groupBy(listed, order).map((g) => ({
-        ...g,
-        cars: [...g.cars].sort((a, b) => ratingOf(a).index - ratingOf(b).index),
-      })),
-    [listed, order],
-  );
+  const groups = useMemo(() => groupBy(listed, order, dir), [listed, order, dir]);
 
   const [openId, setOpenId] = useState<string | null>(null);
   // resolved from the whole pool rather than the filtered groups, so an open
@@ -77,14 +77,17 @@ export function Shop({ save, onBuy, onBack }: Props) {
       <p className="screen-sub">
         {filtered ? `${total} of ${unowned.length} cars` : `${total} car${total === 1 ? "" : "s"}`}
         {" for sale, "}
-        {affordable} you can afford. Cheapest ladder first inside each group.
+        {affordable} you can afford.{" "}
+        {dir === "asc" ? "Cheapest ladder first" : "Fastest first"} inside each group.
       </p>
 
       {unowned.length > 0 ? (
         <ShopControls
           cars={unowned}
           order={order}
+          dir={dir}
           onOrder={setOrder}
+          onDir={setDir}
           filter={filter}
           onFilter={setFilter}
           onOpenAdvanced={() => setAdvanced(true)}

@@ -138,6 +138,23 @@ export function toggle(sel: Selection, id: FacetId, value: string): Selection {
   return { ...sel, [id]: next };
 }
 
+/**
+ * Set a facet to exactly one value, or to nothing when given "".
+ *
+ * The dropdowns are single-choice but Selection stays a list per facet. That
+ * costs nothing and keeps matches(), the counts and their tests untouched --
+ * a dropdown is just the subset of the model where the list is never longer
+ * than one. If a multi-select ever comes back, only the control changes.
+ */
+export function selectOne(sel: Selection, id: FacetId, value: string): Selection {
+  return { ...sel, [id]: value ? [value] : [] };
+}
+
+/** The single chosen value, or "" for no preference. */
+export function selectedOne(sel: Selection, id: FacetId): string {
+  return sel[id]?.[0] ?? "";
+}
+
 export interface Group {
   value: string;
   /** "Clase D", "Década 1970s" -- the facet name carries into the heading. */
@@ -145,24 +162,34 @@ export interface Group {
   cars: CarSpec[];
 }
 
+export type Direction = "asc" | "desc";
+
 /**
  * Split a listing into sections by any facet.
  *
  * The same four buckets that filter the list also sort it, which is the whole
  * reason a facet is a function rather than a stored field: "group by década"
- * and "show me only the 1970s" are the same question asked twice. Sections
- * come out in the facet's declared order -- oldest decade first, D before A --
- * and empty ones are dropped.
+ * and "show me only the 1970s" are the same question asked twice.
+ *
+ * Ascending is the facet's declared order -- oldest decade first, D before A
+ * -- with the rating ladder ascending inside each section. Descending flips
+ * BOTH, which is the only reading of the word that does not surprise: a list
+ * headed 2000s that still puts its slowest car on top is half-reversed and
+ * reads as a bug. Empty sections are dropped either way.
  */
-export function groupBy(cars: CarSpec[], id: FacetId): Group[] {
+export function groupBy(cars: CarSpec[], id: FacetId, dir: Direction = "asc"): Group[] {
   const facet = FACETS.find((f) => f.id === id)!;
-  return facet.options
+  const sign = dir === "asc" ? 1 : -1;
+  const groups = facet.options
     .map((o) => ({
       value: o.value,
       label: `${facet.label} ${o.label}`,
-      cars: cars.filter((c) => facet.bucket(c) === o.value),
+      cars: cars
+        .filter((c) => facet.bucket(c) === o.value)
+        .sort((a, b) => sign * (ratingOf(a).index - ratingOf(b).index)),
     }))
     .filter((g) => g.cars.length > 0);
+  return dir === "asc" ? groups : groups.reverse();
 }
 
 /**

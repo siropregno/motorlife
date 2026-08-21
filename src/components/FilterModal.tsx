@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
 import { FACETS, activeCount, applyFilters, type Selection } from "@catalog/filters";
-import { FacetRow } from "./FacetRow";
+import { FacetSelect } from "./FacetSelect";
 
 interface Props {
   cars: CarSpec[];
@@ -55,9 +55,11 @@ export function FilterModal({ cars, value, onChange, onClose }: Props) {
           </button>
         </header>
 
-        {FACETS.map((f) => (
-          <FacetRow key={f.id} cars={cars} id={f.id} value={value} onChange={onChange} />
-        ))}
+        <div className="filter-grid">
+          {FACETS.map((f) => (
+            <FacetSelect key={f.id} cars={cars} id={f.id} value={value} onChange={onChange} />
+          ))}
+        </div>
 
         <footer className="filter-modal-foot">
           <span className="filter-total">

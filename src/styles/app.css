@@ -474,34 +474,124 @@ p.screen-sub {
  * read as separate widgets instead of one control.
  */
 .shopbar {
-  background: var(--panel);
-  border: 1px solid var(--line);
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
   border-radius: 14px;
-  padding: 12px 18px 14px;
+  padding: 10px 0;
   margin-bottom: 26px;
 }
 
-.shopbar-foot {
+/* A label stacked over its control, so the row reads left to right as one
+   sentence rather than as label/field pairs fighting for the same baseline. */
+.control {
   display: flex;
-  justify-content: flex-start;
-  margin-top: 10px;
-  padding-top: 11px;
-  border-top: 1px solid var(--line);
+  flex-direction: column;
+  gap: 5px;
 }
-/* Without this the lone child stretches the width of the bar and the button
-   reads as a banner rather than a control. */
-.shopbar-foot > .chip {
-  flex: none;
+
+.control-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/*
+ * appearance: none and a hand-drawn chevron. The native control paints its
+ * own arrow in the OS accent and ignores the panel colours, which on a black
+ * page reads as a form field someone forgot to style. The open list is still
+ * the OS list -- nothing can be done about that, and nothing should be.
+ */
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 30px 8px 11px;
+  border-radius: 8px;
+  border: 0px solid var(--line-2);
+  background-color: var(--panel-2);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
+    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) calc(50% + 1px),
+    calc(100% - 11px) calc(50% + 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  color: var(--ink);
+  font-family: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.select:hover {
+  border-color: var(--ink-4);
+}
+.select option {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+.select option:disabled {
+  color: var(--ink-4);
+}
+
+/* Reads out what the direction will do -- "1970 → 2000" -- rather than making
+   an arrow carry a meaning it cannot. */
+.dirbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 0px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--ink-2);
+  font-family: var(--text);
+  font-size: 13px;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+.dirbtn:hover {
+  border-color: var(--ink-4);
+  color: var(--ink);
+}
+.dirbtn-arrow {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--purple);
+}
+.dirbtn-hint {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
 }
 
 /* The door to the other three facets, with a count of what is already on so
    the bar never hides an active filter behind a closed dialog. */
-.chip.advanced {
-  font-family: var(--mono);
+.btn.ghost {
+  padding: 8px 13px;
   font-size: 11px;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 7px 12px;
+  border-radius: 8px;
+  background: transparent;
+}
+.btn.advanced {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 520px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .chip-badge {
@@ -582,71 +672,6 @@ p.screen-sub {
 .filters-clear:hover,
 .linkish:hover {
   text-decoration: underline;
-}
-
-.filter-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 5px 0;
-}
-
-.filter-label {
-  flex: none;
-  width: 96px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-4);
-}
-
-.filter-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: 1px solid var(--line-2);
-  background: var(--panel-2);
-  color: var(--ink-2);
-  font-family: var(--text);
-  font-size: 12.5px;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-}
-.chip:hover:not(:disabled) {
-  border-color: var(--ink-4);
-  color: var(--ink);
-}
-.chip.on {
-  background: var(--purple);
-  border-color: var(--purple);
-  color: #14061f;
-  font-weight: 700;
-}
-/* Empty buckets stay in place and go quiet. Hiding them would reflow the row
-   under the cursor every time a chip in another row is clicked. */
-.chip:disabled {
-  opacity: 0.32;
-  cursor: default;
-}
-
-.chip-n {
-  font-size: 10.5px;
-  color: var(--ink-4);
-  font-variant-numeric: tabular-nums;
-}
-.chip.on .chip-n {
-  color: rgba(20, 6, 31, 0.65);
 }
 
 /* ---------- dealership class sections ---------- */
