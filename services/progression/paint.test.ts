@@ -1,18 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { CARS, carById } from "@catalog/cars";
-import { colorFor, colorName, colorsOf, imageFor } from "./paint";
+import { colorFor, colorName, colorsOf, imageFor, photoStem } from "./paint";
 
 const m3 = carById("bmw-m3-e30")!;
 const f40 = carById("ferrari-f40")!;
+/** A car with one photo and no paint options -- the other branch everywhere. */
+const plain = carById("ford-f100")!;
 
 describe("which colours a car comes in", () => {
   it("reads them off the catalogue, and is empty for a one-colour car", () => {
     expect(colorsOf(m3)).toEqual(["black", "red", "white", "yellow"]);
-    expect(colorsOf(f40)).toEqual([]);
+    expect(colorsOf(f40)).toEqual(["black", "red", "yellow"]);
+    expect(colorsOf(plain)).toEqual([]);
   });
 
   it("names them in Spanish, and falls back to the slug", () => {
     expect(colorName("light-blue")).toBe("Celeste");
+    expect(colorName("dark-blue")).toBe("Azul oscuro");
     expect(colorName("yellow")).toBe("Amarillo");
     expect(colorName("chartreuse")).toBe("chartreuse");
   });
@@ -38,7 +42,7 @@ describe("the colour of a listing", () => {
   });
 
   it("is nothing at all for a car that comes in one colour", () => {
-    expect(colorFor(f40, "donbeto")).toBeUndefined();
+    expect(colorFor(plain, "donbeto")).toBeUndefined();
   });
 
   it("differs between forecourts, so the same car is two cars", () => {
@@ -48,8 +52,15 @@ describe("the colour of a listing", () => {
 });
 
 describe("the photo for a car", () => {
-  it("is derived from the id and the colour", () => {
+  it("is derived from the stem and the colour", () => {
     expect(imageFor(m3, "yellow")).toBe("/bmw-m3-e30-yellow.png");
+    // stem != id: the renders came named after the car, not the id
+    expect(photoStem(carById("renault-fuego-gta")!)).toBe("renault-fuego-gta-max");
+    expect(imageFor(carById("renault-fuego-gta")!, "dark-blue")).toBe(
+      "/renault-fuego-gta-max-dark-blue.png",
+    );
+    expect(imageFor(carById("ford-taunus-gt")!, "red")).toBe("/ford-taunus-2300gt-red.png");
+    expect(photoStem(m3)).toBe(m3.id);
     expect(imageFor(carById("renault-12-tl")!, "light-blue")).toBe(
       "/renault-12-tl-light-blue.png",
     );
@@ -58,8 +69,8 @@ describe("the photo for a car", () => {
   it("falls back to the single image rather than to a broken path", () => {
     // a colour the car does not come in must not produce a 404
     expect(imageFor(m3, "chartreuse")).toBe(m3.image);
-    expect(imageFor(f40, "red")).toBe(f40.image);
-    expect(imageFor(f40, undefined)).toBe(f40.image);
+    expect(imageFor(plain, "red")).toBe(plain.image);
+    expect(imageFor(plain, undefined)).toBe(plain.image);
   });
 
   it("gives every car in the catalogue a photo or nothing, never a guess", () => {

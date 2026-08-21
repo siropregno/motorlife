@@ -22,6 +22,7 @@ const NAMES: Record<string, string> = {
   red: "Rojo",
   blue: "Azul",
   "light-blue": "Celeste",
+  "dark-blue": "Azul oscuro",
   silver: "Gris plata",
   yellow: "Amarillo",
   orange: "Naranja",
@@ -48,12 +49,17 @@ export function colorFor(spec: CarSpec, salt: string): string | undefined {
   return colors[Math.floor(rng() * colors.length)];
 }
 
+/** The filename stem: the id unless the car declares otherwise. */
+export function photoStem(spec: CarSpec): string {
+  return spec.photo ?? spec.id;
+}
+
 /**
  * The photo for this exact car. Falls back to the car's single `image` when it
  * has no colours, and to `image` again if a colour somehow has no file -- a
  * missing photo should be a car without a picture, never a broken one.
  */
 export function imageFor(spec: CarSpec, color?: string): string | undefined {
-  if (color && colorsOf(spec).includes(color)) return `/${spec.id}-${color}.png`;
+  if (color && colorsOf(spec).includes(color)) return `/${photoStem(spec)}-${color}.png`;
   return spec.image;
 }

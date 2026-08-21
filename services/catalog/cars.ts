@@ -28,7 +28,6 @@ export const CARS: CarSpec[] = [
     nm: 520,
     rarity: "epic",
     blurb: "Super Sedán",
-    image: "/bmw-m5-e60.png",
     logo: "/bmw-logo.png",
   },
   {
@@ -61,7 +60,7 @@ export const CARS: CarSpec[] = [
     nm: 166,
     rarity: "common",
     blurb: "Sedán deportivo",
-    image: "/peugeot-504.png",
+    colors: ["blue", "orange"],
     logo: "/peugeot-logo.png",
   },
   {
@@ -195,8 +194,9 @@ export const CARS: CarSpec[] = [
     nm: 192, // 19,6 kgm at 3.500 rpm
     rarity: "common",
     blurb: "Coupé",
+    colors: ["red"],
+    photo: "ford-taunus-2300gt",
     logo: "/ford-logo.png",
-    image: "/ford-taunus-2300gt.png",
   },
   {
     id: "chevrolet-chevy-250",
@@ -254,8 +254,9 @@ export const CARS: CarSpec[] = [
     nm: 180,
     rarity: "uncommon",
     blurb: "Coupé",
+    colors: ["black", "dark-blue", "red", "white"],
+    photo: "renault-fuego-gta-max",
     logo: "/renault-logo.png",
-    image: "/renault-fuego-gta-max.png",
   },
   {
     id: "ford-sierra-xr4",
@@ -425,8 +426,8 @@ export const CARS: CarSpec[] = [
     nm: 577,
     rarity: "apex",
     blurb: "Superdeportivo",
+    colors: ["black", "red", "yellow"],
     logo: "/ferrari-logo.png",
-    image: "/ferrari-f40.png",
   },
   /*
    * Both phases of the 607 V6, at Siro's call: he wants the variety even

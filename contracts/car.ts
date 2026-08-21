@@ -64,9 +64,18 @@ export interface CarSpec {
   image?: string;
   /**
    * Paint options, as filename slugs. The photo for each is
-   * `/<id>-<color>.png`, so adding a colour is a file plus a word here.
+   * `/<photo|id>-<color>.png`, so adding a colour is a file plus a word here.
    */
   colors?: string[];
+  /**
+   * Filename stem for the photos, when it is not the id.
+   *
+   * The renders arrive named after the car as it is spoken about -- a
+   * "Fuego GTA Max", a "Taunus 2300GT" -- while the id is what the sim needs.
+   * Renaming every drop to match ids was a losing fight; declaring the stem
+   * once per car is not.
+   */
+  photo?: string;
   logo?: string;
 }
 

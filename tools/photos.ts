@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { CARS } from "@catalog/cars";
+import { photoStem } from "@progression/paint";
 
 /**
  * Checks every car photo against the house standard. Run it before dropping a
@@ -33,8 +34,10 @@ import { CARS } from "@catalog/cars";
  * strip (410x236) several times over.
  *
  * COLOURS. A car with `colors` has one file per colour, named
- * `<car-id>-<colour>.png`, and no `image` at all. This walks those too --
- * they are the photos that actually reach the screen.
+ * `<stem>-<colour>.png`, where the stem is the car id unless the car declares
+ * a `photo` -- the renders arrive named after the car as it is spoken about,
+ * not after the id. This walks those too; they are the photos that actually
+ * reach the screen.
  *
  * Never upscale to hit the number. Enlarging a small source adds no detail,
  * just bytes and a softer image. If a source is too small, get a better one.
@@ -114,7 +117,7 @@ console.log("car                       file                            size     
  */
 const photos = CARS.flatMap((car) =>
   (car.colors?.length
-    ? car.colors.map((c) => `/${car.id}-${c}.png`)
+    ? car.colors.map((c) => `/${photoStem(car)}-${c}.png`)
     : car.image
       ? [car.image]
       : []

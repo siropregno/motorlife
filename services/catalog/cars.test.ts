@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import { CARS, carById } from "./cars";
+import { photoStem } from "@progression/paint";
 
 /*
  * Asset wiring is deterministic, so it gets a gate test rather than an eye.
@@ -41,7 +42,7 @@ describe("catalogue assets", () => {
   /** Every path a car names, including one per colour. */
   const pathsOf = (c: (typeof CARS)[number]): string[] => [
     ...(c.logo ? [c.logo] : []),
-    ...(c.colors?.length ? c.colors.map((k) => `/${c.id}-${k}.png`) : c.image ? [c.image] : []),
+    ...(c.colors?.length ? c.colors.map((k) => `/${photoStem(c)}-${k}.png`) : c.image ? [c.image] : []),
   ];
 
   it("points every logo and photo at a file that exists", () => {
@@ -64,19 +65,19 @@ describe("catalogue assets", () => {
     for (const c of coloured) {
       expect(c.image, `${c.id} has colours AND a single image`).toBeUndefined();
       for (const k of c.colors!) {
-        expect(inPublic(`/${c.id}-${k}.png`), `${c.id} is missing ${k}`).toBe(true);
+        expect(inPublic(`/${photoStem(c)}-${k}.png`), `${c.id} is missing ${k}`).toBe(true);
       }
     }
     // The other direction: a paint file in public/ that the catalogue never
     // lists renders for nobody. Judged on the SUFFIX being a colour word --
     // bmw-m3-e30-87.png is an old base render, not a colour called "87", and
     // flagging it would be crying wolf.
-    const declared = new Set(coloured.flatMap((c) => c.colors!.map((k) => `${c.id}-${k}.png`)));
+    const declared = new Set(coloured.flatMap((c) => c.colors!.map((k) => `${photoStem(c)}-${k}.png`)));
     const known = new Set(coloured.flatMap((c) => c.colors!));
     const orphans = [...files].filter((f) => {
-      const owner = coloured.find((c) => f.startsWith(`${c.id}-`));
+      const owner = coloured.find((c) => f.startsWith(`${photoStem(c)}-`));
       if (!owner) return false;
-      const suffix = f.slice(owner.id.length + 1).replace(/\.png$/, "");
+      const suffix = f.slice(photoStem(owner).length + 1).replace(/\.png$/, "");
       return known.has(suffix) && !declared.has(f);
     });
     expect(orphans).toEqual([]);
