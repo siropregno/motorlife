@@ -523,16 +523,18 @@ try {
     const co = document.querySelector(".screen.coming");
     return {
       goLifted: go ? getComputedStyle(go).position : "none",
-      coLifted: co ? getComputedStyle(co).position : "none",
-      clipped: getComputedStyle(st).overflow,
+      coInFlow: co ? getComputedStyle(co).position : "none",
+      clipX: getComputedStyle(st).overflowX,
+      clipY: getComputedStyle(st).overflowY,
       held: st.getBoundingClientRect().height > 100,
       noHScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     };
   });
   check("the leaving screen is out of the flow", geom.goLifted, "absolute");
-  check("and so is the arriving one", geom.coLifted, "absolute");
+  check("the arriving one stays in it, so it can set the height", geom.coInFlow, "static");
   check("the stage holds its height rather than collapsing", geom.held, true);
-  check("the stage clips them on the way past", geom.clipped, "hidden");
+  check("the stage clips sideways", geom.clipX, "clip");
+  check("but never vertically", geom.clipY, "visible");
   check("so nothing opens a horizontal scrollbar", geom.noHScroll, true);
 
   /*
@@ -566,6 +568,49 @@ try {
     travel.moved >= travel.width * 0.95,
     true,
   );
+
+  /*
+   * A TALL screen arriving over a SHORT one must not be cropped.
+   *
+   * This is the bug that shipped. The stage was pinned to the height of the
+   * screen being replaced and clipped with overflow: hidden, so arriving at
+   * the shop from a one-car garage cut the shop's cards in half -- their names
+   * and notes simply absent -- until the timer released the clamp a third of a
+   * second later. It looked exactly like content loading in late, which is the
+   * worst kind of bug: the explanation that comes to mind is the wrong one.
+   *
+   * Checked DURING the slide, with the animations paused, because afterwards
+   * everything is correct. The whole failure lived inside those 340ms.
+   */
+  await settled();
+  await garage();
+  await settled();
+  const gh = await page.evaluate(() => document.querySelector(".stage").getBoundingClientRect().height);
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await page.waitForSelector(".pick-grid");
+  const crop = await page.evaluate(() => {
+    for (const s of [".screen.going", ".screen.coming"]) {
+      const a = document.querySelector(s)?.getAnimations()[0];
+      if (a) { a.pause(); a.currentTime = a.effect.getTiming().duration / 2; }
+    }
+    const st = document.querySelector(".stage").getBoundingClientRect();
+    // The last thing on the arriving screen. If the stage is clamped short,
+    // this sits below its bottom edge and is invisible to the player.
+    const cards = [...document.querySelectorAll(".screen.coming .pick-card")];
+    const lowest = Math.max(...cards.map((c) => c.getBoundingClientRect().bottom));
+    const named = cards.every((c) => {
+      const n = c.querySelector(".pick-name")?.getBoundingClientRect();
+      return n && n.bottom <= st.bottom + 1;
+    });
+    for (const s of [".screen.going", ".screen.coming"]) {
+      document.querySelector(s)?.getAnimations()[0]?.play();
+    }
+    return { fits: lowest <= st.bottom + 1, named, stage: st.height };
+  });
+  check("mid-slide, the stage grew for the taller screen", crop.stage > gh, true);
+  check("the arriving cards are not cut off by the frame", crop.fits, true);
+  check("and every one of them still has its name visible", crop.named, true);
+  await settled();
 
   // And it is really gone afterwards, rather than left stacked invisibly over
   // the live screen where it would eat clicks.

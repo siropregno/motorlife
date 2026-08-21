@@ -32,32 +32,45 @@
  * The stage is only `position: relative` WHILE a slide runs. Making it
  * permanent would establish a containing block under every screen for no
  * reason, and .sliding is also what turns on the clipping -- both screens
- * spend the transition partly outside the frame, and without overflow: hidden
- * each of them would widen the document and raise a horizontal scrollbar.
+ * spend the transition partly outside the frame, and without it each would
+ * widen the document and raise a horizontal scrollbar.
+ *
+ * The clipping is `overflow-x`, NOT `overflow: hidden`. The plain form crops
+ * vertically too, and combined with the height floor below that is what cut
+ * every arriving screen off at the height of the one it replaced. Only the
+ * sideways overflow is unwanted here; a screen taller than its predecessor
+ * must be free to be taller.
+ *
+ * overflow-x on its own computes overflow-y to `auto`, which would put a
+ * vertical scrollbar inside the stage. clip on one axis and visible on the
+ * other is the pairing that is actually allowed to mean "clip sideways only".
  */
 .stage.sliding {
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 /*
- * BOTH screens are taken out of the flow during a slide, not just the leaving
- * one.
+ * ONLY the leaving screen comes out of the flow.
  *
- * The leaving one, so the arriving one can occupy the same space rather than
- * being pushed below it. The arriving one because it spends the first half of
- * the transition a full screen-width off to the side: left in the flow it
- * would drag the document's width out to twice the viewport, and the clipping
- * on .stage cannot help with that -- an in-flow element still contributes its
- * translated box to the page's scroll width.
+ * The arriving one stays in it, and that is what gives the stage its height:
+ * it is the screen you are going to be looking at, so the frame should be its
+ * size, growing or shrinking to fit as the slide lands.
  *
- * With both lifted the stage has nothing left to take its height from, so it
- * would collapse to zero and drag the page up for the length of the slide.
- * App measures the outgoing screen and pins that height on the stage as
- * --stage-h; the frame holds still while the two screens move inside it.
+ * The first version lifted BOTH and pinned the stage to the height of the
+ * screen being replaced. That cropped every arrival at the outgoing screen's
+ * height -- go from a garage holding one car to the shop and the shop's cards
+ * were guillotined mid-way down, names and all, because the stage was still
+ * one-car tall and clipping.
+ *
+ * --stage-h survives as a FLOOR rather than a fixed height. Without it the
+ * frame would snap to the new screen's height the instant the slide starts,
+ * which yanks the page up under the cursor when a tall screen is replaced by a
+ * short one. As a min-height it holds the old height while the movement runs
+ * and lets a taller arrival exceed it, which is both halves of the problem.
  */
-.stage.sliding .screen.going,
-.stage.sliding .screen.coming {
+.stage.sliding .screen.going {
   position: absolute;
   inset: 0 0 auto 0;
 }

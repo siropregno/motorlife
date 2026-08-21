@@ -102,13 +102,18 @@ export default function App() {
       if (screen === next) return;
 
       /*
-       * Pin the height before anything moves.
+       * Remember the height before anything moves.
        *
-       * Both screens go position:absolute for the length of the slide, which
-       * leaves the stage with nothing to size itself from -- it would collapse
-       * to zero and yank the page up under the cursor. This is the height it
-       * has right now, with the outgoing screen still in it, held until the
-       * slide ends.
+       * It becomes a FLOOR under the stage for the length of the slide, not a
+       * fixed height. The leaving screen goes position:absolute, so without
+       * this the frame would snap to the arriving screen's height the instant
+       * the transition starts -- and going from a tall section to a short one
+       * that yanks the page up under the cursor mid-click.
+       *
+       * A floor rather than a pin because the arriving screen may well be
+       * TALLER. Pinning it cropped every such arrival at the old screen's
+       * height: the shop's cards were cut in half, names missing, until the
+       * timer released the clamp a third of a second later.
        */
       const el = stage.current;
       if (el) el.style.setProperty("--stage-h", `${el.offsetHeight}px`);
@@ -328,11 +333,11 @@ export default function App() {
       {/*
         * The stage: the arriving screen, and the leaving one while it leaves.
         *
-        * Only during a slide are there two. Both are lifted out of the flow by
-        * CSS while it runs -- each spends part of the transition a full
-        * screen-width off to one side, and an in-flow element there would drag
-        * the document's width out past the viewport. The stage holds its own
-        * height meanwhile, measured in `go` just before the move.
+        * Only during a slide are there two. The leaving one is lifted out of
+        * the flow by CSS; the arriving one stays in it and is what gives the
+        * stage its height, so the frame ends up the size of the screen you are
+        * going to be looking at. `go` measures the old height first and leaves
+        * it as a floor, so the page cannot jump upward mid-slide.
         *
         * The KEY is what animates each of them. A CSS animation runs once when
         * an element is created, so keying on the screen name hands React a new
