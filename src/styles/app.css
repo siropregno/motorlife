@@ -528,16 +528,16 @@ p.screen-sub {
 
 /* ---------- the two doors into the shop ---------- */
 /*
- * BACKGROUND IMAGES GO HERE. Each card reads --shot, so dropping a photo in
- * is one line per card:
+ * The art is in. Each card reads --shot, so a photo is one line per card, and
+ * a second line when the subject does not sit in the middle of the frame.
  *
- *     .pick-dealers { --shot: url("/shot-concesionarios.png"); }
- *     .pick-used    { --shot: url("/shot-usados.png"); }
+ * The scrim below the image is not optional: white text on a photograph is a
+ * coin toss, and the gradient is what makes it a guarantee.
  *
- * Until then --shot is unset and only the gradient paints, which is why there
- * is no 404 sitting in the console waiting for the art. The scrim below the
- * image is not optional once a photo is in: white text on an unknown
- * photograph is a coin toss, and the gradient is what makes it a guarantee.
+ * ON THE CROP. The photos are the house 16:9; the card is nearly twice that
+ * wide for its height, so cover keeps a horizontal band and throws the rest
+ * away. background-position picks WHICH band, and both are set below off the
+ * subject, not off habit -- centre would have cut the marketplace jug in half.
  */
 .pick-grid {
   display: grid;
@@ -554,7 +554,7 @@ p.screen-sub {
   gap: 6px;
   min-height: 190px;
   padding: 22px;
-  border: 1px solid var(--line);
+  border: 0px solid var(--line);
   border-radius: 16px;
   text-align: left;
   color: var(--ink);
@@ -574,8 +574,24 @@ p.screen-sub {
   opacity: var(--scrim, 1);
   z-index: 0;
 }
-/* With a photo behind it the flat fill becomes a bottom-up scrim instead. */
-.pick-card[style*="--shot"]::before {
+/* The handshake reads at the middle of the frame; the jug sits high in it. */
+.pick-dealers {
+  --shot: url("/concesionario.webp");
+  background-position: center 45%;
+}
+.pick-used {
+  --shot: url("/marketplace.webp");
+  background-position: center 30%;
+}
+
+
+/*
+ * With a photo behind it the flat fill becomes a bottom-up scrim instead.
+ * Listed by card rather than tested for --shot: CSS cannot ask whether a
+ * custom property is set, so a card that gets art gets a line here too.
+ */
+.pick-dealers::before,
+.pick-used::before {
   background: linear-gradient(0deg, rgba(8, 4, 14, 0.92) 0%, rgba(8, 4, 14, 0.35) 60%, rgba(8, 4, 14, 0.1) 100%);
 }
 .pick-card > * {

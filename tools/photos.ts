@@ -108,37 +108,47 @@ console.log(
   `standard: ${WIDTH}x${HEIGHT} (16:9), extension matches the bytes, under ${MAX_KB}KB.\n` +
     `the hero shows the whole frame; the card strip trims 2% off the width.\n`,
 );
-console.log("car                       file                            size        ratio  fmt   on disk  verdict");
+console.log("owner                     file                            size        ratio  fmt   on disk  verdict");
 
 /**
  * Every photo that can reach a screen. A car with `colors` has one file per
  * colour and no `image` at all, and those are the ones players actually see --
  * walking `image` alone checked the files nothing renders.
  */
-const photos = CARS.flatMap((car) =>
+const photos: { owner: string; path: string }[] = CARS.flatMap((car) =>
   (car.colors?.length
     ? car.colors.map((c) => `/${photoStem(car)}-${c}.png`)
     : car.image
       ? [car.image]
       : []
-  ).map((path) => ({ car, path })),
+  ).map((path) => ({ owner: car.id, path })),
 );
+
+/**
+ * Art that belongs to a screen rather than to a car. Nothing in the catalogue
+ * points at these, so the walk above cannot find them -- and the first two
+ * arrived at 5504x3072 and 18MB each, which is exactly the mistake this file
+ * exists to catch. Listed by hand: they are set in CSS, and a checker that
+ * parsed stylesheets to find them would be the more fragile half.
+ */
+const SCREEN_ART = ["/concesionario.webp", "/marketplace.webp"];
+photos.push(...SCREEN_ART.map((path) => ({ owner: "shop hub", path })));
 
 let bad = 0;
 let soft = 0;
-for (const { car, path } of photos) {
+for (const { owner, path } of photos) {
   const name = path.replace(/^\//, "");
   let buf: Buffer;
   try {
     buf = readFileSync(new URL(name, `file://${publicDir.replaceAll("\\", "/")}`));
   } catch {
-    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} MISSING`);
+    console.log(`  ${(owner + " ").padEnd(24)} ${name.padEnd(31)} MISSING`);
     bad++;
     continue;
   }
   const p = probe(buf);
   if (!p) {
-    console.log(`  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} UNRECOGNISED FORMAT`);
+    console.log(`  ${(owner + " ").padEnd(24)} ${name.padEnd(31)} UNRECOGNISED FORMAT`);
     bad++;
     continue;
   }
@@ -168,13 +178,14 @@ for (const { car, path } of photos) {
       ? "note  " + notes.join(", ")
       : "ok";
   console.log(
-    `  ${(car.id + " ").padEnd(24)} ${name.padEnd(31)} ${`${p.w}x${p.h}`.padEnd(11)} ${ratio.toFixed(3)}  ${p.format.padEnd(5)} .${ext.padEnd(7)} ${verdict}`,
+    `  ${(owner + " ").padEnd(24)} ${name.padEnd(31)} ${`${p.w}x${p.h}`.padEnd(11)} ${ratio.toFixed(3)}  ${p.format.padEnd(5)} .${ext.padEnd(7)} ${verdict}`,
   );
 }
 
 const shot = CARS.filter((c) => c.image || c.colors?.length).length;
 console.log(
-  `\n${photos.length} photos across ${shot} of ${CARS.length} cars; ${bad} need work` +
+  `\n${photos.length - SCREEN_ART.length} photos across ${shot} of ${CARS.length} cars` +
+    ` plus ${SCREEN_ART.length} screen art; ${bad} need work` +
     (soft ? `, ${soft} would be sharper with more pixels` : "") +
     ".",
 );
