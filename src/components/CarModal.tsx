@@ -2,14 +2,17 @@ import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { formatCredits } from "@progression/economy";
+import { conditionOf, formatKm } from "@progression/mileage";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
+  km: number;
   price: number;
   credits: number;
   owned: boolean;
-  onBuy?: (id: string, price: number) => void;
+  /** km travels with the sale: the odometer you bought is the one you own. */
+  onBuy?: (id: string, price: number, km: number) => void;
   onClose: () => void;
 }
 
@@ -55,12 +58,13 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props) {
+export function CarModal({ spec, km, price, credits, owned, onBuy, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
   const hp = Math.round(spec.kW * 1.35962);
   const afford = credits >= price;
+  const cond = conditionOf(spec, km);
 
   useEffect(() => {
     const el = ref.current;
@@ -89,6 +93,7 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
             <Row k="Par motor" v={spec.nm ? `${spec.nm} Nm` : "—"} />
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
+            <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
           </div>
         </aside>
 
@@ -132,7 +137,7 @@ export function CarModal({ spec, price, credits, owned, onBuy, onClose }: Props)
                 className={`btn${afford ? " primary" : ""}`}
                 disabled={!afford || !onBuy}
                 onClick={() => {
-                  onBuy?.(spec.id, price);
+                  onBuy?.(spec.id, price, km);
                   ref.current?.close();
                 }}
               >

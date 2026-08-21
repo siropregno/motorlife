@@ -949,3 +949,13 @@ p.screen-sub {
 .shop-tag.afford {
   color: var(--green);
 }
+
+/* "De colección" / "0 km" ahead of the price. It keeps the accent colour even
+   on an affordable row, because it is answering a different question from the
+   green: green is can you buy it, this is why it costs what it costs. */
+.shop-tag .shop-flag {
+  margin-right: 9px;
+  color: var(--purple-ink);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}

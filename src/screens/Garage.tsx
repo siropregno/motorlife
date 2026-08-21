@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { CARS, carById } from "@catalog/cars";
+import type { OwnedCar } from "@progression/save";
+
 import { formatCredits, sellValueFor } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 
 interface Props {
-  owned: string[];
+  owned: OwnedCar[];
   /** The car you are currently in. Only "Subirse al auto" changes it. */
   currentId: string;
   onDrive: (id: string) => void;
@@ -19,13 +21,20 @@ interface MenuAt {
 }
 
 export function Garage({ owned, currentId, onDrive, onSell }: Props) {
-  const cars = useMemo(() => CARS.filter((c) => owned.includes(c.id)), [owned]);
+  const cars = useMemo(
+    () => owned.flatMap((o) => {
+      const spec = CARS.find((c) => c.id === o.id);
+      return spec ? [{ spec, km: o.km }] : [];
+    }),
+    [owned],
+  );
   const [menu, setMenu] = useState<MenuAt | null>(null);
 
   const close = useCallback(() => setMenu(null), []);
 
   const items = useMemo<MenuItem[]>(() => {
     const spec = menu ? carById(menu.id) : null;
+    const km = menu ? (owned.find((o) => o.id === menu.id)?.km ?? 0) : 0;
     if (!spec) return [];
     const current = spec.id === currentId;
     const last = owned.length <= 1;
@@ -41,14 +50,14 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
         label: "Vender",
         // The hint doubles as the reason when the item is dead. A greyed row
         // with no explanation reads as a bug.
-        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec))} cr`,
-        confirm: `Vender por ${formatCredits(sellValueFor(spec))} cr`,
+        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km))} cr`,
+        confirm: `Vender por ${formatCredits(sellValueFor(spec, km))} cr`,
         danger: true,
         disabled: last,
         onPick: () => onSell(spec.id),
       },
     ];
-  }, [menu, currentId, owned.length, onDrive, onSell]);
+  }, [menu, currentId, owned, onDrive, onSell]);
 
   return (
     <>
@@ -58,10 +67,11 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
       </p>
 
       <div className="card-grid">
-        {cars.map((c) => (
+        {cars.map(({ spec: c, km }) => (
           <CarCard
             key={c.id}
             spec={c}
+            km={km}
             onContextMenu={(e, id) => {
               e.preventDefault();
               // The Menu key and Shift+F10 fire contextmenu with zeroed

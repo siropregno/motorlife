@@ -1,19 +1,18 @@
 import { useMemo, useState } from "react";
-import type { Save } from "@progression/save";
-import { priceOf, formatCredits } from "@progression/economy";
+import { ownedIds, type Save } from "@progression/save";
+import { formatCredits } from "@progression/economy";
 import {
   DEALERS,
   dealerById,
   stockOf,
   usedLot,
-  usedPriceOf,
   USED_RATE,
 } from "@progression/market";
 import { Listing } from "../components/Listing";
 
 interface Props {
   save: Save;
-  onBuy: (carId: string, price: number) => void;
+  onBuy: (carId: string, price: number, km: number) => void;
 }
 
 type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };
@@ -43,10 +42,10 @@ export function Shop({ save, onBuy }: Props) {
 
   // Keyed to races run: the lot turns over when you race, which is the only
   // clock this game has. Frozen per rotation, so filtering never reshuffles it.
-  const lot = useMemo(() => usedLot(save.racesRun, save.owned), [save.racesRun, save.owned]);
+  const lot = useMemo(() => usedLot(save.racesRun, ownedIds(save)), [save.racesRun, save.owned]);
 
   if (view.at === "choose") {
-    const treasure = lot.some((c) => !["common", "uncommon"].includes(c.rarity));
+    const treasure = lot.some((o) => o.condition.band === "survivor" || !!["rare","epic","legendary","apex"].includes(o.spec.rarity));
     return (
       <>
         <h2 className="screen-title">Comprar</h2>
@@ -81,8 +80,8 @@ export function Shop({ save, onBuy }: Props) {
 
         <div className="dealer-grid">
           {DEALERS.map((d) => {
-            const stock = stockOf(d, save.owned);
-            const cheapest = stock.length ? Math.min(...stock.map((c) => priceOf(c))) : 0;
+            const stock = stockOf(d, ownedIds(save));
+            const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
             return (
               <button
                 key={d.id}
@@ -114,10 +113,9 @@ export function Shop({ save, onBuy }: Props) {
         <h2 className="screen-title">{dealer.name}</h2>
         <p className="screen-sub">{dealer.tagline}</p>
         <Listing
-          cars={stockOf(dealer, save.owned)}
-          priceFor={priceOf}
+          offers={stockOf(dealer, ownedIds(save))}
           credits={save.credits}
-          owned={save.owned}
+          owned={ownedIds(save)}
           onBuy={onBuy}
           empty="Ya tenés todo lo que vende esta casa."
         />
@@ -133,10 +131,9 @@ export function Shop({ save, onBuy }: Props) {
         {Math.round((1 - USED_RATE) * 100)}% menos que en la concesionaria. Rota cada carrera.
       </p>
       <Listing
-        cars={lot}
-        priceFor={usedPriceOf}
+        offers={lot}
         credits={save.credits}
-        owned={save.owned}
+        owned={ownedIds(save)}
         onBuy={onBuy}
         controls={false}
         empty="Hoy no hay nada. Corré una carrera y volvé."

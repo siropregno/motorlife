@@ -14,6 +14,8 @@ import {
   sellCar,
 } from "./economy";
 import type { Save } from "./save";
+import { ownedIds } from "./save";
+import { priceWithKm } from "./mileage";
 import {
   loadSave,
   writeSave,
@@ -134,21 +136,52 @@ describe("save", () => {
     expect(loadSave()).toEqual(STARTING_SAVE);
   });
 
+  /**
+   * v1 stored `owned: string[]`. A player with credits and a garage must not
+   * lose either because a field was added -- "start again" is a bad answer to
+   * a schema change, which is why the version has been in the file since the
+   * first line.
+   */
+  it("carries a v1 garage across instead of wiping it", () => {
+    (globalThis.localStorage as Storage).setItem(
+      "motorlife.save",
+      JSON.stringify({
+        version: 1,
+        credits: 87_400,
+        owned: ["renault-12-tl", "ford-f100"],
+        racesRun: 11,
+      }),
+    );
+    const s = loadSave();
+    expect(s.version).toBe(SAVE_VERSION);
+    expect(s.credits).toBe(87_400);
+    expect(s.racesRun).toBe(11);
+    expect(s.owned.map((o) => o.id)).toEqual(["renault-12-tl", "ford-f100"]);
+    // the cars arrive with an honest odometer, not a windfall: there is no
+    // record of what they had, and 0 km would hand every old save a free sale
+    for (const o of s.owned) expect(o.km).toBeGreaterThan(0);
+  });
+
   it("starts you with one car and something to spend", () => {
     clearSave();
     const s = loadSave();
     expect(s.owned).toHaveLength(1);
     expect(s.credits).toBeGreaterThan(0);
-    expect(CARS.map((c) => c.id)).toContain(s.owned[0]);
+    expect(CARS.map((c) => c.id)).toContain(s.owned[0]!.id);
+    // and it arrives with an odometer, because nothing in this catalogue is 0 km
+    expect(s.owned[0]!.km).toBeGreaterThan(0);
   });
 });
 
 // ---------------------------------------------------------------------------
 
+/** A car in the garage with an ordinary odometer on it for these tests. */
+const held = (id: string) => ({ id, km: 100_000 });
+
 const save = (over: Partial<Save> = {}): Save => ({
   version: SAVE_VERSION,
   credits: 100_000,
-  owned: ["renault-12-tl", "ford-f100"],
+  owned: [held("renault-12-tl"), held("ford-f100")],
   racesRun: 0,
   ...over,
 });
@@ -156,8 +189,9 @@ const save = (over: Partial<Save> = {}): Save => ({
 describe("selling", () => {
   it("always takes a haircut, so a round trip is never free", () => {
     for (const car of CARS) {
-      expect(sellValueFor(car)).toBeLessThan(priceOf(car));
-      expect(sellValueFor(car)).toBeGreaterThan(0);
+      // priced at the SAME odometer on both sides, which is the invariant
+      expect(sellValueFor(car, 100_000)).toBeLessThan(priceWithKm(priceOf(car), car, 100_000));
+      expect(sellValueFor(car, 100_000)).toBeGreaterThan(0);
     }
   });
 
@@ -165,8 +199,9 @@ describe("selling", () => {
     // The exploit this rules out: park a car in the dealership between events
     // and pull it back out whenever a class cap suits you, at no cost.
     for (const car of CARS) {
-      const start = save({ credits: 2_000_000, owned: ["renault-12-tl"] });
-      const bought = buyCar(start, car.id, priceOf(car));
+      const start = save({ credits: 2_000_000, owned: [held("renault-12-tl")] });
+      const km = 100_000;
+      const bought = buyCar(start, car.id, priceWithKm(priceOf(car), car, km), km);
       if (car.id === "renault-12-tl") {
         expect(bought).toBe(start); // already owned, nothing happens
         continue;
@@ -178,7 +213,7 @@ describe("selling", () => {
   });
 
   it("refuses to sell your last car", () => {
-    const s = save({ owned: ["renault-12-tl"] });
+    const s = save({ owned: [held("renault-12-tl")] });
     expect(sellCar(s, "renault-12-tl")).toBe(s);
   });
 
@@ -188,23 +223,23 @@ describe("selling", () => {
   });
 
   it("refuses to sell a car that is not in the catalogue", () => {
-    const s = save({ owned: ["renault-12-tl", "ghost-car"] });
+    const s = save({ owned: [held("renault-12-tl"), held("ghost-car")] });
     expect(sellCar(s, "ghost-car")).toBe(s);
   });
 
   it("pays out and drops the car", () => {
     const s = save();
     const after = sellCar(s, "ford-f100");
-    expect(after.owned).toEqual(["renault-12-tl"]);
-    expect(after.credits).toBe(s.credits + sellValueFor(byId("ford-f100")));
-    expect(s.owned).toEqual(["renault-12-tl", "ford-f100"]); // input untouched
+    expect(after.owned).toEqual([held("renault-12-tl")]);
+    expect(after.credits).toBe(s.credits + sellValueFor(byId("ford-f100"), 100_000));
+    expect(s.owned).toEqual([held("renault-12-tl"), held("ford-f100")]); // input untouched
   });
 
   it("leaves the sold car buyable again", () => {
     // the dealership lists the catalogue minus what you own, so this is the
     // whole condition now that stock no longer rotates
     const s = sellCar(save(), "ford-f100");
-    const forSale = CARS.filter((c) => !s.owned.includes(c.id)).map((c) => c.id);
+    const forSale = CARS.filter((c) => !ownedIds(s).includes(c.id)).map((c) => c.id);
     expect(forSale).toContain("ford-f100");
   });
 });
@@ -212,24 +247,26 @@ describe("selling", () => {
 describe("buying", () => {
   it("refuses when you are short", () => {
     const s = save({ credits: 10 });
-    expect(buyCar(s, "bmw-m5-e60", priceOf(m5))).toBe(s);
+    expect(buyCar(s, "bmw-m5-e60", priceOf(m5), 0)).toBe(s);
   });
 
   it("refuses a car you already own", () => {
     const s = save();
-    expect(buyCar(s, "ford-f100", 1)).toBe(s);
+    expect(buyCar(s, "ford-f100", 1, 0)).toBe(s);
   });
 
   it("refuses a car that is not in the catalogue", () => {
     const s = save();
-    expect(buyCar(s, "ghost-car", 1)).toBe(s);
+    expect(buyCar(s, "ghost-car", 1, 0)).toBe(s);
   });
 
   it("charges exactly the price it was shown at", () => {
     const s = save({ credits: 500_000 });
     const price = priceOf(m5);
-    const after = buyCar(s, "bmw-m5-e60", price);
+    const after = buyCar(s, "bmw-m5-e60", price, 42_000);
     expect(after.credits).toBe(s.credits - price);
-    expect(after.owned).toContain("bmw-m5-e60");
+    expect(ownedIds(after)).toContain("bmw-m5-e60");
+    // and the odometer it was sold with came along
+    expect(after.owned.at(-1)).toEqual({ id: "bmw-m5-e60", km: 42_000 });
   });
 });

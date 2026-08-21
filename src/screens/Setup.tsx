@@ -9,6 +9,8 @@ import { CarCard } from "../components/CarCard";
 
 interface Props {
   carId: string;
+  /** The odometer of the car you are in, straight off the save. */
+  km: number;
   build: Build;
   onBuild: (b: Build) => void;
   track: TrackSpec;
@@ -39,7 +41,7 @@ const COMPOUND_LABEL: Record<Compound, string> = {
   hard: "Duro",
 };
 
-export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: Props) {
+export function SetupScreen({ carId, km, build, onBuild, track, onTrack, onRace }: Props) {
   const spec = carById(carId);
   const car = useMemo(() => (spec ? derive(spec) : null), [spec]);
 
@@ -96,7 +98,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: P
 
       <div className="setup-grid">
         <div style={{ display: "grid", gap: 20 }}>
-          <CarCard spec={spec} />
+          <CarCard spec={spec} km={km} />
 
           <div className="panel">
             <h3>Comportamiento</h3>

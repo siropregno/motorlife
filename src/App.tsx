@@ -3,7 +3,7 @@ import type { Build } from "@contracts/race";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
-import { loadSave, writeSave, type Save } from "@progression/save";
+import { loadSave, writeSave, kmOwned, ownsCar, type Save } from "@progression/save";
 import { buyCar, formatCredits, payoutFor, sellCar } from "@progression/economy";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
@@ -24,10 +24,10 @@ export default function App() {
   const toast = useToast();
   const [save, setSave] = useState<Save>(() => loadSave());
   const [screen, setScreen] = useState<Screen>("garage");
-  const [carId, setCarId] = useState(() => loadSave().owned[0] ?? CARS[0]!.id);
+  const [carId, setCarId] = useState(() => loadSave().owned[0]?.id ?? CARS[0]!.id);
   const [trackId, setTrackId] = useState(TRACKS[0]!.id);
   const [build, setBuild] = useState<Build>(() => ({
-    carId: loadSave().owned[0] ?? CARS[0]!.id,
+    carId: loadSave().owned[0]?.id ?? CARS[0]!.id,
     compound: "medium",
     setup: { aero: 0, gearing: 0, springs: 0, brakeBias: 0 },
   }));
@@ -68,8 +68,8 @@ export default function App() {
    * functions return the save unchanged when the move is illegal -- comparing
    * by identity out here is what lets a refused click stay silent.
    */
-  const buy = (id: string, price: number) => {
-    const next = buyCar(save, id, price);
+  const buy = (id: string, price: number, km: number) => {
+    const next = buyCar(save, id, price, km);
     if (next === save) return;
     setSave(next);
     const name = nameOf(id);
@@ -95,8 +95,8 @@ export default function App() {
    * is exactly the silent swap that clicking a card used to do.
    */
   useEffect(() => {
-    if (save.owned.includes(carId)) return;
-    const next = save.owned[0];
+    if (ownsCar(save, carId)) return;
+    const next = save.owned[0]?.id;
     if (!next) return;
     setCarId(next);
     setBuild((b) => ({ ...b, carId: next }));
@@ -166,6 +166,7 @@ export default function App() {
       {screen === "setup" && (
         <SetupScreen
           carId={carId}
+          km={kmOwned(save, carId) ?? 0}
           build={build}
           onBuild={setBuild}
           track={track}

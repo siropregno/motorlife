@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { CarSpec } from "@contracts/car";
+
 import type { ClassLetter } from "@sim/rating";
 import {
   applyFilters,
@@ -9,6 +9,7 @@ import {
   type Selection,
 } from "@catalog/filters";
 import { formatCredits } from "@progression/economy";
+import type { Offer } from "@progression/market";
 import { CarCard } from "./CarCard";
 import { CarModal } from "./CarModal";
 import { FilterModal } from "./FilterModal";
@@ -17,12 +18,10 @@ import { classTierClass } from "../lib/tiers";
 
 interface Props {
   /** The forecourt: one dealer's stock, or the used lot. */
-  cars: CarSpec[];
-  /** Priced by the caller, because a used car is not a catalogue car. */
-  priceFor: (car: CarSpec) => number;
+  offers: Offer[];
   credits: number;
   owned: string[];
-  onBuy: (carId: string, price: number) => void;
+  onBuy: (carId: string, price: number, km: number) => void;
   /** Filters and sort. Off for a six-car lot, where they are furniture. */
   controls?: boolean;
   empty: string;
@@ -37,15 +36,12 @@ interface Props {
  * from -- which is the only reason the used lot can be 30% off without a
  * second copy of any of this.
  */
-export function Listing({
-  cars,
-  priceFor,
-  credits,
-  owned,
-  onBuy,
-  controls = true,
-  empty,
-}: Props) {
+export function Listing({ offers, credits, owned, onBuy, controls = true, empty }: Props) {
+  // Filtering and grouping work on specs; the offer carries the odometer and
+  // the price, so the two travel together through a map rather than a second
+  // parallel array that could fall out of step.
+  const cars = useMemo(() => offers.map((o) => o.spec), [offers]);
+  const byId = useMemo(() => new Map(offers.map((o) => [o.spec.id, o])), [offers]);
   const [filter, setFilter] = useState<Selection>({});
   const [order, setOrder] = useState<FacetId>("clase");
   const [dir, setDir] = useState<Direction>("asc");
@@ -54,7 +50,7 @@ export function Listing({
 
   const listed = useMemo(() => applyFilters(cars, filter), [cars, filter]);
   const groups = useMemo(() => groupBy(listed, order, dir), [listed, order, dir]);
-  const openSpec = openId ? cars.find((c) => c.id === openId) : undefined;
+  const open = openId ? byId.get(openId) : undefined;
 
   return (
     <>
@@ -110,12 +106,15 @@ export function Listing({
             </h3>
             <div className="card-grid">
               {g.cars.map((spec) => {
-                const price = priceFor(spec);
+                const o = byId.get(spec.id)!;
                 return (
                   <div key={spec.id} className="shop-item">
-                    <CarCard spec={spec} onOpen={setOpenId} />
-                    <span className={`shop-tag${credits >= price ? " afford" : ""}`}>
-                      {formatCredits(price)} cr
+                    <CarCard spec={spec} km={o.km} onOpen={setOpenId} />
+                    <span className={`shop-tag${credits >= o.price ? " afford" : ""}`}>
+                      {o.condition.band === "survivor" || o.condition.band === "cero" ? (
+                        <b className="shop-flag">{o.condition.label}</b>
+                      ) : null}
+                      {formatCredits(o.price)} cr
                     </span>
                   </div>
                 );
@@ -134,12 +133,13 @@ export function Listing({
         />
       ) : null}
 
-      {openSpec ? (
+      {open ? (
         <CarModal
-          spec={openSpec}
-          price={priceFor(openSpec)}
+          spec={open.spec}
+          km={open.km}
+          price={open.price}
           credits={credits}
-          owned={owned.includes(openSpec.id)}
+          owned={owned.includes(open.spec.id)}
           onBuy={onBuy}
           onClose={() => setOpenId(null)}
         />

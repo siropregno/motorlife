@@ -82,6 +82,17 @@
   color: var(--ink-2);
 }
 
+/* Quieter than the power above it. The odometer is what makes two cards of
+   the same model different, so it needs to be readable -- and it is not the
+   thing you scan the row for. */
+.card-info p.card-km {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
 /*
  * The model name is the only part allowed to shrink. Year and class badge are
  * flex: none, so a long name -- "Huracan Performante", say -- truncates

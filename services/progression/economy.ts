@@ -2,7 +2,8 @@ import type { CarSpec, Rarity } from "@contracts/car";
 import { classCap, type ClassLetter } from "@sim/rating";
 import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
-import type { Save } from "./save";
+import { ownsCar, type Save } from "./save";
+import { priceWithKm } from "./mileage";
 
 /**
  * The economy exists to make the collection mean something. It is built so
@@ -54,8 +55,16 @@ export function priceOf(spec: CarSpec): number {
 export const SELL_RATE = 0.6;
 export const SELL_SPREAD = 1 - SELL_RATE;
 
-export function sellValueFor(spec: CarSpec): number {
-  return Math.round((priceOf(spec) * SELL_RATE) / 100) * 100;
+/**
+ * What the trade pays for THIS car, odometer and all.
+ *
+ * km is not optional by accident. A flat sell price against a km-adjusted buy
+ * price is a money printer: buy the car that has been round the clock at a
+ * discount, sell it at the catalogue rate, repeat. Both sides have to price
+ * the same object.
+ */
+export function sellValueFor(spec: CarSpec, km: number): number {
+  return Math.round((priceWithKm(priceOf(spec), spec, km) * SELL_RATE) / 100) * 100;
 }
 
 /**
@@ -64,11 +73,16 @@ export function sellValueFor(spec: CarSpec): number {
  * return the save UNCHANGED when the move is illegal rather than throwing:
  * the caller is a click handler, and a rejected click should do nothing.
  */
-export function buyCar(save: Save, carId: string, price: number): Save {
-  if (save.owned.includes(carId)) return save;
+export function buyCar(save: Save, carId: string, price: number, km: number): Save {
+  if (ownsCar(save, carId)) return save;
   if (!carById(carId)) return save;
   if (save.credits < price) return save;
-  return { ...save, credits: save.credits - price, owned: [...save.owned, carId] };
+  // the odometer travels with the car; see sellValueFor for why it must
+  return {
+    ...save,
+    credits: save.credits - price,
+    owned: [...save.owned, { id: carId, km }],
+  };
 }
 
 export function sellCar(save: Save, carId: string): Save {
@@ -77,13 +91,14 @@ export function sellCar(save: Save, carId: string): Save {
   // catalogue -- the save would be a dead end you could not spend your way
   // out of.
   if (save.owned.length <= 1) return save;
-  if (!save.owned.includes(carId)) return save;
+  const held = save.owned.find((o) => o.id === carId);
+  if (!held) return save;
   const spec = carById(carId);
   if (!spec) return save;
   return {
     ...save,
-    credits: save.credits + sellValueFor(spec),
-    owned: save.owned.filter((id) => id !== carId),
+    credits: save.credits + sellValueFor(spec, held.km),
+    owned: save.owned.filter((o) => o.id !== carId),
   };
 }
 

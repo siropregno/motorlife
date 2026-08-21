@@ -3,6 +3,28 @@ import { CARS } from "@catalog/cars";
 
 import { mulberry32 } from "@sim/rng";
 import { priceOf } from "./economy";
+import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
+
+/**
+ * A car with a price on it, at one place, on one day.
+ *
+ * Not a CarSpec: the same F40 is a different offer at two dealers because the
+ * odometers differ, and the odometer is most of why one costs more. Every
+ * listing in the game is an Offer so the price shown, the price charged and
+ * the price it will sell back for are all computed from the same km.
+ */
+export interface Offer {
+  spec: CarSpec;
+  km: number;
+  price: number;
+  condition: Condition;
+}
+
+function offer(spec: CarSpec, salt: string, rate = 1): Offer {
+  const km = kmFor(spec, salt);
+  const price = Math.round((priceWithKm(priceOf(spec), spec, km) * rate) / 100) * 100;
+  return { spec, km, price, condition: conditionOf(spec, km) };
+}
 
 /**
  * Where cars come from.
@@ -65,8 +87,11 @@ export function dealerById(id: string): Dealer | undefined {
 }
 
 /** What a dealer has on the floor: everything it carries that you do not own. */
-export function stockOf(dealer: Dealer, owned: string[] = []): CarSpec[] {
-  return CARS.filter((c) => !owned.includes(c.id) && dealer.carries(c));
+export function stockOf(dealer: Dealer, owned: string[] = []): Offer[] {
+  return CARS.filter((c) => !owned.includes(c.id) && dealer.carries(c)).map((c) =>
+    // salted with the dealer, so its cars keep their odometers between visits
+    offer(c, dealer.id),
+  );
 }
 
 /**
@@ -79,9 +104,7 @@ export function stockOf(dealer: Dealer, owned: string[] = []): CarSpec[] {
  */
 export const USED_RATE = 0.7;
 
-export function usedPriceOf(spec: CarSpec): number {
-  return Math.round((priceOf(spec) * USED_RATE) / 100) * 100;
-}
+
 
 /** Six on the lot. Enough to browse, few enough that a good one stands out. */
 export const LOT_SIZE = 6;
@@ -104,7 +127,7 @@ const JUNK: Rarity[] = ["common", "uncommon"];
  * without the stock shuffling under the cursor. Feed it save.racesRun and the
  * lot turns over when you race, which is the only clock this game has.
  */
-export function usedLot(seed: number, owned: string[] = []): CarSpec[] {
+export function usedLot(seed: number, owned: string[] = []): Offer[] {
   const rng = mulberry32(seed);
   const available = CARS.filter((c) => !owned.includes(c.id));
   const junk = available.filter((c) => JUNK.includes(c.rarity));
@@ -129,5 +152,5 @@ export function usedLot(seed: number, owned: string[] = []): CarSpec[] {
     draw(available);
   }
 
-  return lot;
+  return lot.map((c) => offer(c, `usados-${seed}`, USED_RATE));
 }

@@ -1,10 +1,16 @@
 import type { MouseEvent } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
+import { formatKm } from "@progression/mileage";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
   spec: CarSpec;
+  /**
+   * The odometer, when this card is a particular car rather than a model.
+   * Absent on the Setup screen, where the card is just "the car you drive".
+   */
+  km?: number;
   /** Opens the spec sheet. A card does nothing else on click. */
   onOpen?: (id: string) => void;
   onContextMenu?: (e: MouseEvent, id: string) => void;
@@ -25,7 +31,7 @@ interface Props {
  * from the right-click menu now, and the topbar says which one you are in.
  * Opening a read-only sheet is the one thing a click can safely mean.
  */
-export function CarCard({ spec, onOpen, onContextMenu }: Props) {
+export function CarCard({ spec, km, onOpen, onContextMenu }: Props) {
   const hp = Math.round(spec.kW * 1.35962);
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
@@ -51,6 +57,9 @@ export function CarCard({ spec, onOpen, onContextMenu }: Props) {
         <p className="card-text-light">
           {hp} CV{spec.nm ? ` / ${spec.nm} Nm` : ""}
         </p>
+        {/* Its own line under the power, not tacked onto it: the odometer is
+            a fact about THIS car, where the power is a fact about the model. */}
+        {km === undefined ? null : <p className="card-km">{formatKm(km)}</p>}
       </span>
 
       <span className="card-car">
