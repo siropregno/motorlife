@@ -4,14 +4,21 @@ import { colorFor, colorName, colorsOf, imageFor, photoStem } from "./paint";
 
 const m3 = carById("bmw-m3-e30")!;
 const f40 = carById("ferrari-f40")!;
-/** A car with one photo and no paint options -- the other branch everywhere. */
-const plain = carById("ford-f100")!;
+/**
+ * A car with NO photo at all. Every photographed car has paint now, so this
+ * is the only real example of the other branch left in the catalogue.
+ */
+const plain = carById("chevrolet-chevy-250")!;
+
+/** A one-photo car, built rather than found: none are left to point at. */
+const single = { ...plain, id: "test-single", image: "/test-single.png" };
 
 describe("which colours a car comes in", () => {
   it("reads them off the catalogue, and is empty for a one-colour car", () => {
     expect(colorsOf(m3)).toEqual(["black", "red", "white", "yellow"]);
     expect(colorsOf(f40)).toEqual(["black", "red", "yellow"]);
     expect(colorsOf(plain)).toEqual([]);
+    expect(colorsOf(single)).toEqual([]);
   });
 
   it("names them in Spanish, and falls back to the slug", () => {
@@ -69,8 +76,11 @@ describe("the photo for a car", () => {
   it("falls back to the single image rather than to a broken path", () => {
     // a colour the car does not come in must not produce a 404
     expect(imageFor(m3, "chartreuse")).toBe(m3.image);
-    expect(imageFor(plain, "red")).toBe(plain.image);
-    expect(imageFor(plain, undefined)).toBe(plain.image);
+    // a one-photo car ignores any colour it is handed
+    expect(imageFor(single, "red")).toBe("/test-single.png");
+    expect(imageFor(single, undefined)).toBe("/test-single.png");
+    // and a car with no photo at all gets nothing, not a guessed path
+    expect(imageFor(plain, "red")).toBeUndefined();
   });
 
   it("gives every car in the catalogue a photo or nothing, never a guess", () => {

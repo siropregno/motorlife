@@ -28,6 +28,7 @@ export const CARS: CarSpec[] = [
     nm: 520,
     rarity: "epic",
     blurb: "Super Sedán",
+    colors: ["black", "gray", "white"],
     logo: "/bmw-logo.png",
   },
   {
@@ -76,7 +77,8 @@ export const CARS: CarSpec[] = [
     nm: 310,
     rarity: "common",
     blurb: "Pickup",
-    image: "/ford-f-100.png",
+    colors: ["light-blue", "red"],
+    photo: "ford-f-100",
     logo: "/ford-logo.png",
   },
 
@@ -148,6 +150,7 @@ export const CARS: CarSpec[] = [
     nm: 115,
     rarity: "common",
     blurb: "Compacto",
+    colors: ["light-blue", "yellow"],
   },
   /*
    * The catalogue proper. Argentine production cars through the 70s and 80s,
