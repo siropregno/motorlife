@@ -184,3 +184,51 @@
 }
 
 /* The class badge lives in app.css as .klass-badge -- the topbar uses it too. */
+
+/*
+ * The collector's mark: low kilometres for its age, "De colección".
+ *
+ * Absolutely positioned rather than left to fall at the end of the flex line.
+ * As a flex child it did land bottom right, but only because .card-info is
+ * exactly 292px and .card-car is out of flow -- so the badge's position was
+ * really a statement about the title column's width, and moving that column
+ * would have slid the badge with it. Pinned to the corner it is pinned to the
+ * corner.
+ *
+ * z-index 4 puts it over the photo's darkening veil (.card-car::after, z 2) and
+ * over the title column (z 3). The veil is transparent at the right-hand edge,
+ * which is exactly where this sits, so anything below it would be washed out by
+ * a gradient that exists to make text readable somewhere else.
+ */
+.card-shiny {
+  position: absolute;
+  right: 14px;
+  bottom: 11px;
+  z-index: 4;
+  /* the card is the control; this is paint on it and must not eat the click */
+  pointer-events: none;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 7px, not a percentage: 25% of 25px is 6.25 and rounds differently at the
+     grid's two card widths, which showed as one badge rounder than the next */
+  border-radius: 7px;
+  background: var(--purple);
+  /* Against a headlight or a white roof the purple needs its own edge, and the
+     shadow alone does not give it one on a light photo. */
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+/* White on transparency like every other glyph, so it sits on the purple
+   without a second file. contain, not cover: the source is square with its own
+   padding baked in, and cover would crop that padding off unevenly. */
+.card-shiny img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  display: block;
+}

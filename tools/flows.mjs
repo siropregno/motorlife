@@ -78,7 +78,7 @@ try {
   check(
     "each action carries its glyph",
     await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.map((e) => new URL(e.src).pathname).join(" ")),
-    "/car-key.png /paint-brush.png /sell.svg",
+    "/car-key.png /paint-brush.png /icon-shop.png",
   );
   check(
     "and every one of them actually loaded",
@@ -228,7 +228,7 @@ try {
         const before = img && label && img.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING;
         return `${label.textContent}:${img ? new URL(img.src).pathname.replace(/^\//, "") : "NONE"}${before ? "" : "!ORDER"}`;
       }).join(" ")),
-    "Subirse al auto:car-key.png Repintar:paint-brush.png Vender:sell.svg",
+    "Subirse al auto:car-key.png Repintar:paint-brush.png Vender:icon-shop.png",
   );
   // Repintar from the menu lands on the colours rather than on the sheet you
   // would then have to click Repintar in again.
@@ -253,6 +253,93 @@ try {
   await page.waitForSelector("dialog.confirm", { state: "detached" });
   // Three, not two: the shop section above bought the Chevy 250 back.
   check("and No still keeps it", await page.locator(".car-card").count(), 3);
+
+  /*
+   * The collector's mark, on its own save.
+   *
+   * It runs last and reseeds rather than joining SAVE above, because every
+   * check up to here counts cards and pins wallet totals -- adding a fourth car
+   * to the garage would move all of them for a reason that has nothing to do
+   * with what they test.
+   *
+   * The km are not round numbers picked to look shed-kept: they are 5% of
+   * expectedKm(year), which is what conditionOf() calls "De colección". Pinning
+   * the band here rather than the number means the mark follows the rule if the
+   * rule ever moves.
+   */
+  console.log("\nthe collector's mark");
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 3,
+    credits: 400_000,
+    racesRun: 6,
+    owned: [
+      { id: "bmw-m3-e30", km: 8_600, color: "white" }, // 5% of expected -> survivor
+      { id: "chevrolet-chevy-250", km: 317_500 }, // hard used -> nothing
+    ],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+
+  check(
+    "it marks the shed-kept car and only that one",
+    await page.locator(".car-card").evaluateAll((els) =>
+      els.map((e) => `${e.querySelector(".card-title-bold").textContent.split("'")[0].trim()}:${e.querySelector(".card-shiny") ? "*" : "-"}`).join(" ")),
+    "M3 E30:* Chevy 250:-",
+  );
+  check(
+    "the glyph loaded rather than 404ing to an empty box",
+    await page.locator(".card-shiny img").evaluateAll((els) =>
+      els.every((e) => e.complete && e.naturalWidth > 0)),
+    true,
+  );
+  // A purple square is not a word. In the garage there is no price line saying
+  // "De colección", so without this the mark means nothing to a screen reader.
+  check(
+    "and it says so in words, not only in colour",
+    await card("M3 E30").locator(".card-shiny").innerText(),
+    "De colección",
+  );
+  // Bottom right, inside the card, and not eating the click that opens the
+  // sheet. Measured: "bottom right" is the whole ask, and a badge that lands in
+  // the wrong corner would pass every other check here.
+  const mark = await page.evaluate(() => {
+    const c = document.querySelector(".car-card:has(.card-shiny)");
+    const b = c.querySelector(".card-shiny");
+    const cr = c.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    return {
+      inBottomRight:
+        cr.right - br.right < 24 && cr.bottom - br.bottom < 24 &&
+        br.left > cr.left + cr.width / 2 && br.top > cr.top + cr.height / 2,
+      inside: br.right <= cr.right && br.bottom <= cr.bottom,
+      clickThrough: getComputedStyle(b).pointerEvents === "none",
+      // over the photo's darkening veil, or the gradient washes it out
+      overVeil: +getComputedStyle(b).zIndex > +getComputedStyle(c.querySelector(".card-car")).zIndex,
+    };
+  });
+  check("it sits in the bottom right corner", mark.inBottomRight, true);
+  check("inside the card, not clipped by it", mark.inside, true);
+  check("it does not swallow the click that opens the sheet", mark.clickThrough, true);
+  check("and it draws over the photo rather than under the veil", mark.overVeil, true);
+
+  // The shop prints "De colección" in purple next to the price. Two ways of
+  // saying one thing, so they must never disagree.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: /Pacheco/ }).click();
+  await page.waitForSelector(".shop-item");
+  check(
+    "in the shop the mark agrees with the word beside the price, row for row",
+    await page.locator(".shop-item").evaluateAll((els) =>
+      els.filter((e) => !!e.querySelector(".card-shiny") !==
+        (e.querySelector(".shop-flag")?.textContent.trim() === "De colección")).length),
+    0,
+  );
+  check(
+    "and the shop has some to show, so that check was not vacuous",
+    (await page.locator(".shop-item .card-shiny").count()) > 0,
+    true,
+  );
 
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 } finally {

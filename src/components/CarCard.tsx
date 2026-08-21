@@ -1,8 +1,9 @@
 import type { MouseEvent } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
-import { formatKm } from "@progression/mileage";
+import { conditionOf, formatKm } from "@progression/mileage";
 import { classTierClass } from "../lib/tiers";
+import { ICON } from "../lib/icons";
 
 interface Props {
   spec: CarSpec;
@@ -27,6 +28,11 @@ interface Props {
  * often a car surfaces in the dealership; it no longer competes for the same
  * strip of colour.
  *
+ * The one purple thing on the card is the collector's mark, bottom right. It
+ * is a fact about THIS car and not about the model -- the same Fuego is a
+ * collector's car at 1.600 km and an ordinary one at 400.000 -- so it hangs off
+ * the odometer, and a card with no odometer (the Setup screen) never wears it.
+ *
  * Clicking a card opens its spec sheet and nothing else. It used to SWAP the
  * car you were driving, so the same gesture that reads the collection quietly
  * changed what you were about to race. Getting into a car is a deliberate pick
@@ -38,6 +44,11 @@ export function CarCard({ spec, km, image = spec.image, onOpen, onContextMenu }:
   // cached in the catalogue, so this is a map lookup after the first call
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
+  // "De colección": low kilometres for its age. The shop already prints that
+  // label in purple next to the price, so this is the same claim as a mark you
+  // can see from across the grid -- and the only way to see it in the garage,
+  // where there is no price line to hang a word on.
+  const collectible = km !== undefined && conditionOf(spec, km).band === "survivor";
 
   const body = (
     <>
@@ -67,6 +78,21 @@ export function CarCard({ spec, km, image = spec.image, onOpen, onContextMenu }:
       <span className="card-car">
         {image ? <img src={image} alt={`${spec.make} ${spec.model}`} /> : null}
       </span>
+
+      {/*
+        The glyph is aria-hidden and the words live in a .sr-only span beside
+        it. `title` alone is a mouse affordance -- it is not reliably announced
+        on a span -- and in the garage there is no price line printing "De
+        colección", so without the span the mark is a purple square that means
+        nothing to a screen reader. The image stays nameless for the same reason
+        every other Glyph does: the card is one control with one name.
+      */}
+      {collectible ? (
+        <span className="card-shiny" title="De colección">
+          <img src={ICON.shiny} alt="" aria-hidden="true" />
+          <span className="sr-only">De colección</span>
+        </span>
+      ) : null}
     </>
   );
 
