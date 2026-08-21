@@ -196,43 +196,63 @@ export default function App() {
         </div>
       </header>
 
-      {screen === "garage" && (
-        <Garage
-          owned={save.owned}
-          credits={save.credits}
-          currentId={carId}
-          onDrive={pickCar}
-          onSell={sell}
-          onRepaint={repaint}
-        />
-      )}
+      {/*
+        * The screen, in a wrapper that plays an entrance every time it changes.
+        *
+        * The KEY is what animates it. A CSS animation runs once when an element
+        * is created, so re-keying the wrapper on each arrival hands React a
+        * different element and the browser starts the animation over. No state,
+        * no timers, nothing to clean up if you tab away mid-transition.
+        *
+        * Only the ARRIVING screen moves. Animating the leaving one as well
+        * would mean keeping it mounted after it stopped being the current
+        * screen, and the Race screen is a live clock -- it ticks the tower on a
+        * timeout and pays out credits when the flag falls. A race left mounted
+        * to slide away would keep running, off-screen, and could bank a purse
+        * for a race you walked out of. A crossfade avoids the whole class of
+        * bug rather than defending against it.
+        *
+        * shopEpoch is in the key because pressing the shop tab while already in
+        * the shop remounts Shop to take you back to its top level. That is an
+        * arrival too, and it should look like one.
+        */}
+      <div className="screen-swap" key={`${screen}-${screen === "shop" ? shopEpoch : 0}`}>
+        {screen === "garage" && (
+          <Garage
+            owned={save.owned}
+            credits={save.credits}
+            currentId={carId}
+            onDrive={pickCar}
+            onSell={sell}
+            onRepaint={repaint}
+          />
+        )}
 
-      {screen === "shop" && (
-        <Shop key={shopEpoch} save={save} onBuy={buy} />
-      )}
+        {screen === "shop" && <Shop save={save} onBuy={buy} />}
 
-      {screen === "setup" && (
-        <SetupScreen
-          carId={carId}
-          km={kmOwned(save, carId) ?? 0}
-          image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
-          build={build}
-          onBuild={setBuild}
-          track={track}
-          onTrack={setTrackId}
-          onRace={() => setScreen("race")}
-        />
-      )}
+        {screen === "setup" && (
+          <SetupScreen
+            carId={carId}
+            km={kmOwned(save, carId) ?? 0}
+            image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
+            build={build}
+            onBuild={setBuild}
+            track={track}
+            onTrack={setTrackId}
+            onRace={() => setScreen("race")}
+          />
+        )}
 
-      {screen === "race" && (
-        <Race
-          carId={carId}
-          build={build}
-          track={track}
-          racesRun={save.racesRun}
-          onFinish={finishRace}
-        />
-      )}
+        {screen === "race" && (
+          <Race
+            carId={carId}
+            build={build}
+            track={track}
+            racesRun={save.racesRun}
+            onFinish={finishRace}
+          />
+        )}
+      </div>
 
       {/* Last in the tree and outside the screens, because it opens over any
           of them and must not unmount when the reset changes which one is up. */}

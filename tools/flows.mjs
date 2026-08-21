@@ -457,7 +457,110 @@ try {
   check("and it survives a reload, so the old save really is gone", await wallet(), "6.000CR");
   check("with the old cars gone with it", await page.locator(".car-card").count(), 1);
 
+  /*
+   * The transition between screens.
+   *
+   * Runs after the reset, on the fresh save, because none of it cares what is
+   * in the garage -- it cares that changing section restarts an animation.
+   *
+   * Everything here is read off getAnimations() rather than off a screenshot.
+   * "Did it animate" is a fact the browser will state precisely, and a pair of
+   * screenshots 100ms apart is the flaky way to ask the same question.
+   */
+  console.log("\nthe screen transition");
+  const anim = () =>
+    page.evaluate(() => {
+      const el = document.querySelector(".screen-swap");
+      if (!el) return null;
+      const a = el.getAnimations()[0];
+      return a ? { name: a.animationName, ms: a.effect.getTiming().duration } : null;
+    });
+
+  check("the screen sits in a wrapper", await page.locator(".screen-swap").count(), 1);
+  const first = await anim();
+  check("which arrives with an animation on it", first?.name, "screen-in");
+  check("short enough not to feel like queueing", first?.ms <= 250, true);
+
+  // The real question: does it play AGAIN on the next arrival? A CSS animation
+  // fires once per element, so this is what proves the wrapper is re-keyed
+  // rather than reused -- reuse would animate the first screen and nothing else.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await page.waitForSelector(".pick-grid, .shop-item, .card-grid");
+  check("changing section plays it again", (await anim())?.name, "screen-in");
+
+  // Pressing the tab you are already on takes you to the top of that section,
+  // which is an arrival too and should look like one.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await page.waitForTimeout(30);
+  check("and so does pressing the tab you are already on", (await anim())?.name, "screen-in");
+
+  await garage();
+  check("going back plays it as well", (await anim())?.name, "screen-in");
+
+  // Opening a dialog must NOT re-run it: the settings box sits over the screen
+  // and the screen behind it did not arrive anywhere.
+  /*
+   * The entrance runs ONCE and stops.
+   *
+   * Asked as playState rather than as a count, because the animation is
+   * declared `both` -- the fill keeps a finished animation attached to the
+   * element forever, so getAnimations() stays length 1 and counting it proves
+   * nothing. "finished" is the fact worth pinning: still there, no longer
+   * moving, and the screen left at full opacity rather than mid-fade.
+   */
+  await page.waitForTimeout(260);
+  const rest = () =>
+    page.evaluate(() => {
+      const el = document.querySelector(".screen-swap");
+      const a = el.getAnimations()[0];
+      return `${a ? a.playState : "none"} @ opacity ${getComputedStyle(el).opacity}`;
+    });
+  check("the entrance runs once and settles", await rest(), "finished @ opacity 1");
+
+  // Opening a dialog must not re-key the wrapper: the settings box sits OVER
+  // the screen, and the screen behind it did not arrive anywhere.
+  await page.locator('.topnav-btn[aria-label="Ajustes"]').click();
+  await page.waitForSelector("dialog.settings-modal");
+  check("opening a dialog does not re-animate the screen behind it", await rest(), "finished @ opacity 1");
+  await page.locator('.settings-acts .btn[aria-label="Volver"]').click();
+  await page.waitForSelector("dialog.settings-modal", { state: "detached" });
+
   check("nothing 404ed and nothing threw", noise.join(", "), "");
+
+  /*
+   * Reduced motion, on its own page: the emulation is a property of the
+   * context, so it cannot be turned on halfway through the one above.
+   *
+   * The screen still has to BE there. The risk with cancelling an animation
+   * that starts at opacity 0 is shipping a blank page to exactly the people
+   * who asked for less motion, so this checks the content is visible and fully
+   * opaque, not merely that the animation is gone.
+   */
+  console.log("\nthe same transition, for someone who asked for less motion");
+  const calm = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+  await calm.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle" });
+  await calm.waitForSelector(".car-card");
+  check(
+    "no animation runs",
+    await calm.evaluate(() => document.querySelector(".screen-swap").getAnimations().length),
+    0,
+  );
+  check(
+    "and the screen is fully there rather than left at opacity 0",
+    await calm.evaluate(() => {
+      const el = document.querySelector(".screen-swap");
+      return `opacity ${getComputedStyle(el).opacity}, ${el.getBoundingClientRect().height > 100 ? "visible" : "COLLAPSED"}`;
+    }),
+    "opacity 1, visible",
+  );
+  await calm.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await calm.waitForSelector(".pick-grid, .shop-item, .card-grid");
+  check(
+    "and changing section still changes section",
+    await calm.evaluate(() => getComputedStyle(document.querySelector(".screen-swap")).opacity),
+    "1",
+  );
+  await calm.close();
 } finally {
   await browser.close();
 }

@@ -15,6 +15,47 @@
 }
 
 /*
+ * Arriving at a screen.
+ *
+ * A rise and a fade, not a slide across. The three sections are siblings, not
+ * a filmstrip you scroll along -- the garage is not to the left of the shop in
+ * any sense the player holds -- so sending one out sideways as another comes in
+ * says there is a line to walk, and there is not. Coming up from under is what
+ * a new page of content does, and it reads at the tab you just pressed.
+ *
+ * 12px, and no more. The screens all start with a title in the same place, so
+ * a big travel makes that heading visibly jump on every tab press; the point
+ * is to say "this is new" and get out of the way. 190ms for the same reason --
+ * long enough to be seen, short enough that going garage -> shop -> garage
+ * three times in a row never feels like queueing.
+ *
+ * ease-out, so it is quickest at the start: the screen is already most of the
+ * way there by the time the eye arrives, which is what keeps it from reading
+ * as lag on the button.
+ */
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.screen-swap {
+  animation: screen-in 190ms ease-out both;
+}
+
+/*
+ * Reduced motion takes the movement away, not the screen. `animation: none`
+ * rather than a shorter duration: the setting is a request for no motion, and
+ * 12px of travel in 60ms is still motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .screen-swap {
+    animation: none;
+  }
+}
+
+/*
  * The logo, not type. It was Motor + <span>life</span> in the display face
  * with the span painted --purple; the png is the same lockup drawn properly,
  * and it is where --purple's #5f36c7 comes from in the first place.
