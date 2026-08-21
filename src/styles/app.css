@@ -281,7 +281,7 @@ p.screen-sub {
   letter-spacing: 0.06em;
 }
 .chip.on {
-  border-color: var(--purple-ink);
+  background: var(--purple);
   color: var(--ink);
 }
 
@@ -584,18 +584,25 @@ p.screen-sub {
 
 /* The door to the other three facets, with a count of what is already on so
    the bar never hides an active filter behind a closed dialog. */
-.btn.ghost {
-  padding: 0 13px;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  border-radius: 8px;
-  background: transparent;
-}
+/*
+ * The door to the other three facets, with a count of what is already on so
+ * the bar never hides an active filter behind a closed dialog.
+ *
+ * The compact sizing lives HERE and not on .btn.ghost. It was on .btn.ghost,
+ * and .btn.ghost is shared: Race's "Skip to flag" and Setup's reset button
+ * wear it too, and neither has the bar's height: 36px to put back the
+ * vertical padding this takes away. Both collapsed to the height of their own
+ * text. Screen-specific sizing goes on a screen-specific class.
+ */
 .btn.advanced {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  padding: 0 13px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  border-radius: 8px;
 }
 
 .filter-grid {
