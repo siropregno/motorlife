@@ -61,8 +61,32 @@ export const ownsCar = (save: Save, id: string): boolean =>
   save.owned.some((o) => o.id === id);
 export const kmOwned = (save: Save, id: string): number | undefined =>
   save.owned.find((o) => o.id === id)?.km;
-export const colorOwned = (save: Save, id: string): string | undefined =>
-  save.owned.find((o) => o.id === id)?.color;
+
+/**
+ * The colour of a car in the garage.
+ *
+ * Falls back to a derived one when the save has none, and that fallback is the
+ * whole point. v2ToV3 painted every car in the garage the day colour arrived,
+ * but a migration runs ONCE: a car bought after that day, while its model still
+ * had no photos, was stored with no colour and stayed that way. When the art
+ * for that model finally landed, the forecourt showed it in paint and the
+ * owner's own copy went blank -- `imageFor` with no colour falls back to
+ * `spec.image`, and a car with colours has no `spec.image` to fall back to.
+ *
+ * Fixing it here rather than in a v4 makes it self-healing. Every future drop
+ * of paint for a car someone already owns is the same bug, and a migration
+ * would have to be written again each time. The salt is "garage", the one
+ * v2ToV3 used, so a car that was migrated and a car that was bought before its
+ * paint existed end up the same colour by the same rule.
+ */
+export const colorOwned = (save: Save, id: string): string | undefined => {
+  const held = save.owned.find((o) => o.id === id);
+  return held ? (held.color ?? colorForOwned(id)) : undefined;
+};
+
+/** The same fallback, for code that already holds the car rather than the save. */
+export const colorOfHeld = (o: OwnedCar): string | undefined =>
+  o.color ?? colorForOwned(o.id);
 
 function isSave(v: unknown): v is Save {
   if (typeof v !== "object" || v === null) return false;

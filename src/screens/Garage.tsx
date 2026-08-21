@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { CARS, carById } from "@catalog/cars";
-import type { OwnedCar } from "@progression/save";
+import { colorOfHeld, type OwnedCar } from "@progression/save";
 import { imageFor } from "@progression/paint";
 
 import { formatCredits, sellValueFor } from "@progression/economy";
@@ -25,7 +25,7 @@ export function Garage({ owned, currentId, onDrive, onSell }: Props) {
   const cars = useMemo(
     () => owned.flatMap((o) => {
       const spec = CARS.find((c) => c.id === o.id);
-      return spec ? [{ spec, km: o.km, image: imageFor(spec, o.color) }] : [];
+      return spec ? [{ spec, km: o.km, image: imageFor(spec, colorOfHeld(o)) }] : [];
     }),
     [owned],
   );

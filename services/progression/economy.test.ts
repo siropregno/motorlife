@@ -14,7 +14,8 @@ import {
   sellCar,
 } from "./economy";
 import type { Save } from "./save";
-import { ownedIds } from "./save";
+import { ownedIds, colorOwned, colorOfHeld } from "./save";
+import { colorsOf, imageFor } from "./paint";
 import { priceWithKm } from "./mileage";
 import {
   loadSave,
@@ -160,6 +161,51 @@ describe("save", () => {
     // the cars arrive with an honest odometer, not a windfall: there is no
     // record of what they had, and 0 km would hand every old save a free sale
     for (const o of s.owned) expect(o.km).toBeGreaterThan(0);
+  });
+
+  /*
+   * The 607 in Siro's garage came up blank while the same car on the forecourt
+   * had paint on it. v2ToV3 coloured every car in the garage the day colour
+   * arrived, but it runs once -- this car was bought AFTER that, back when its
+   * model still had no photos, so it was stored with no colour and the save was
+   * already v3 by the time the art landed. Nothing was ever going to revisit it.
+   *
+   * The catalogue is the test rather than the 607, because this is not about
+   * the 607: it is about every car that gets paint after someone already owns
+   * one, which is every art drop from here on.
+   */
+  it("gives a car bought before its paint existed a colour anyway", () => {
+    for (const car of CARS.filter((c) => colorsOf(c).length > 0)) {
+      const save: Save = {
+        version: SAVE_VERSION,
+        credits: 0,
+        racesRun: 0,
+        owned: [{ id: car.id, km: 1_000 }], // no `color`, the pre-paint shape
+      };
+      const color = colorOwned(save, car.id);
+      expect(color, `${car.id} resolves to no colour`).toBeDefined();
+      expect(colorsOf(car), `${car.id} got a colour it does not come in`).toContain(color);
+      // the point of all of it: the card shows a photo instead of a hole
+      expect(imageFor(car, color), `${car.id} still has no photo`).toBe(
+        `/${car.photo ?? car.id}-${color}.png`,
+      );
+      expect(colorOfHeld(save.owned[0]!)).toBe(color);
+    }
+  });
+
+  it("leaves a stored colour alone rather than redrawing it", () => {
+    const save: Save = {
+      version: SAVE_VERSION,
+      credits: 0,
+      racesRun: 0,
+      owned: [{ id: "bmw-m3-e30", km: 1_000, color: "white" }],
+    };
+    expect(colorOwned(save, "bmw-m3-e30")).toBe("white");
+    expect(colorOfHeld(save.owned[0]!)).toBe("white");
+  });
+
+  it("has no colour for a car that is not in the garage", () => {
+    expect(colorOwned(STARTING_SAVE, "ferrari-f40")).toBeUndefined();
   });
 
   it("starts you with one car and something to spend", () => {
