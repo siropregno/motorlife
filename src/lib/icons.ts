@@ -12,6 +12,7 @@ export const ICON = {
   paint: "/paint-brush.png",
   sell: "/icon-shop.png",
   back: "/back.png",
+  settings: "/settings.png",
   /**
    * The collector's mark. Not an action -- it is the one glyph here that
    * nobody clicks -- but it obeys the same white-on-transparency rule as the

@@ -79,7 +79,7 @@ p.screen-sub {
   font-size: 14px;
   padding: 11px 22px;
   border-radius: 10px;
-  border: 1px solid var(--line-2);
+  border: 0px solid var(--line-2);
   background: var(--panel-2);
   color: var(--ink);
   transition:
@@ -87,8 +87,7 @@ p.screen-sub {
     border-color 0.15s;
 }
 .btn:hover {
-  background: #232323;
-  border-color: #4a4a4a;
+  background: var(--purple);
 }
 .btn.primary {
   background: linear-gradient(180deg, #7141e0 0%, #4d2ba3 100%);
@@ -400,6 +399,20 @@ p.screen-sub {
 }
 .topnav-btn.on img {
   opacity: 1;
+}
+
+/*
+ * Between the three tabs and the gear.
+ *
+ * The gear does not navigate and never lights, so without a break it reads as
+ * a fourth section that is simply always off. A hairline is the whole signal:
+ * anything heavier would be a border, and there are none in this app.
+ */
+.topnav-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--line);
 }
 
 /* ---------- selected car strip ---------- */

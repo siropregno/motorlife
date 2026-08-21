@@ -3,7 +3,7 @@ import type { Build } from "@contracts/race";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
-import { loadSave, writeSave, colorOwned, kmOwned, ownsCar, type Save } from "@progression/save";
+import { loadSave, writeSave, resetSave, colorOwned, kmOwned, ownsCar, type Save } from "@progression/save";
 import { buyCar, formatCredits, payoutFor, repaintCar, sellCar } from "@progression/economy";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
@@ -12,6 +12,7 @@ import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
 import { useToast } from "./components/Toasts";
 import { TopNav } from "./components/TopNav";
+import { SettingsModal } from "./components/SettingsModal";
 import type { Screen } from "./lib/screens";
 import { classTierClass } from "./lib/tiers";
 
@@ -48,6 +49,9 @@ export default function App() {
     if (next === "shop") setShopEpoch((n) => n + 1);
     setScreen(next);
   }, []);
+
+  /** Ajustes is a dialog over the current screen, not a screen of its own. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => writeSave(save), [save]);
 
@@ -96,6 +100,38 @@ export default function App() {
   };
 
   /**
+   * Start again.
+   *
+   * The save is only half of what a reset has to undo. The car you are sitting
+   * in, the circuit, the setup sliders and the screen you are standing on all
+   * live in React, not in the save, and a wipe that left them alone would drop
+   * you into a Renault-only garage still holding an F40's gearing on a track
+   * you unlocked in the game that no longer exists.
+   *
+   * A location.reload() would do all of it in one line, and is the wrong call:
+   * it throws away the toast that says it happened, and it makes a reset the
+   * only action in the game that flashes the page. Everything gets set back
+   * here instead, explicitly, in the order a new player would find it.
+   */
+  const reset = useCallback(() => {
+    const fresh = resetSave();
+    const first = fresh.owned[0]?.id ?? CARS[0]!.id;
+    setSave(fresh);
+    setCarId(first);
+    setBuild({
+      carId: first,
+      compound: "medium",
+      setup: { aero: 0, gearing: 0, springs: 0, brakeBias: 0 },
+    });
+    setTrackId(TRACKS[0]!.id);
+    setSettingsOpen(false);
+    // Not the screen you reset from: the shop and the tower are both showing
+    // a game that is gone. The garage is where a new save starts.
+    go("garage");
+    toast("Empezás de cero", "info");
+  }, [go, toast]);
+
+  /**
    * Repairs the selection when the selected car leaves the garage. Selling is
    * the only way that happens today, but the rule belongs to the selection
    * rather than to the sell handler -- anything that can shrink `owned` gets
@@ -137,7 +173,7 @@ export default function App() {
           <img src="/logo.png" alt="Motorlife" />
         </h1>
         <div className="topbar-right">
-          <TopNav screen={screen} onGo={go} />
+          <TopNav screen={screen} onGo={go} onSettings={() => setSettingsOpen(true)} />
           {car && rating ? (
             <span className="topcar">
               <span className="topcar-logo">
@@ -197,6 +233,12 @@ export default function App() {
           onFinish={finishRace}
         />
       )}
+
+      {/* Last in the tree and outside the screens, because it opens over any
+          of them and must not unmount when the reset changes which one is up. */}
+      {settingsOpen ? (
+        <SettingsModal onReset={reset} onClose={() => setSettingsOpen(false)} />
+      ) : null}
     </div>
   );
 }

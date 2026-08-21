@@ -212,3 +212,24 @@ export function clearSave(): void {
     /* ignore */
   }
 }
+
+/**
+ * Start again: the stored save goes, and you get the same first garage a new
+ * player gets.
+ *
+ * It both clears storage AND returns the fresh save, rather than only clearing
+ * and letting the caller reload the page. A reload would work, but it throws
+ * away every piece of state React holds that is not in the save -- the car you
+ * are sitting in, the circuit, the setup sliders -- and those have to be reset
+ * TOO. Handing the caller a value lets one setSave do all of it.
+ *
+ * The copy is not decoration. STARTING_SAVE is a module-level object, so
+ * returning it directly would hand every reset the same array of owned cars;
+ * buying a car after resetting would mutate the constant if anything ever
+ * pushed instead of spreading, and the next reset would start you with it.
+ * `owned` is copied one level deeper for the same reason.
+ */
+export function resetSave(): Save {
+  clearSave();
+  return { ...STARTING_SAVE, owned: STARTING_SAVE.owned.map((o) => ({ ...o })) };
+}

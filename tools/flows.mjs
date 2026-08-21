@@ -341,6 +341,122 @@ try {
     true,
   );
 
+  /*
+   * Ajustes, and the reset.
+   *
+   * It runs last for one reason: it wipes the save. Anything after it would be
+   * looking at a brand new game. Its own save goes in first so the numbers it
+   * checks against are its own -- a played garage, obviously not the starting
+   * one, so "you are back at the start" is a visible change rather than a
+   * coincidence.
+   */
+  console.log("\najustes");
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 3,
+    credits: 412_500,
+    racesRun: 37,
+    owned: [
+      { id: "ferrari-f40", km: 12_000, color: "red" },
+      { id: "bmw-m3-e30", km: 240_100, color: "black" },
+      { id: "chevrolet-chevy-250", km: 317_500 },
+    ],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+
+  const gear = page.locator('.topnav-btn[aria-label="Ajustes"]');
+  check("the nav has a fourth button", await gear.count(), 1);
+  check(
+    "and the four read left to right in that order",
+    await page.locator(".topnav-btn").evaluateAll((els) =>
+      els.map((e) => e.getAttribute("aria-label")).join(" | ")),
+    "Garaje | Concesionaria | Carrera | Ajustes",
+  );
+  check("its glyph loaded rather than 404ing", await gear.locator("img").evaluate((e) => e.complete && e.naturalWidth > 0), true);
+
+  await gear.click();
+  await page.waitForSelector("dialog.settings-modal");
+  check("clicking it opens a dialog, not a screen", await page.locator("dialog.settings-modal").isVisible(), true);
+  check("the garage is still behind it", await page.locator(".car-card").count(), 3);
+  // The gear is an action, not a place. The tab you were on stays the one that
+  // is lit, and nothing claims to be two sections at once.
+  check(
+    "the section you were in is still the lit one",
+    await page.locator(".topnav-btn.on").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")).join(" | ")),
+    "Garaje",
+  );
+  check(
+    "and the gear never says you-are-here",
+    await gear.evaluate((e) => e.getAttribute("aria-current")),
+    null,
+  );
+  check("it offers resetting the progress, in words", await page.locator(".settings-label").innerText(), "Resetear progreso");
+  check(
+    "spelling out what goes",
+    await page.locator(".settings-note").innerText(),
+    "Borra tus autos, tu plata y tus carreras. Volvés a empezar de cero.",
+  );
+  check("with the way out focused rather than the red button", await page.evaluate(() => document.activeElement.getAttribute("aria-label")), "Volver");
+
+  console.log("\nthe way back out of ajustes");
+  await page.locator('.settings-acts .btn[aria-label="Volver"]').click();
+  await page.waitForSelector("dialog.settings-modal", { state: "detached" });
+  check("the arrow closes it", await page.locator("dialog.settings-modal").count(), 0);
+  check("and changed nothing", await wallet(), "412.500CR");
+
+  console.log("\nresetting asks first");
+  await gear.click();
+  await page.waitForSelector("dialog.settings-modal");
+  await page.locator(".settings-reset").click();
+  await page.waitForSelector("dialog.confirm");
+  check("one click does not wipe the save, it asks", await page.locator(".confirm-q").innerText(), "¿Resetear todo tu progreso?");
+  check(
+    "saying what is lost and that it is final",
+    await page.locator(".confirm-detail").innerText(),
+    "Perdés tus autos, tu plata y tus carreras. No se puede deshacer.",
+  );
+  check("with the way out focused, so a stray Enter does not wipe it", await page.evaluate(() => document.activeElement.getAttribute("aria-label")), "Volver");
+  check("nothing reset while the question is up", await wallet(), "412.500CR");
+
+  await page.locator(".confirm-acts .btn").first().click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  check("No keeps the game", await wallet(), "412.500CR");
+  check("and leaves ajustes open behind it", await page.locator("dialog.settings-modal").isVisible(), true);
+  check("with the garage still whole", await page.locator(".car-card").count(), 3);
+
+  console.log("\nand yes actually resets");
+  await page.locator(".settings-reset").click();
+  await page.waitForSelector("dialog.confirm");
+  await page.locator(".confirm-acts .btn.danger").click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  await page.waitForSelector("dialog.settings-modal", { state: "detached" });
+  check("both dialogs close", await page.locator("dialog[open]").count(), 0);
+  // The backdrop is the thing a nested dialog leaves behind when it is closed
+  // in the wrong order: the page looks fine and nothing on it can be clicked.
+  check("the page is clickable again, with no orphan backdrop", await page.locator(".car-card").first().isEnabled(), true);
+  check("it says so", await page.locator(".toast").innerText(), "Empezás de cero");
+  check("the money is back to the starting purse", await wallet(), "6.000CR");
+  check("the garage is the starting garage", await page.locator(".car-card").count(), 1);
+  check(
+    "holding the one car a new player gets",
+    await page.locator(".card-title-bold > span").first().innerText(),
+    "R12 TL",
+  );
+  check("and it lands you in the garage", await page.locator(".topnav-btn.on").getAttribute("aria-label"), "Garaje");
+  // The save is only half a reset. The car you are SITTING IN lives in React,
+  // and a wipe that left it alone would leave the topbar naming a Ferrari that
+  // is no longer in the garage below it.
+  check(
+    "and puts you in the car you now own, not the one the reset took away",
+    await page.locator(".topcar-name").innerText(),
+    "R12 TL'71",
+  );
+
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+  check("and it survives a reload, so the old save really is gone", await wallet(), "6.000CR");
+  check("with the old cars gone with it", await page.locator(".car-card").count(), 1);
+
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 } finally {
   await browser.close();
