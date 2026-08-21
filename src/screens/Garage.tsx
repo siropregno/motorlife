@@ -8,6 +8,7 @@ import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
 import { Confirm } from "../components/Confirm";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
+import { PaintModal } from "../components/PaintModal";
 import { ICON } from "../lib/icons";
 
 interface Props {
@@ -44,22 +45,17 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
    * it just made -- which is the point of paying to look at it.
    */
   const [openId, setOpenId] = useState<string | null>(null);
-  /** Set only by the menu's Repintar row, so the sheet opens on the colours. */
-  const [picking, setPicking] = useState(false);
   /**
-   * The car being sold, while the question is on screen. Held HERE rather than
-   * in either surface that can ask, because both can: the sheet's Vender
-   * button and the menu's Vender row raise the same dialog and get the same
-   * answer, instead of each growing its own idea of how to confirm.
+   * The car being sold, and the car being painted, while their dialogs are up.
+   * Held HERE rather than inside either surface that can raise them, because
+   * both can: the sheet's buttons and the menu's rows open the same two
+   * dialogs and get the same answers, instead of each growing its own.
    */
   const [selling, setSelling] = useState<string | null>(null);
+  const [painting, setPainting] = useState<string | null>(null);
   const sellingCar = selling ? cars.find((c) => c.spec.id === selling) : undefined;
+  const paintingCar = painting ? cars.find((c) => c.spec.id === painting) : undefined;
   const open = openId ? cars.find((c) => c.spec.id === openId) : undefined;
-
-  const show = (id: string) => {
-    setPicking(false);
-    setOpenId(id);
-  };
 
   const close = useCallback(() => setMenu(null), []);
 
@@ -86,17 +82,14 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
         onPick: () => onDrive(spec.id),
       },
       {
-        // Opens the sheet already showing the colours. The picker cannot live
-        // in the menu -- it needs the hero above it to preview against -- so
-        // the row is a way IN to it rather than a copy of it.
+        // Straight to the paint shop, without the spec sheet in between. The
+        // picker cannot live in the menu itself -- it needs the photo above it
+        // to preview against -- so the row is a way IN to it, not a copy.
         label: "Repintar",
         icon: ICON.paint,
         hint: paintable ? `${formatCredits(repaintPriceFor(spec, km))} cr` : "un solo color",
         disabled: !paintable,
-        onPick: () => {
-          setOpenId(spec.id);
-          setPicking(true);
-        },
+        onPick: () => setPainting(spec.id),
       },
       {
         label: "Vender",
@@ -126,7 +119,7 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
             spec={c}
             km={km}
             image={image}
-            onOpen={show}
+            onOpen={setOpenId}
             onContextMenu={(e, id) => {
               e.preventDefault();
               // The Menu key and Shift+F10 fire contextmenu with zeroed
@@ -154,17 +147,26 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
           km={open.km}
           color={open.color}
           image={open.image}
-          startPicking={picking}
           sheet={{
             kind: "garage",
-            credits,
             canSell: owned.length > 1,
             isCurrent: open.spec.id === currentId,
             onDrive: () => onDrive(open.spec.id),
             onSell: () => setSelling(open.spec.id),
-            onRepaint: (color) => onRepaint(open.spec.id, color),
+            onPaint: () => setPainting(open.spec.id),
           }}
           onClose={() => setOpenId(null)}
+        />
+      ) : null}
+
+      {paintingCar ? (
+        <PaintModal
+          spec={paintingCar.spec}
+          color={paintingCar.color}
+          price={repaintPriceFor(paintingCar.spec, paintingCar.km)}
+          credits={credits}
+          onPaint={(color) => onRepaint(paintingCar.spec.id, color)}
+          onClose={() => setPainting(null)}
         />
       ) : null}
 

@@ -81,19 +81,25 @@ try {
     "/car-key.png /paint-brush.png /sell.svg",
   );
   check(
-    "and the back arrow is a glyph too, not the word Cancelar",
-    await page.locator(".modal-acts .btn").evaluateAll((els) => els.some((e) => e.textContent.trim() === "Cancelar")),
-    false,
-  );
-  check(
     "and every one of them actually loaded",
     await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.every((e) => e.complete && e.naturalWidth > 0)),
     true,
   );
 
-  console.log("\nrepainting");
+  console.log("\nthe paint shop");
   await page.locator('.modal-acts .btn[aria-label="Repintar"]').click();
-  await page.waitForSelector(".paint-swatches");
+  await page.waitForSelector("dialog.paint-modal");
+  const pay = page.locator(".paint-pay");
+  check(
+    "it is its own dialog, over the sheet",
+    await page.locator("dialog.modal:not(.paint-modal)").isVisible(),
+    true,
+  );
+  check(
+    "holding a photo and nothing about the machine",
+    await page.locator("dialog.paint-modal .spec-list").count(),
+    0,
+  );
   check(
     "every colour is a dot, the current one marked and still clickable",
     await page.locator(".paint-dot").evaluateAll((els) =>
@@ -106,27 +112,43 @@ try {
       new Set(els.map((e) => getComputedStyle(e).backgroundColor)).size),
     4,
   );
+  // The layout the row exists for: arrow hard left, dots on the centre of the
+  // dialog, price hard right. Measured, because "centred" is the whole ask and
+  // a flex row with space-between would pass every other check here.
+  const laid = await page.evaluate(() => {
+    const box = (s) => document.querySelector(s).getBoundingClientRect();
+    const row = box(".paint-row");
+    const back = box(".paint-back");
+    const dots = box(".paint-swatches");
+    const price = box(".paint-pay");
+    const mid = (r) => r.left + r.width / 2;
+    return {
+      backIsLeftmost: back.left < dots.left && back.left - row.left < 24,
+      priceIsRightmost: price.right > dots.right && row.right - price.right < 24,
+      dotsCentred: Math.abs(mid(dots) - mid(row)) < 2,
+    };
+  });
+  check("the arrow sits at the left edge", laid.backIsLeftmost, true);
+  check("the price at the right", laid.priceIsRightmost, true);
+  check("and the dots on the centre of the dialog", laid.dotsCentred, true);
+
   const walletBefore = await wallet();
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
-  check("the hero previews the colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
+  check("the photo previews the colour", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
   check("previewing is free", await wallet(), walletBefore);
-  check("the confirm is the price and nothing else", await page.locator(".modal-acts .btn").last().innerText(), "5.700 CR");
+  check("the price is the label and nothing else", await pay.innerText(), "5.700 CR");
 
   // Picking the colour it already is: allowed, but there is nothing to buy.
   await page.locator('.paint-dot[aria-label="Negro, el color actual"]').click();
-  check("the current colour is selectable", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-black.png");
-  check(
-    "and cannot be paid for",
-    await page.locator(".modal-acts .btn").last().evaluate((e) => e.disabled),
-    true,
-  );
+  check("the current colour is selectable", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-black.png");
+  check("and cannot be paid for", await pay.evaluate((e) => e.disabled), true);
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
-  check("picking a real change arms the price again", await page.locator(".modal-acts .btn").last().evaluate((e) => e.disabled), false);
+  check("picking a real change arms the price again", await pay.evaluate((e) => e.disabled), false);
 
-  await page.locator(".modal-acts .btn").last().click();
-  await page.waitForSelector(".paint-swatches", { state: "detached" });
+  await pay.click();
+  await page.waitForSelector("dialog.paint-modal", { state: "detached" });
   check("paying charges exactly that", await wallet(), "114.300CR");
-  check("the sheet keeps the new colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
+  check("the sheet behind it kept the new colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
   await page.locator(".modal-x").click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
   check("so does the card behind it", await photo("M3 E30"), "/bmw-m3-e30-yellow.png");
@@ -211,10 +233,15 @@ try {
   // Repintar from the menu lands on the colours rather than on the sheet you
   // would then have to click Repintar in again.
   await page.locator(".ctx-item", { hasText: "Repintar" }).click();
-  await page.waitForSelector(".paint-swatches");
-  check("the menu's Repintar opens straight onto the dots", await page.locator(".paint-dot").count(), 4);
-  await page.locator(".modal-x").click();
-  await page.waitForSelector("dialog.modal", { state: "detached" });
+  await page.waitForSelector("dialog.paint-modal");
+  check("the menu's Repintar opens the paint shop directly", await page.locator(".paint-dot").count(), 4);
+  check(
+    "with no spec sheet behind it, since it did not go through one",
+    await page.locator("dialog.modal:not(.paint-modal)").count(),
+    0,
+  );
+  await page.locator(".paint-back").click();
+  await page.waitForSelector("dialog.paint-modal", { state: "detached" });
 
   console.log("\nthe menu sells the same way the sheet does");
   await card("M3 E30").click({ button: "right" });

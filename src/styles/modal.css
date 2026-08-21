@@ -199,27 +199,27 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 18px;
-  /* The garage foot carries three actions in a 448px column, and one of them
-     grows when it arms ("Vender" -> "Vender por 12.200 cr"). Wrapping is what
-     keeps that from pushing a button out of the dialog. */
+  /* The buy foot can hold a rarity word, a price and "Faltan 143.000 cr" in a
+     448px column, which is over the edge on the dearest cars in the game. */
   flex-wrap: wrap;
 }
 
 /*
- * Everything below is scoped to the modal footer on purpose. .btn is shared by
- * every screen in the app, so .btn.danger and .btn.armed as bare rules would
- * be new global modifiers -- and .ctx-item already owns those two words in
- * menu.css with different colours. Keeping them behind .modal-foot means the
- * garage sheet can style its own buttons without reaching anywhere else.
+ * The rules below are scoped rather than put on .btn. It is shared by every
+ * screen in the app, so .btn.danger as a bare rule would be a new global
+ * modifier -- and .ctx-item already owns that word in menu.css with a
+ * different colour. Scoped, each dialog styles its own buttons without
+ * reaching anywhere else.
  */
 /*
- * Both rows that hold glyph buttons: the sheet's actions and the confirm
- * box's answers. Listed rather than put on .btn, because .btn is shared by
- * every screen and the gap would open up under the label of every button in
- * the app that has no icon in it.
+ * Every row that holds glyph buttons: the sheet's actions, the confirm box's
+ * answers, the paint shop's arrow and price. Listed rather than put on .btn,
+ * because .btn is shared by every screen and the gap would open up under the
+ * label of every button in the app that has no icon in it.
  */
 .modal-foot .btn,
-.confirm-acts .btn {
+.confirm-acts .btn,
+.paint-row .btn {
   padding: 9px 14px;
   font-size: 12.5px;
   display: inline-flex;
@@ -229,7 +229,8 @@
 
 /* White on transparency like the section nav, so opacity is the only lever. */
 .modal-foot .btn-icon,
-.confirm-acts .btn-icon {
+.confirm-acts .btn-icon,
+.paint-row .btn-icon {
   flex: none;
   width: 15px;
   height: 15px;
@@ -313,25 +314,66 @@
   filter: brightness(1.1);
 }
 
-/* ---------- repainting ---------- */
+/* ---------- the paint shop ---------- */
 /*
- * The picker REPLACES the action row rather than opening under it, so the
- * dialog does not jump in height at the moment you are looking at the car.
- *
- * The dots carry no label. The name is not lost: it is on the dot for a
- * screen reader and on hover, and the spec list on the left spells it out the
- * moment one is picked. What the row is FOR is comparing four colours at a
- * glance, and four words do not do that.
+ * Its own dialog, and deliberately almost nothing in it: a photo of the car
+ * and the colours you can make it. It borrows .modal for the surface and the
+ * backdrop and then sets its own width -- the spec sheet's 720px is sized for
+ * two columns, and there is only one thing here.
+ */
+.paint-modal {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.paint-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 16:9, the house photo shape, so the render fills the frame exactly rather
+     than being cropped to fit a box picked for some other reason. */
+  aspect-ratio: 16 / 9;
+  background: #0e0e0e;
+  overflow: hidden;
+}
+.paint-hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/*
+ * Three columns, not space-between. Both centre the dots when the two sides
+ * happen to be the same width, but only the grid keeps them on the centre of
+ * the DIALOG when they are not -- and they never are: the way out is a 15px
+ * arrow and the price is five characters and a currency. The 1fr on each side
+ * is what makes the palette sit under the middle of the car rather than
+ * slightly left of it on every screen in the game.
+ */
+.paint-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+}
+.paint-back {
+  justify-self: start;
+}
+.paint-pay {
+  justify-self: end;
+}
+
+/*
+ * The dots carry no label. The name is not lost -- it is on the dot for a
+ * screen reader and on hover -- and what the row is FOR is comparing the
+ * colours at a glance, which words never did.
  */
 .paint-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  /* Its own row, always. Four colour words plus Cancelar plus "Pintar por
-     5.700 cr" do not fit 448px, so leaving it to wrap on its own dropped the
-     confirm button to a second line hard against the left margin, under the
-     swatches, looking like it had fallen off. Two rows on purpose instead. */
-  flex: 1 1 100%;
+  justify-content: center;
+  gap: 8px;
 }
 
 /*

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
-import { colorName, colorSwatch, colorsOf, imageFor } from "@progression/paint";
+import { colorName, colorsOf } from "@progression/paint";
 import { classTierClass } from "../lib/tiers";
 import { ICON } from "../lib/icons";
 import { Glyph } from "./Glyph";
@@ -28,13 +28,18 @@ export type CarSheet =
     }
   | {
       kind: "garage";
-      credits: number;
       /** False for your last car: selling it leaves you nothing to race. */
       canSell: boolean;
       isCurrent: boolean;
       onDrive: () => void;
       onSell: () => void;
-      onRepaint: (color: string) => void;
+      /**
+       * Both of these only ASK. Selling and painting each own a dialog of
+       * their own, raised by the caller over this one, so the sheet does not
+       * need to know what a colour costs or what a sale pays -- it needs to
+       * know that a button was pressed.
+       */
+      onPaint: () => void;
     };
 
 interface Props {
@@ -43,8 +48,6 @@ interface Props {
   color?: string | undefined;
   image?: string | undefined;
   sheet: CarSheet;
-  /** Opens straight into the colour picker, for the menu row that means paint. */
-  startPicking?: boolean;
   onClose: () => void;
 }
 
@@ -90,43 +93,29 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string | undefined }) 
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, km, color, image = spec.image, sheet, startPicking = false, onClose }: Props) {
+export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
   const hp = Math.round(spec.kW * 1.35962);
   const cond = conditionOf(spec, km);
 
-  /*
-   * Painting opens a picker rather than firing, because choosing the colour is
-   * the feature: a button that resprayed the car whatever colour it felt like
-   * would be a slot machine. Selling asks in a dialog of its own, which is the
-   * caller's job -- see Confirm for why it is not an arming button.
-   */
-  const [picking, setPicking] = useState(startPicking);
-  const [preview, setPreview] = useState<string | null>(null);
-
   useEffect(() => {
     const el = ref.current;
     if (el && !el.open) el.showModal();
   }, []);
 
+  /*
+   * The colour picker used to be a third state of this footer, sharing the
+   * two-column frame with the spec list. It is PaintModal now: picking paint
+   * is looking at the car, and a spec list beside the photo is in the way of
+   * that. What is left here is a button that says the shop is open.
+   */
   const palette = colorsOf(spec);
-  const shown = preview ?? color;
-  // The preview is the whole reason the picker is worth having: you see the
-  // car in the colour before you pay for it, in the same frame the card uses.
-  const hero = (preview ? imageFor(spec, preview) : undefined) ?? image;
-
   const repaintPrice = repaintPriceFor(spec, km);
   const sellValue = sellValueFor(spec, km);
   const driveLabel =
     sheet.kind === "garage" && sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto";
-  /** Something picked, something different, and the money for it. */
-  const payable =
-    preview !== null &&
-    preview !== color &&
-    sheet.kind === "garage" &&
-    sheet.credits >= repaintPrice;
 
   const close = () => ref.current?.close();
 
@@ -153,9 +142,7 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
-            {shown ? (
-              <Row k="Color" v={colorName(shown)} alt={preview ? "vista previa" : undefined} />
-            ) : null}
+            {color ? <Row k="Color" v={colorName(color)} /> : null}
           </div>
         </aside>
 
@@ -180,8 +167,8 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
           </header>
 
           <div className="modal-hero">
-            {hero ? (
-              <img src={hero} alt={`${spec.make} ${spec.model}`} />
+            {image ? (
+              <img src={image} alt={`${spec.make} ${spec.model}`} />
             ) : (
               <span className="modal-nophoto">sin foto</span>
             )}
@@ -209,70 +196,6 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
                     : `Faltan ${formatCredits(sheet.price - sheet.credits)} cr`}
                 </button>
               )}
-            </footer>
-          ) : picking ? (
-            <footer className="modal-foot paint">
-              {/* Dots, not words. The name still reaches a screen reader
-                  through the label, and it is spelled out in the spec list on
-                  the left the moment a dot is picked -- so nothing is lost by
-                  showing the colour as a colour. */}
-              <div className="paint-swatches" role="group" aria-label="Colores">
-                {palette.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`paint-dot${shown === c ? " on" : ""}${c === color ? " current" : ""}`}
-                    style={{ "--dot": colorSwatch(c) } as CSSProperties}
-                    // Every dot is live, the colour it already wears included:
-                    // clicking that one is how you get back to the car as it
-                    // stands after previewing something else. What it does not
-                    // do is arm the price -- see `payable`.
-                    aria-label={c === color ? `${colorName(c)}, el color actual` : colorName(c)}
-                    title={c === color ? `${colorName(c)} · el color actual` : colorName(c)}
-                    onClick={() => setPreview(c)}
-                  />
-                ))}
-              </div>
-              <div className="modal-acts">
-                <button
-                  className="btn"
-                  aria-label="Volver"
-                  title="Volver"
-                  onClick={() => {
-                    setPicking(false);
-                    setPreview(null);
-                  }}
-                >
-                  <Glyph src={ICON.back} />
-                </button>
-                {/*
-                 * The label is the number and nothing else. "Pintar por 5.700
-                 * cr" said the verb twice -- the brush got you here and the
-                 * dots are the choice; what is left to say is the price.
-                 *
-                 * It goes dead, not the dot, when the colour picked is the one
-                 * the car already wears. You can select it -- backing out of a
-                 * preview to see the car as it stands is the obvious thing to
-                 * want, and a dot you cannot click cannot do it -- but there is
-                 * nothing to buy, and repaintCar refuses the same case anyway.
-                 */}
-                <button
-                  className={`btn${payable ? " primary" : ""}`}
-                  disabled={!payable}
-                  title={
-                    preview === color ? "Ya es de este color" : preview ? undefined : "Elegí un color"
-                  }
-                  onClick={() => {
-                    if (preview) sheet.onRepaint(preview);
-                    setPicking(false);
-                    setPreview(null);
-                  }}
-                >
-                  {sheet.credits < repaintPrice
-                    ? `Faltan ${formatCredits(repaintPrice - sheet.credits)} cr`
-                    : `${formatCredits(repaintPrice)} cr`}
-                </button>
-              </div>
             </footer>
           ) : (
             <footer className="modal-foot">
@@ -304,7 +227,7 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, startPick
                   disabled={palette.length < 2}
                   aria-label="Repintar"
                   title={palette.length < 2 ? "Este auto viene en un solo color" : `Repintar · ${formatCredits(repaintPrice)} cr`}
-                  onClick={() => setPicking(true)}
+                  onClick={() => sheet.onPaint()}
                 >
                   <Glyph src={ICON.paint} />
                 </button>
