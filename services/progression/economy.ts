@@ -2,7 +2,8 @@ import type { CarSpec, Rarity } from "@contracts/car";
 import { classCap, type ClassLetter } from "@sim/rating";
 import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
-import { ownsCar, type Save } from "./save";
+import { colorOfHeld, ownsCar, type Save } from "./save";
+import { colorsOf } from "./paint";
 import { priceWithKm } from "./mileage";
 
 /**
@@ -86,6 +87,57 @@ export function buyCar(
   // the odometer travels with the car; see sellValueFor for why it must
   const held = color === undefined ? { id: carId, km } : { id: carId, km, color };
   return { ...save, credits: save.credits - price, owned: [...save.owned, held] };
+}
+
+/**
+ * A respray, priced as a fraction of the car rather than as a flat fee.
+ *
+ * A flat fee would be the wrong shape at both ends: pocket change on an F40 and
+ * a real decision on a 128, when the car it matters to is the cheap one. A
+ * percentage tracks the car, the way a real paint shop does -- more panels,
+ * better paint, more money.
+ *
+ * 4% is deliberately far under the 40% you lose selling. Paint is meant to be
+ * something you do to a car you are keeping, not a transaction you weigh. The
+ * floor stops the cheapest shed-find in the catalogue from being resprayed for
+ * a rounding error.
+ *
+ * It does NOT touch what the car is worth. sellValueFor prices the model and
+ * the odometer, and paint is not in it -- respraying to sell higher would make
+ * this an arbitrage instead of a coat of paint.
+ */
+export const REPAINT_RATE = 0.04;
+export const REPAINT_FLOOR = 500;
+
+export function repaintPriceFor(spec: CarSpec, km: number): number {
+  const value = priceWithKm(priceOf(spec), spec, km);
+  return Math.max(REPAINT_FLOOR, Math.round((value * REPAINT_RATE) / 100) * 100);
+}
+
+/**
+ * Paint a car in the garage a colour it actually comes in.
+ *
+ * Refuses the same way buy and sell refuse -- by returning the save unchanged
+ * -- so a click that should not have been possible does nothing rather than
+ * throwing under a handler. Repainting a car the colour it already is is one
+ * of those: it is a no-op that would otherwise charge for nothing.
+ */
+export function repaintCar(save: Save, carId: string, color: string): Save {
+  const held = save.owned.find((o) => o.id === carId);
+  if (!held) return save;
+  const spec = carById(carId);
+  if (!spec) return save;
+  if (!colorsOf(spec).includes(color)) return save;
+  // colorOfHeld, not held.color: a car bought before its paint existed has a
+  // derived colour on screen, and that is the one the player is looking at.
+  if (colorOfHeld(held) === color) return save;
+  const price = repaintPriceFor(spec, held.km);
+  if (save.credits < price) return save;
+  return {
+    ...save,
+    credits: save.credits - price,
+    owned: save.owned.map((o) => (o.id === carId ? { ...o, color } : o)),
+  };
 }
 
 export function sellCar(save: Save, carId: string): Save {

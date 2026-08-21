@@ -1,21 +1,46 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
-import { formatCredits } from "@progression/economy";
+import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
-import { colorName } from "@progression/paint";
+import { colorName, colorsOf, imageFor } from "@progression/paint";
 import { classTierClass } from "../lib/tiers";
+
+/**
+ * What the sheet can DO, which is the only thing that differs between the two
+ * places it opens. Everything above the footer -- the figures, the photo, the
+ * class badge -- is the same car either way, so it is written once.
+ *
+ * A discriminated union rather than a pile of optional props: "price but no
+ * onSell" and "onSell but no price" are the only two shapes that exist, and
+ * six optional fields would let a caller invent a third that renders wrong.
+ */
+export type CarSheet =
+  | {
+      kind: "buy";
+      price: number;
+      credits: number;
+      owned: boolean;
+      /** km travels with the sale: the odometer you bought is the one you own. */
+      onBuy?: (id: string, price: number, km: number) => void;
+    }
+  | {
+      kind: "garage";
+      credits: number;
+      /** False for your last car: selling it leaves you nothing to race. */
+      canSell: boolean;
+      isCurrent: boolean;
+      onDrive: () => void;
+      onSell: () => void;
+      onRepaint: (color: string) => void;
+    };
 
 interface Props {
   spec: CarSpec;
   km: number;
   color?: string | undefined;
   image?: string | undefined;
-  price: number;
-  credits: number;
-  owned: boolean;
-  /** km travels with the sale: the odometer you bought is the one you own. */
-  onBuy?: (id: string, price: number, km: number) => void;
+  sheet: CarSheet;
   onClose: () => void;
 }
 
@@ -37,7 +62,7 @@ const RARITY: Record<string, string> = {
   apex: "suprema",
 };
 
-function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
+function Row({ k, v, alt }: { k: string; v: string; alt?: string | undefined }) {
   return (
     <div className="spec-row">
       <span className="spec-k">{k}</span>
@@ -61,18 +86,39 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string }) {
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, km, color, image = spec.image, price, credits, owned, onBuy, onClose }: Props) {
+export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
   const hp = Math.round(spec.kW * 1.35962);
-  const afford = credits >= price;
   const cond = conditionOf(spec, km);
+
+  /*
+   * Two footer states that are not the normal one. Selling arms before it
+   * fires, the way the right-click menu does -- a sale cannot be undone and
+   * one stray click is a cheap way to lose a car. Painting opens a picker,
+   * because choosing a colour is the feature; a button that resprayed the car
+   * whatever colour it felt like would be a slot machine.
+   */
+  const [armed, setArmed] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (el && !el.open) el.showModal();
   }, []);
+
+  const palette = colorsOf(spec);
+  const shown = preview ?? color;
+  // The preview is the whole reason the picker is worth having: you see the
+  // car in the colour before you pay for it, in the same frame the card uses.
+  const hero = (preview ? imageFor(spec, preview) : undefined) ?? image;
+
+  const repaintPrice = repaintPriceFor(spec, km);
+  const sellValue = sellValueFor(spec, km);
+
+  const close = () => ref.current?.close();
 
   return (
     <dialog
@@ -97,7 +143,9 @@ export function CarModal({ spec, km, color, image = spec.image, price, credits, 
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
-            {color ? <Row k="Color" v={colorName(color)} /> : null}
+            {shown ? (
+              <Row k="Color" v={colorName(shown)} alt={preview ? "vista previa" : undefined} />
+            ) : null}
           </div>
         </aside>
 
@@ -116,39 +164,131 @@ export function CarModal({ spec, km, color, image = spec.image, price, credits, 
               {rating.letter}
               {rating.index}
             </span>
-            <button className="modal-x" onClick={() => ref.current?.close()} aria-label="Cerrar">
+            <button className="modal-x" onClick={close} aria-label="Cerrar">
               ×
             </button>
           </header>
 
           <div className="modal-hero">
-            {image ? (
-              <img src={image} alt={`${spec.make} ${spec.model}`} />
+            {hero ? (
+              <img src={hero} alt={`${spec.make} ${spec.model}`} />
             ) : (
               <span className="modal-nophoto">sin foto</span>
             )}
           </div>
 
-          <footer className="modal-foot">
-            <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
-            <span className="modal-price">{formatCredits(price)} cr</span>
-            {owned ? (
-              <button className="btn" disabled>
-                En tu garaje
-              </button>
-            ) : (
-              <button
-                className={`btn${afford ? " primary" : ""}`}
-                disabled={!afford || !onBuy}
-                onClick={() => {
-                  onBuy?.(spec.id, price, km);
-                  ref.current?.close();
-                }}
-              >
-                {afford ? "Comprar" : `Faltan ${formatCredits(price - credits)} cr`}
-              </button>
-            )}
-          </footer>
+          {sheet.kind === "buy" ? (
+            <footer className="modal-foot">
+              <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
+              <span className="modal-price">{formatCredits(sheet.price)} cr</span>
+              {sheet.owned ? (
+                <button className="btn" disabled>
+                  En tu garaje
+                </button>
+              ) : (
+                <button
+                  className={`btn${sheet.credits >= sheet.price ? " primary" : ""}`}
+                  disabled={sheet.credits < sheet.price || !sheet.onBuy}
+                  onClick={() => {
+                    sheet.onBuy?.(spec.id, sheet.price, km);
+                    close();
+                  }}
+                >
+                  {sheet.credits >= sheet.price
+                    ? "Comprar"
+                    : `Faltan ${formatCredits(sheet.price - sheet.credits)} cr`}
+                </button>
+              )}
+            </footer>
+          ) : picking ? (
+            <footer className="modal-foot paint">
+              <div className="paint-swatches" role="group" aria-label="Colores">
+                {palette.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`paint-chip${shown === c ? " on" : ""}`}
+                    // The colour it already wears is not a purchase, so it is
+                    // not offered as one. repaintCar refuses it too.
+                    disabled={c === color}
+                    onClick={() => setPreview(c)}
+                  >
+                    {colorName(c)}
+                  </button>
+                ))}
+              </div>
+              <div className="modal-acts">
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setPicking(false);
+                    setPreview(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className={`btn${preview && sheet.credits >= repaintPrice ? " primary" : ""}`}
+                  disabled={!preview || sheet.credits < repaintPrice}
+                  onClick={() => {
+                    if (preview) sheet.onRepaint(preview);
+                    setPicking(false);
+                    setPreview(null);
+                  }}
+                >
+                  {sheet.credits < repaintPrice
+                    ? `Faltan ${formatCredits(repaintPrice - sheet.credits)} cr`
+                    : `Pintar por ${formatCredits(repaintPrice)} cr`}
+                </button>
+              </div>
+            </footer>
+          ) : (
+            <footer className="modal-foot">
+              <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
+              <div className="modal-acts">
+                <button
+                  className="btn"
+                  disabled={sheet.isCurrent}
+                  onClick={() => {
+                    sheet.onDrive();
+                    close();
+                  }}
+                >
+                  {sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto"}
+                </button>
+                {/* Under two colours there is nothing to change it TO, so the
+                    button says why instead of opening an empty picker. */}
+                {/* The price lands on the confirm button in the picker rather
+                    than here: three labelled actions plus a figure do not fit
+                    the 448px column, and the cost has to be unmissable at the
+                    moment you pay it, not one click earlier. */}
+                <button
+                  className="btn"
+                  disabled={palette.length < 2}
+                  title={palette.length < 2 ? "Este auto viene en un solo color" : undefined}
+                  onClick={() => setPicking(true)}
+                >
+                  Repintar
+                </button>
+                <button
+                  className={`btn danger${armed ? " armed" : ""}`}
+                  disabled={!sheet.canSell}
+                  title={sheet.canSell ? undefined : "Es tu único auto"}
+                  onClick={() => {
+                    if (!armed) {
+                      setArmed(true);
+                      return;
+                    }
+                    sheet.onSell();
+                    close();
+                  }}
+                  onMouseLeave={() => setArmed(false)}
+                >
+                  {armed ? `Vender por ${formatCredits(sellValue)} cr` : "Vender"}
+                </button>
+              </div>
+            </footer>
+          )}
         </div>
       </div>
     </dialog>

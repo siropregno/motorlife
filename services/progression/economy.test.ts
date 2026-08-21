@@ -12,6 +12,9 @@ import {
   sellValueFor,
   buyCar,
   sellCar,
+  repaintCar,
+  repaintPriceFor,
+  REPAINT_FLOOR,
 } from "./economy";
 import type { Save } from "./save";
 import { ownedIds, colorOwned, colorOfHeld } from "./save";
@@ -287,6 +290,102 @@ describe("selling", () => {
     const s = sellCar(save(), "ford-f100");
     const forSale = CARS.filter((c) => !ownedIds(s).includes(c.id)).map((c) => c.id);
     expect(forSale).toContain("ford-f100");
+  });
+});
+
+describe("repainting", () => {
+  /** The M3 comes in four, which is enough to have a "some other colour". */
+  const m3 = byId("bmw-m3-e30");
+  const other = (not: string) => colorsOf(m3).find((c) => c !== not)!;
+  const garage = (color?: string, over: Partial<Save> = {}) =>
+    save({
+      owned: [held("renault-12-tl"), color === undefined ? held(m3.id) : { ...held(m3.id), color }],
+      ...over,
+    });
+
+  it("costs a fraction of the car, never less than the floor", () => {
+    for (const car of CARS) {
+      const price = repaintPriceFor(car, 100_000);
+      expect(price).toBeGreaterThanOrEqual(REPAINT_FLOOR);
+      // and far under what selling costs you, because paint is not a trade
+      expect(price).toBeLessThan(sellValueFor(car, 100_000));
+    }
+    // the expensive car costs more to paint than the cheap one
+    expect(repaintPriceFor(byId("ferrari-f40"), 100_000)).toBeGreaterThan(
+      repaintPriceFor(byId("renault-12-tl"), 100_000),
+    );
+  });
+
+  it("changes the colour and charges for it", () => {
+    const s = garage("black");
+    const to = other("black");
+    const after = repaintCar(s, m3.id, to);
+    expect(after.owned.find((o) => o.id === m3.id)!.color).toBe(to);
+    expect(after.credits).toBe(s.credits - repaintPriceFor(m3, 100_000));
+    expect(s.owned.find((o) => o.id === m3.id)!.color).toBe("black"); // input untouched
+  });
+
+  it("leaves the odometer and the rest of the garage alone", () => {
+    const s = garage("black");
+    const after = repaintCar(s, m3.id, other("black"));
+    expect(after.owned.find((o) => o.id === m3.id)!.km).toBe(100_000);
+    expect(after.owned.find((o) => o.id === "renault-12-tl")).toEqual(held("renault-12-tl"));
+  });
+
+  /*
+   * Paint is cosmetic and has to stay that way. If a respray moved the sell
+   * price, the cheapest colour would become a buy signal and the dearest a
+   * money printer -- and the whole feature would be an arbitrage with a
+   * picture on it.
+   */
+  it("does not move what the car is worth", () => {
+    const s = garage("black");
+    const before = sellValueFor(m3, 100_000);
+    const after = repaintCar(s, m3.id, other("black"));
+    expect(sellValueFor(m3, after.owned.find((o) => o.id === m3.id)!.km)).toBe(before);
+  });
+
+  it("refuses a colour the car does not come in", () => {
+    const s = garage("black");
+    expect(repaintCar(s, m3.id, "chartreuse")).toBe(s);
+  });
+
+  it("refuses to charge for the colour it already is", () => {
+    const s = garage("black");
+    expect(repaintCar(s, m3.id, "black")).toBe(s);
+  });
+
+  /*
+   * The car bought before its paint existed shows a DERIVED colour on its
+   * card. Charging to repaint it that same colour would take money for a car
+   * that looks identical afterwards, which reads as a bug to whoever paid.
+   */
+  it("refuses the colour a colourless car is already showing", () => {
+    const s = garage(undefined);
+    const showing = colorOfHeld(s.owned.find((o) => o.id === m3.id)!)!;
+    expect(showing).toBeDefined();
+    expect(repaintCar(s, m3.id, showing)).toBe(s);
+    // but any other colour still works, and stores a real value this time
+    const to = other(showing);
+    expect(repaintCar(s, m3.id, to).owned.find((o) => o.id === m3.id)!.color).toBe(to);
+  });
+
+  it("refuses when you are short", () => {
+    const s = garage("black", { credits: 10 });
+    expect(repaintCar(s, m3.id, other("black"))).toBe(s);
+  });
+
+  it("refuses a car you do not own, or one that is not in the catalogue", () => {
+    const s = garage("black");
+    expect(repaintCar(s, "ferrari-f40", "red")).toBe(s);
+    const ghost = save({ owned: [held("ghost-car")] });
+    expect(repaintCar(ghost, "ghost-car", "red")).toBe(ghost);
+  });
+
+  it("refuses a car that comes in no colours at all", () => {
+    const plain = CARS.find((c) => colorsOf(c).length === 0)!;
+    const s = save({ owned: [held("renault-12-tl"), held(plain.id)] });
+    expect(repaintCar(s, plain.id, "red")).toBe(s);
   });
 });
 

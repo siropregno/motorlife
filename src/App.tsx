@@ -4,8 +4,8 @@ import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
 import { loadSave, writeSave, colorOwned, kmOwned, ownsCar, type Save } from "@progression/save";
-import { buyCar, formatCredits, payoutFor, sellCar } from "@progression/economy";
-import { imageFor } from "@progression/paint";
+import { buyCar, formatCredits, payoutFor, repaintCar, sellCar } from "@progression/economy";
+import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
@@ -86,6 +86,15 @@ export default function App() {
     if (name) toast(`Vendiste tu ${name} por ${formatCredits(paid)} cr`, "bad");
   };
 
+  const repaint = (id: string, color: string) => {
+    const next = repaintCar(save, id, color);
+    if (next === save) return;
+    setSave(next);
+    const paid = save.credits - next.credits;
+    const name = nameOf(id);
+    if (name) toast(`Pintaste tu ${name} de ${colorName(color).toLowerCase()} por ${formatCredits(paid)} cr`, "good");
+  };
+
   /**
    * Repairs the selection when the selected car leaves the garage. Selling is
    * the only way that happens today, but the rule belongs to the selection
@@ -154,9 +163,11 @@ export default function App() {
       {screen === "garage" && (
         <Garage
           owned={save.owned}
+          credits={save.credits}
           currentId={carId}
           onDrive={pickCar}
           onSell={sell}
+          onRepaint={repaint}
         />
       )}
 

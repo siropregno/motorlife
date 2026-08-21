@@ -199,6 +199,87 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 18px;
+  /* The garage foot carries three actions in a 448px column, and one of them
+     grows when it arms ("Vender" -> "Vender por 12.200 cr"). Wrapping is what
+     keeps that from pushing a button out of the dialog. */
+  flex-wrap: wrap;
+}
+
+/*
+ * Everything below is scoped to the modal footer on purpose. .btn is shared by
+ * every screen in the app, so .btn.danger and .btn.armed as bare rules would
+ * be new global modifiers -- and .ctx-item already owns those two words in
+ * menu.css with different colours. Keeping them behind .modal-foot means the
+ * garage sheet can style its own buttons without reaching anywhere else.
+ */
+.modal-foot .btn {
+  padding: 9px 14px;
+  font-size: 12.5px;
+}
+
+/* The actions sit hard right, away from the rarity word on the left. */
+.modal-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.modal-foot .btn.danger:hover:not(:disabled):not(.armed) {
+  color: var(--red);
+  border-color: var(--red);
+}
+/* Armed: the first click asked, this one confirms. Filled rather than tinted,
+   so it cannot be read as the hover state it replaced. */
+.modal-foot .btn.armed {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+/* ---------- repainting ---------- */
+/*
+ * The picker REPLACES the action row rather than opening under it, so the
+ * dialog does not jump in height at the moment you are looking at the car.
+ * The swatches are words, not colour dots: the hero above is already showing
+ * the car in the colour, which is a better swatch than any 14px square, and it
+ * means no second table of hex values to keep in step with the photos.
+ */
+.paint-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* Its own row, always. Four colour words plus Cancelar plus "Pintar por
+     5.700 cr" do not fit 448px, so leaving it to wrap on its own dropped the
+     confirm button to a second line hard against the left margin, under the
+     swatches, looking like it had fallen off. Two rows on purpose instead. */
+  flex: 1 1 100%;
+}
+
+.paint-chip {
+  padding: 7px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+.paint-chip:hover:not(:disabled) {
+  border-color: var(--purple-ink);
+  color: var(--ink);
+}
+.paint-chip.on {
+  border-color: var(--purple);
+  background: var(--purple);
+  color: #fff;
+}
+/* The colour it already wears: shown, so the palette is complete, but dead. */
+.paint-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .modal-rarity {

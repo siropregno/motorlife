@@ -139,10 +139,13 @@ export function Listing({ offers, credits, owned, onBuy, controls = true, empty 
           km={open.km}
           color={open.color}
           image={open.image}
-          price={open.price}
-          credits={credits}
-          owned={owned.includes(open.spec.id)}
-          onBuy={(id, price, km) => onBuy(id, price, km, open.color)}
+          sheet={{
+            kind: "buy",
+            price: open.price,
+            credits,
+            owned: owned.includes(open.spec.id),
+            onBuy: (id, price, km) => onBuy(id, price, km, open.color),
+          }}
           onClose={() => setOpenId(null)}
         />
       ) : null}
