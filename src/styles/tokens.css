@@ -16,8 +16,20 @@
   --ink-3: #8a8a8a;
   --ink-4: #5c5c5c;
 
-  /* FIA live timing convention: purple fastest, green personal best */
-  --purple: #b06cff;
+  /*
+   * FIA live timing convention: purple fastest, green personal best.
+   *
+   * Two purples, one hue (257°). --purple is the brand, taken straight off
+   * the logo, and it is a FILL: white sits on it at 7.4:1. It is too dark to
+   * be text, though -- on --panel it measures 2.57:1, against 4.5 for AA --
+   * so every place the accent is a word, a thin border or a focus ring uses
+   * --purple-ink, the same hue lightened until it clears AA at 5.4:1.
+   *
+   * The rule is which side of the ink the colour is on, not which element:
+   * paint WITH --purple, write and outline IN --purple-ink.
+   */
+  --purple: #5f36c7;
+  --purple-ink: #9575e6;
   --green: #35d07f;
   --amber: #ffb020;
   --red: #ff5545;
@@ -104,6 +116,6 @@ button {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--purple);
+  outline: 2px solid var(--purple-ink);
   outline-offset: 2px;
 }

@@ -28,7 +28,7 @@
 }
 
 .car-card.menuable:focus-visible {
-  border-color: var(--purple);
+  border-color: var(--purple-ink);
   outline: none;
 }
 

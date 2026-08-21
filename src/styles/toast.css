@@ -51,7 +51,7 @@
   border-left-color: var(--red);
 }
 .toast.info {
-  border-left-color: var(--purple);
+  border-left-color: var(--purple-ink);
 }
 
 .toast.leaving {

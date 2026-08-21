@@ -106,7 +106,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <h1 className="wordmark">
-          Motor<span>life</span>
+          {/* The alt text is the h1's text: the heading still says Motorlife
+              to a screen reader and to anything that fails to load the png. */}
+          <img src="/logo.png" alt="Motorlife" />
         </h1>
         <div className="topbar-right">
           {car && rating ? (

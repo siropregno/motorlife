@@ -14,16 +14,24 @@
   border-bottom: 1px solid var(--line);
 }
 
+/*
+ * The logo, not type. It was Motor + <span>life</span> in the display face
+ * with the span painted --purple; the png is the same lockup drawn properly,
+ * and it is where --purple's #5f36c7 comes from in the first place.
+ *
+ * align-self: center for the reason .topbar-right already opts out: an <img>
+ * baselines on its bottom edge, so leaving it in the topbar's baseline group
+ * hangs the whole row off the bottom of the logo.
+ */
 .wordmark {
-  font-family: var(--display);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 28px;
-  letter-spacing: 0.02em;
+  display: flex;
+  align-self: center;
   margin: 0;
 }
-.wordmark span {
-  color: var(--purple);
+.wordmark img {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 
 .crumb {
@@ -83,8 +91,8 @@ p.screen-sub {
   border-color: #4a4a4a;
 }
 .btn.primary {
-  background: linear-gradient(180deg, #aa00ff 0%, #7a00cc 100%);
-  border-color: #aa00ff;
+  background: linear-gradient(180deg, #7141e0 0%, #4d2ba3 100%);
+  border-color: var(--purple);
   color: #fff;
 }
 .btn.primary:hover {
@@ -156,7 +164,7 @@ p.screen-sub {
 
 .slider input[type="range"] {
   width: 100%;
-  accent-color: #aa00ff;
+  accent-color: var(--purple-ink);
 }
 
 .slider-hint {
@@ -245,7 +253,7 @@ p.screen-sub {
   border-color: var(--line-2);
 }
 .track-opt.on {
-  border-color: var(--purple);
+  border-color: var(--purple-ink);
   color: var(--ink);
 }
 .track-opt .meta {
@@ -263,7 +271,7 @@ p.screen-sub {
   flex: 1;
   padding: 9px 0;
   border-radius: 9px;
-  border: 1px solid var(--line);
+  border: 0px solid var(--line);
   background: var(--panel-2);
   color: var(--ink-3);
   font-family: var(--display);
@@ -273,7 +281,7 @@ p.screen-sub {
   letter-spacing: 0.06em;
 }
 .chip.on {
-  border-color: var(--purple);
+  border-color: var(--purple-ink);
   color: var(--ink);
 }
 
@@ -561,7 +569,7 @@ p.screen-sub {
   border-radius: 8px;
   border: 0px solid var(--line-2);
   background: var(--panel-2);
-  color: var(--purple);
+  color: var(--purple-ink);
   font-family: var(--text);
   font-size: 15px;
   line-height: 1;
@@ -610,7 +618,7 @@ p.screen-sub {
   padding: 0 4px;
   border-radius: 9px;
   background: var(--purple);
-  color: #14061f;
+  color: #fff;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0;
@@ -674,7 +682,7 @@ p.screen-sub {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--purple);
+  color: var(--purple-ink);
 }
 .filters-clear:hover,
 .linkish:hover {
