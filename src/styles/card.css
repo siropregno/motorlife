@@ -138,16 +138,21 @@
  * The veil that keeps the title readable where it runs over the photo.
  *
  * It is 350px wide against a 205px photo, both anchored right, so overlay
- * x=115 is the car's left edge and a stop at P% sits (350*P/100 - 115) / 205
+ * x=145 is the car's left edge and a stop at P% sits (350*P/100 - 145) / 205
  * of the way across the car. Worth doing that arithmetic before moving a
- * number: the stops are in overlay space, not photo space.
+ * number: the stops are in overlay space, not photo space, and the offset
+ * moves whenever the photo width does.
  *
  * Ends at 88% rather than 100%. Running the fade all the way to the card edge
  * meant the car was only ever fully clear at its last column of pixels, and
  * the far side of every photo -- roof, rear, the bit that says what the car
- * is -- sat under a grey wash. Stopping at 88% frees the last 18% of the car.
+ * is -- sat under a grey wash. Stopping at 88% frees the last 20% of the car.
  * Going further, to about 80%, starts crowding the class badge against the
  * roofline, so this is as far left as it goes.
+ *
+ * The photo narrowing from 235 to 205 did most of the rest: the opaque end of
+ * the ramp now lands left of the photo entirely, so the car is near-clear from
+ * about 4% across instead of 28%.
  */
 .card-car::after {
   content: "";
@@ -158,8 +163,8 @@
   height: 100%;
   background: linear-gradient(
     90deg,
-    #111111 8%,
-    #222222 26%,
+    #111111 1%,
+    #222222 22%,
     rgba(51, 51, 51, 1) 44%,
     transparent 88%
   );
