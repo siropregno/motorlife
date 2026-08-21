@@ -56,6 +56,17 @@ const garage = async () => {
   await page.waitForSelector(".car-card");
 };
 
+/**
+ * Wait for a section change to finish moving.
+ *
+ * Waits for the STATE rather than for a duration: .sliding is on the stage for
+ * exactly as long as the transition runs, so this stays correct if the timing
+ * is ever retuned. It was a pile of waitForTimeout(320) calls, every one of
+ * which silently became too short the moment the slide went from 260ms to 340.
+ */
+const settled = () =>
+  page.waitForFunction(() => !document.querySelector(".stage.sliding"), null, { timeout: 5000 });
+
 try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle" });
   await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), SAVE);
@@ -489,35 +500,76 @@ try {
   check("going right, the old screen leaves to the left", fwd.going?.name, "screen-out-left");
   check("and the new one comes in from the right", fwd.coming?.name, "screen-in-right");
   check("both for the same length of time", fwd.going?.ms === fwd.coming?.ms, true);
-  check("which matches SLIDE_MS in App.tsx", fwd.coming?.ms, 260);
+  check("which matches SLIDE_MS in App.tsx", fwd.coming?.ms, 340);
   check("with both screens on the stage while it runs", await page.locator(".screen").count(), 2);
 
   // Coming BACK is the mirror. A slide that went the same way in both
   // directions would pass every check above and still be wrong.
-  await page.waitForTimeout(320);
+  await settled();
   await page.locator('.topnav-btn[aria-label="Garaje"]').click();
   const back = await stage();
   check("going back, the old screen leaves to the right", back.going?.name, "screen-out-right");
   check("and the new one comes in from the left", back.coming?.name, "screen-in-left");
 
-  // The leaving screen must not own height or the page would jump; and it must
-  // not widen the stage or a horizontal scrollbar appears mid-slide.
+  /*
+   * Both screens must be out of the flow: each spends part of the slide a full
+   * screen-width off to one side, and an in-flow element there drags the
+   * document's width past the viewport. The stage has to hold its height while
+   * they are both lifted, or the page collapses under the cursor.
+   */
   const geom = await page.evaluate(() => {
     const st = document.querySelector(".stage");
     const go = document.querySelector(".screen.going");
+    const co = document.querySelector(".screen.coming");
     return {
-      lifted: go ? getComputedStyle(go).position : "none",
+      goLifted: go ? getComputedStyle(go).position : "none",
+      coLifted: co ? getComputedStyle(co).position : "none",
       clipped: getComputedStyle(st).overflow,
+      held: st.getBoundingClientRect().height > 100,
       noHScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     };
   });
-  check("the leaving screen is out of the flow", geom.lifted, "absolute");
-  check("the stage clips it on its way out", geom.clipped, "hidden");
+  check("the leaving screen is out of the flow", geom.goLifted, "absolute");
+  check("and so is the arriving one", geom.coLifted, "absolute");
+  check("the stage holds its height rather than collapsing", geom.held, true);
+  check("the stage clips them on the way past", geom.clipped, "hidden");
   check("so nothing opens a horizontal scrollbar", geom.noHScroll, true);
+
+  /*
+   * The travel is a WHOLE SCREEN WIDTH, not a nudge.
+   *
+   * This is the check the first version of the slide would have failed. It
+   * moved 38px -- three percent of the frame -- which passed every "did it
+   * animate, and which way" question above and still looked like a plain
+   * crossfade. Measuring the distance is the only way to ask whether anything
+   * actually appears to move.
+   *
+   * Read at the animation's own end state rather than by sampling mid-flight,
+   * so it is a fact about the keyframes and not a race with the clock.
+   */
+  const travel = await page.evaluate(() => {
+    const go = document.querySelector(".screen.going");
+    const a = go.getAnimations()[0];
+    const was = a.currentTime;
+    a.pause();
+    a.currentTime = a.effect.getTiming().duration;
+    const m = new DOMMatrix(getComputedStyle(go).transform);
+    const out = { moved: Math.abs(m.m41), width: go.getBoundingClientRect().width };
+    // Put it back and let it run, so the checks after this one still see a
+    // slide that finishes on its own.
+    a.currentTime = was;
+    a.play();
+    return out;
+  });
+  check(
+    "the leaving screen travels its own full width, not a nudge",
+    travel.moved >= travel.width * 0.95,
+    true,
+  );
 
   // And it is really gone afterwards, rather than left stacked invisibly over
   // the live screen where it would eat clicks.
-  await page.waitForTimeout(360);
+  await settled();
   check("the old screen is dropped once it has left", await page.locator(".screen").count(), 1);
   check("the stage stops being a stage", await page.locator(".stage.sliding").count(), 0);
   /*
@@ -540,7 +592,7 @@ try {
   // Pressing the tab you are already on is not a change of section, so it must
   // not slide -- but it must still take the shop back to its top level.
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
-  await page.waitForTimeout(320);
+  await settled();
   // Two levels down -- the chooser, then a dealer -- so "back to the top" is
   // a real journey rather than one click undone.
   await page.getByRole("button", { name: /Concesionarios/ }).click();
@@ -552,7 +604,7 @@ try {
 
   // Opening a dialog must not move the screen behind it: it did not arrive
   // anywhere, it is just being covered.
-  await page.waitForTimeout(320);
+  await settled();
   await page.locator('.topnav-btn[aria-label="Ajustes"]').click();
   await page.waitForSelector("dialog.settings-modal");
   check("opening a dialog does not slide the screen behind it", await page.locator(".screen.going").count(), 0);
@@ -569,7 +621,7 @@ try {
   console.log("\nthe race");
   await page.locator('.topnav-btn[aria-label="Carrera"]').click();
   await page.waitForSelector(".setup-grid");
-  await page.waitForTimeout(320);
+  await settled();
   const before = await wallet();
   await page.locator(".btn.primary", { hasText: "Correr" }).first().click();
   await page.waitForSelector("dialog.race-modal");
@@ -614,7 +666,7 @@ try {
 
   await page.locator(".race-out").click();
   await page.waitForSelector("dialog.race-modal", { state: "detached" });
-  await page.waitForTimeout(360);
+  await settled();
   check(
     "leaving the tower lands you in the garage",
     await page.locator(".topnav-btn.on").getAttribute("aria-label"),

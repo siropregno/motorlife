@@ -25,7 +25,7 @@ import { classTierClass } from "./lib/tiers";
  * them, so a change to one that misses the other fails rather than leaving a
  * dead screen on top of a live one.
  */
-const SLIDE_MS = 260;
+const SLIDE_MS = 340;
 
 /** "Renault R12 TL" -- how a car is named in prose rather than on its card. */
 const nameOf = (id: string) => {
@@ -71,6 +71,7 @@ export default function App() {
    */
   const [leaving, setLeaving] = useState<{ screen: Screen; dir: Direction } | null>(null);
   const sweep = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
 
   /*
    * Clearing the outgoing screen is on a timer, so it has to be cancelled if
@@ -81,32 +82,50 @@ export default function App() {
     if (sweep.current) clearTimeout(sweep.current);
   }, []);
 
+  /**
+   * `screen` is the source of truth for where you are, so it is read here
+   * rather than inside the setScreen updater below. React may call an updater
+   * twice, and starting a timer or measuring the DOM from inside one is how
+   * you get two slides for one click.
+   */
   const go = useCallback(
     (next: Screen) => {
       if (next === "shop") setShopEpoch((n) => n + 1);
-      setScreen((current) => {
-        /*
-         * Pressing the tab you are already on is not a slide. It still means
-         * something for the shop -- it takes you back to its top level -- but
-         * sending the screen off the left edge and bringing the same screen
-         * back from the right would be a lot of movement to say "you are
-         * already here".
-         */
-        if (current === next) return next;
 
-        // A slide already running is abandoned rather than queued. Pressing
-        // three tabs quickly should land on the third, not play three
-        // animations in a row.
-        if (sweep.current) clearTimeout(sweep.current);
-        setLeaving({ screen: current, dir: directionBetween(current, next) });
-        sweep.current = setTimeout(() => {
-          setLeaving(null);
-          sweep.current = null;
-        }, SLIDE_MS);
-        return next;
-      });
+      /*
+       * Pressing the tab you are already on is not a slide. It still means
+       * something for the shop -- it takes you back to its top level -- but
+       * sending the screen off the left edge and bringing the same screen back
+       * from the right would be a lot of movement to say "you are already
+       * here".
+       */
+      if (screen === next) return;
+
+      /*
+       * Pin the height before anything moves.
+       *
+       * Both screens go position:absolute for the length of the slide, which
+       * leaves the stage with nothing to size itself from -- it would collapse
+       * to zero and yank the page up under the cursor. This is the height it
+       * has right now, with the outgoing screen still in it, held until the
+       * slide ends.
+       */
+      const el = stage.current;
+      if (el) el.style.setProperty("--stage-h", `${el.offsetHeight}px`);
+
+      // A slide already running is abandoned rather than queued. Pressing
+      // three tabs quickly should land on the third, not play three
+      // animations in a row.
+      if (sweep.current) clearTimeout(sweep.current);
+      setLeaving({ screen, dir: directionBetween(screen, next) });
+      setScreen(next);
+      sweep.current = setTimeout(() => {
+        setLeaving(null);
+        sweep.current = null;
+        stage.current?.style.removeProperty("--stage-h");
+      }, SLIDE_MS);
     },
-    [],
+    [screen],
   );
 
   /** Ajustes is a dialog over the current screen, not a screen of its own. */
@@ -309,10 +328,11 @@ export default function App() {
       {/*
         * The stage: the arriving screen, and the leaving one while it leaves.
         *
-        * Only during a slide are there two. The stage takes its height from
-        * whichever is taller so the page cannot collapse mid-transition, and
-        * the outgoing screen is taken out of the flow by CSS -- it is on its
-        * way off the edge and should not push the incoming one down.
+        * Only during a slide are there two. Both are lifted out of the flow by
+        * CSS while it runs -- each spends part of the transition a full
+        * screen-width off to one side, and an in-flow element there would drag
+        * the document's width out past the viewport. The stage holds its own
+        * height meanwhile, measured in `go` just before the move.
         *
         * The KEY is what animates each of them. A CSS animation runs once when
         * an element is created, so keying on the screen name hands React a new
@@ -324,7 +344,7 @@ export default function App() {
         * shopEpoch is in the key because pressing the shop tab while already
         * in the shop remounts Shop to take you back to its top level.
         */}
-      <div className={`stage${leaving ? " sliding" : ""}`}>
+      <div ref={stage} className={`stage${leaving ? " sliding" : ""}`}>
         {leaving ? (
           <div className="screen going" data-dir={leaving.dir} key={`out-${leaving.screen}`} aria-hidden="true">
             {renderScreen(leaving.screen)}

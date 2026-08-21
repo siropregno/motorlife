@@ -24,14 +24,16 @@
  * from App, which reads it off the tab order, so the movement always agrees
  * with where the two sections sit relative to each other.
  *
- * 260ms. Longer than the 190 the fade used, because this covers real distance
- * and the same duration over a longer path reads as a flick; still short
- * enough that garage -> shop -> garage in quick succession never queues.
+ * 340ms, for a full screen-width of travel. The distance went up so the time
+ * had to: the same 260 over the whole frame reads as a wipe rather than as
+ * something moving. Still short enough that garage -> shop -> garage in quick
+ * succession never queues.
  *
  * The stage is only `position: relative` WHILE a slide runs. Making it
  * permanent would establish a containing block under every screen for no
- * reason, and .sliding is also what turns on the clipping -- a screen on its
- * way to the edge must not widen the page or raise a scrollbar on its way out.
+ * reason, and .sliding is also what turns on the clipping -- both screens
+ * spend the transition partly outside the frame, and without overflow: hidden
+ * each of them would widen the document and raise a horizontal scrollbar.
  */
 .stage.sliding {
   position: relative;
@@ -39,95 +41,121 @@
 }
 
 /*
- * The leaving screen is taken out of the flow so the arriving one can occupy
- * the same space rather than being pushed below it. It is on its way off the
- * edge; it should not own any height.
+ * BOTH screens are taken out of the flow during a slide, not just the leaving
+ * one.
+ *
+ * The leaving one, so the arriving one can occupy the same space rather than
+ * being pushed below it. The arriving one because it spends the first half of
+ * the transition a full screen-width off to the side: left in the flow it
+ * would drag the document's width out to twice the viewport, and the clipping
+ * on .stage cannot help with that -- an in-flow element still contributes its
+ * translated box to the page's scroll width.
+ *
+ * With both lifted the stage has nothing left to take its height from, so it
+ * would collapse to zero and drag the page up for the length of the slide.
+ * App measures the outgoing screen and pins that height on the stage as
+ * --stage-h; the frame holds still while the two screens move inside it.
  */
-.stage.sliding .screen.going {
+.stage.sliding .screen.going,
+.stage.sliding .screen.coming {
   position: absolute;
   inset: 0 0 auto 0;
 }
 
+.stage.sliding {
+  min-height: var(--stage-h, 0px);
+}
+
 /*
- * The fade is deliberately FASTER than the travel, on both halves.
+ * The travel is the SCREEN'S OWN WIDTH, in percent, not a nudge in pixels.
  *
- * With opacity interpolated linearly alongside the movement, the two screens
- * cross at 0.68 each and the overlap is a mess -- both have a title in the
- * same place, so "GARAJE" and "COMPRAR" sit legibly on top of one another for
- * a moment. Pushing the outgoing screen to 0 by 55% of its run, and holding
- * the incoming one near 0 until 45% of its own, means the two are never both
- * readable: one has gone before the other resolves. The MOVEMENT still runs
- * the full duration, which is what keeps it feeling like travel rather than a
- * hard cut.
+ * This started at 38px and that was the wrong call: 38px on a 1280 viewport is
+ * three percent of the width, and under a fade it reads as a crossfade with a
+ * twitch in it rather than as anything moving. Worse, the small distance meant
+ * the two screens sat on top of each other the whole way, which needed a
+ * steep fade to hide the overlap -- and the steep fade then hid what little
+ * movement there was. The two patches cancelled each other out.
+ *
+ * 100% fixes both at once. A screen genuinely leaves the frame, so there is no
+ * overlap left to hide, which is why opacity can now stay at 1 for most of the
+ * journey: what you see is a page of content travelling off the edge while the
+ * next one arrives behind it, which is what a slide is.
+ *
+ * Percent of the ELEMENT, so it is right at every viewport without a media
+ * query -- translateX(-100%) is one full screen-width left whatever that is
+ * today.
  */
 @keyframes screen-out-left {
-  55%,
-  to {
-    opacity: 0;
+  from {
+    transform: translateX(0);
+    opacity: 1;
   }
   to {
-    transform: translateX(-38px);
+    transform: translateX(-100%);
+    opacity: 0.4;
   }
 }
 @keyframes screen-out-right {
-  55%,
-  to {
-    opacity: 0;
+  from {
+    transform: translateX(0);
+    opacity: 1;
   }
   to {
-    transform: translateX(38px);
+    transform: translateX(100%);
+    opacity: 0.4;
   }
 }
 @keyframes screen-in-right {
   from {
-    opacity: 0;
-    transform: translateX(38px);
+    transform: translateX(100%);
+    opacity: 0.4;
   }
-  45% {
-    opacity: 0.06;
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 @keyframes screen-in-left {
   from {
-    opacity: 0;
-    transform: translateX(-38px);
+    transform: translateX(-100%);
+    opacity: 0.4;
   }
-  45% {
-    opacity: 0.06;
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 
-/* Going on: out to the left, in from the right. */
+/*
+ * Both halves share one easing and one duration, because now they really are
+ * one movement: the pair travels together like a strip being pushed sideways,
+ * and any mismatch between them shows up as the two sliding at different
+ * speeds. That is the opposite of the earlier version, where they crossed in
+ * place and wanted opposing curves.
+ *
+ * cubic-bezier(0.32, 0.72, 0, 1) is a strong decelerate -- most of the
+ * distance is covered early, then it settles. It is what makes 100% of travel
+ * in 340ms read as quick rather than as a long wipe.
+ */
 .screen.going[data-dir="1"] {
-  animation: screen-out-left 260ms ease-in both;
+  animation: screen-out-left 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 .screen.coming[data-dir="1"] {
-  animation: screen-in-right 260ms ease-out both;
+  animation: screen-in-right 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 /* Going back: the mirror. */
 .screen.going[data-dir="-1"] {
-  animation: screen-out-right 260ms ease-in both;
+  animation: screen-out-right 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 .screen.coming[data-dir="-1"] {
-  animation: screen-in-left 260ms ease-out both;
+  animation: screen-in-left 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
-
-/*
- * ease-in leaving and ease-out arriving, rather than ease-in-out on both. The
- * screen on its way out should accelerate away and the one arriving should
- * decelerate into place; matched easing makes them look like one rigid strip
- * being dragged, which is not what is happening -- they cross.
- *
- * 38px is deliberately not a screen width. A full-width slide at this duration
- * is a blur, and at a readable duration it is slow. The distance only has to
- * say which way you went.
- */
 
 /*
  * Reduced motion takes the movement away, not the screen. `animation: none`
  * rather than a shorter duration: the setting is a request for no motion, and
- * 38px in 80ms is still motion.
+ * a screen crossing the frame in 80ms is still motion.
  *
  * The leaving screen is hidden outright here. With no animation it would
  * otherwise sit stacked over the arriving one at full opacity for the length
