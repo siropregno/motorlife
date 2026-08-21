@@ -22,8 +22,31 @@ import { hashSeed, mulberry32 } from "@sim/rng";
  */
 export const NOW_YEAR = 2026;
 
-/** Kilometres a car covers in a normal year in the hands of a normal owner. */
-export const KM_PER_YEAR = 11_000;
+/** Kilometres a car covers in a normal year EARLY IN ITS LIFE. */
+export const KM_PER_YEAR = 14_000;
+
+/**
+ * How fast the annual rate falls off, in years.
+ *
+ * This was a flat KM_PER_YEAR times age, and it was wrong in a way you could
+ * see on the screen: a '72 Chevy came up at 985.800 km. Cars do not do 14.000
+ * a year for fifty years. They do it while they are somebody's only car, and
+ * then they become a second car, then a weekend car, then something under a
+ * cover -- which is exactly how a 50-year-old car is still on the road at all.
+ *
+ * So the odometer saturates. The rate decays with a 13-year time constant and
+ * the total tends to KM_PER_YEAR * KM_TAU, about 182.000, which is where the
+ * trade actually puts "high kilometres":
+ *
+ *     5 years   ~58.000     10 years  ~98.000
+ *    20 years  ~143.000     36 years ~171.000     55 years ~179.000
+ *
+ * It lines up with the rules of thumb: five years and 90.000 is hard use
+ * (1,6x what the age implies), under 5.000 a year is a car that sat (0,45x),
+ * and 200.000 is where big parts start to go, which is just past normal for
+ * anything genuinely old.
+ */
+export const KM_TAU = 13;
 
 /**
  * Nothing built before this can honestly be sold with nothing on the clock.
@@ -40,7 +63,8 @@ export const FLOOR_KM = 500;
 export const SURVIVOR_CHANCE = 0.08;
 
 export function expectedKm(year: number, now: number = NOW_YEAR): number {
-  return Math.max(0, now - year) * KM_PER_YEAR;
+  const years = Math.max(0, now - year);
+  return Math.round(KM_PER_YEAR * KM_TAU * (1 - Math.exp(-years / KM_TAU)));
 }
 
 /**
@@ -108,8 +132,22 @@ export function mulFor(ratio: number): number {
   return last[1];
 }
 
+/**
+ * Being remarkable takes two things, and the ratio is only one of them.
+ *
+ * A 2023 car with 11.000 km is a low-kilometre car. A 1990 car with 11.000 km
+ * is a car somebody kept, and that is a different object with a different
+ * buyer. So "De colección" needs the years as well as the odometer -- without
+ * the age gate a nearly-new car would wear a collector's badge for the crime
+ * of being nearly new.
+ *
+ * The PRICE does not use this gate. Low kilometres are worth money at any age;
+ * only the word is reserved.
+ */
+export const COLLECTIBLE_AGE = 15;
+export const SURVIVOR_RATIO = 0.2;
+
 const BANDS: [max: number, band: Band, label: string][] = [
-  [0.06, "survivor", "De colección"],
   [0.55, "low", "Poco uso"],
   [1.5, "normal", "Uso normal"],
   [Infinity, "high", "Muy rodado"],
@@ -123,6 +161,10 @@ export function conditionOf(spec: CarSpec, km: number): Condition {
   if (expected === 0) return { km, ratio: 1, band: "normal", label: "Uso normal", mul: 1 };
 
   const ratio = km / expected;
+  const age = NOW_YEAR - spec.year;
+  if (ratio <= SURVIVOR_RATIO && age >= COLLECTIBLE_AGE) {
+    return { km, ratio, band: "survivor", label: "De colección", mul: mulFor(ratio) };
+  }
   const hit = BANDS.find(([max]) => ratio <= max)!;
   return { km, ratio, band: hit[1], label: hit[2], mul: mulFor(ratio) };
 }
