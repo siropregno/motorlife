@@ -10,6 +10,8 @@ import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
 import { useToast } from "./components/Toasts";
+import { TopNav } from "./components/TopNav";
+import type { Screen } from "./lib/screens";
 import { classTierClass } from "./lib/tiers";
 
 /** "Renault R12 TL" -- how a car is named in prose rather than on its card. */
@@ -17,8 +19,6 @@ const nameOf = (id: string) => {
   const spec = carById(id);
   return spec ? `${spec.make} ${spec.model}` : null;
 };
-
-type Screen = "garage" | "shop" | "setup" | "race";
 
 export default function App() {
   const toast = useToast();
@@ -111,6 +111,7 @@ export default function App() {
           <img src="/logo.png" alt="Motorlife" />
         </h1>
         <div className="topbar-right">
+          <TopNav screen={screen} onGo={setScreen} />
           {car && rating ? (
             <span className="topcar">
               <span className="topcar-logo">

@@ -351,6 +351,57 @@ p.screen-sub {
   gap: 12px;
 }
 
+/* ---------- section nav ---------- */
+/*
+ * Three icon buttons, left of the current-car strip. 36px squares, the same
+ * height as everything else in the shop bar, so the top of the page has one
+ * control height rather than three.
+ *
+ * The icons are pure white on transparency, so the state is carried by what is
+ * BEHIND them: nothing and half-opacity when you are elsewhere, the accent
+ * filled in when you are here. That is --purple doing the job it is good at --
+ * white on it measures 7.4:1 -- and it is why the icons did not need a second
+ * colour drawn into them.
+ */
+.topnav {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.topnav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
+}
+.topnav-btn img {
+  display: block;
+  width: 20px;
+  height: 20px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.topnav-btn:hover img {
+  opacity: 0.85;
+}
+.topnav-btn.on {
+  background: var(--purple);
+}
+.topnav-btn.on img {
+  opacity: 1;
+}
+
 /* ---------- selected car strip ---------- */
 .topcar {
   display: inline-flex;
