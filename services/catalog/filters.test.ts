@@ -44,6 +44,16 @@ describe("buckets", () => {
     }
   });
 
+  it("harvests marques off the catalogue, alphabetically", () => {
+    const marca = FACETS.find((f) => f.id === "marca")!;
+    const values = marca.options.map((o) => o.value);
+    // every make in the catalogue, once, in sort order
+    expect(new Set(values)).toEqual(new Set(CARS.map((c) => c.make)));
+    expect(values).toEqual([...values].sort((a, b) => a.localeCompare(b)));
+    expect(values).toContain("Ferrari");
+    expect(marca.bucket(f40)).toBe("Ferrari");
+  });
+
   it("collapses every rear-drive layout into one traccion", () => {
     const traccion = FACETS.find((f) => f.id === "traccion")!;
     expect(traccion.bucket(f40)).toBe("trasera"); // MR
@@ -137,6 +147,13 @@ describe("grouping", () => {
     expect(groupBy(CARS, "clase")[0]!.label).toBe("Clase D");
     expect(groupBy(CARS, "decada")[0]!.label).toBe("Década 1970s");
     expect(groupBy(CARS, "traccion").map((g) => g.label)).toContain("Tracción Integral");
+    expect(groupBy(CARS, "marca")[0]!.label).toBe("Marca BMW");
+  });
+
+  it("orders marques A to Z, and Z to A reversed", () => {
+    const asc = groupBy(CARS, "marca", "asc").map((g) => g.value);
+    expect(asc).toEqual([...asc].sort((a, b) => a.localeCompare(b)));
+    expect(groupBy(CARS, "marca", "desc").map((g) => g.value)).toEqual([...asc].reverse());
   });
 
   it("flips the sections AND the ladder inside them", () => {

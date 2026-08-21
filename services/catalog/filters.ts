@@ -1,5 +1,6 @@
 import type { CarSpec } from "@contracts/car";
 import type { ClassLetter } from "@sim/rating";
+import { CARS } from "./cars";
 import { ratingOf } from "./rating";
 
 /**
@@ -18,7 +19,7 @@ import { ratingOf } from "./rating";
  * empties so the UI can dim them.
  */
 
-export type FacetId = "decada" | "clase" | "segmento" | "traccion";
+export type FacetId = "decada" | "clase" | "segmento" | "traccion" | "marca";
 
 export interface FacetOption {
   value: string;
@@ -64,6 +65,17 @@ export function decadeOf(year: number): string {
   return String(Math.floor(year / 10) * 10);
 }
 
+/**
+ * Marques, read off the catalogue instead of declared like the others.
+ *
+ * The other four facets are closed taxonomies -- there will never be a sixth
+ * traction -- so declaring them is free and keeps them in a chosen order.
+ * Marques are open data: every car added is a chance for a new one, and a
+ * hand-kept list would mean editing this file every time. Alphabetical is a
+ * stable order, so harvesting costs nothing the declared lists were buying.
+ */
+const MAKES = [...new Set(CARS.map((c) => c.make))].sort((a, b) => a.localeCompare(b));
+
 export const FACETS: Facet[] = [
   {
     id: "decada",
@@ -97,6 +109,12 @@ export const FACETS: Facet[] = [
       { value: "integral", label: "Integral" },
     ],
     bucket: (c) => TRACTION[c.layout] ?? "trasera",
+  },
+  {
+    id: "marca",
+    label: "Marca",
+    options: MAKES.map((m) => ({ value: m, label: m })),
+    bucket: (c) => c.make,
   },
 ];
 

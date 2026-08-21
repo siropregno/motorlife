@@ -505,10 +505,22 @@ p.screen-sub {
  * page reads as a form field someone forgot to style. The open list is still
  * the OS list -- nothing can be done about that, and nothing should be.
  */
+/*
+ * One height for every control in the bar. A <select>, a <button> and a
+ * .btn each size themselves off a different font and different padding, so
+ * left to their own devices they sit at three heights within a few pixels of
+ * each other -- close enough to look like a mistake rather than a choice.
+ */
+.select,
+.dirbtn,
+.shopbar .btn {
+  height: 36px;
+}
+
 .select {
   appearance: none;
   -webkit-appearance: none;
-  padding: 8px 30px 8px 11px;
+  padding: 0 30px 0 11px;
   border-radius: 8px;
   border: 0px solid var(--line-2);
   background-color: var(--panel-2);
@@ -536,41 +548,36 @@ p.screen-sub {
   color: var(--ink-4);
 }
 
-/* Reads out what the direction will do -- "1970 → 2000" -- rather than making
-   an arrow carry a meaning it cannot. */
+/* Square and borderless, so it reads as a modifier on the dropdown beside it
+   rather than as a second control. What the arrow means lives in the title
+   and the aria-label -- a bare arrow is fine to look at and useless to read
+   out. */
 .dirbtn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 11px;
+  justify-content: center;
+  width: 36px;
+  padding: 0;
   border-radius: 8px;
   border: 0px solid var(--line-2);
   background: var(--panel-2);
-  color: var(--ink-2);
+  color: var(--purple);
   font-family: var(--text);
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1;
   transition:
     border-color 0.15s,
-    color 0.15s;
+    background 0.15s;
 }
 .dirbtn:hover {
   border-color: var(--ink-4);
-  color: var(--ink);
-}
-.dirbtn-arrow {
-  font-size: 14px;
-  line-height: 1;
-  color: var(--purple);
-}
-.dirbtn-hint {
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-4);
+  background: #232323;
 }
 
 /* The door to the other three facets, with a count of what is already on so
    the bar never hides an active filter behind a closed dialog. */
 .btn.ghost {
-  padding: 8px 13px;
+  padding: 0 13px;
   font-size: 11px;
   letter-spacing: 0.1em;
   border-radius: 8px;

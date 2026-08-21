@@ -25,17 +25,20 @@ const ORDERS: { id: FacetId; label: string }[] = [
   { id: "decada", label: "Década" },
   { id: "segmento", label: "Segmento" },
   { id: "clase", label: "Clase" },
+  { id: "marca", label: "Marca" },
 ];
 
 /**
- * What ascending and descending actually mean, per facet. "Ascendente" tells
- * you nothing about a list of decades; "1970 → 2000" tells you exactly what
- * the button is about to do.
+ * What each direction actually does, per facet. Not shown -- it is the title
+ * and the accessible name. A bare arrow is fine to look at and useless to a
+ * screen reader, and "ascendente" would tell nobody what happens to a list of
+ * decades; "1970 → 2000" says it exactly.
  */
 const DIR_HINT: Record<FacetId, [string, string]> = {
   decada: ["1970 → 2000", "2000 → 1970"],
   segmento: ["Sedán → Pickup", "Pickup → Sedán"],
   clase: ["D → A", "A → D"],
+  marca: ["A → Z", "Z → A"],
   traccion: ["↑", "↓"],
 };
 
@@ -78,8 +81,7 @@ export function ShopControls({
           dir === "asc" ? asc : desc
         }`}
       >
-        <span className="dirbtn-arrow">{dir === "asc" ? "↑" : "↓"}</span>
-        <span className="dirbtn-hint">{dir === "asc" ? asc : desc}</span>
+        {dir === "asc" ? "↑" : "↓"}
       </button>
 
       <FacetSelect cars={cars} id="traccion" value={filter} onChange={onFilter} />
