@@ -72,8 +72,15 @@ export function Shop({ save, onBuy, onBack }: Props) {
       ) : (
         groups.map((g) => (
           <section key={g.letter} className="shop-class">
+            {/*
+              The whole label goes inside the pill: "Categoría D", not a bare
+              coloured D that you have to already know how to read. The badge
+              is padding-sized rather than fixed-width, so it just grows -- and
+              the letter stays on the tier colour, which is the thing the badge
+              was carrying in the first place.
+            */}
             <h3 className="shop-class-head">
-              <span className={`klass-badge ${classTierClass(g.letter)}`}>{g.letter}</span>
+              <span className={`klass-badge ${classTierClass(g.letter)}`}>Categoría {g.letter}</span>
               <span>
                 {g.cars.length} car{g.cars.length === 1 ? "" : "s"}
               </span>
