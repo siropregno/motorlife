@@ -14,7 +14,6 @@ interface Props {
   track: TrackSpec;
   onTrack: (id: string) => void;
   onRace: () => void;
-  onBack: () => void;
 }
 
 const FLAT: SetupValues = { aero: 0, gearing: 0, springs: 0, brakeBias: 0 };
@@ -33,7 +32,7 @@ const SLIDERS: {
 
 const COMPOUNDS: Compound[] = ["soft", "medium", "hard"];
 
-export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onBack }: Props) {
+export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace }: Props) {
   const spec = carById(carId);
   const car = useMemo(() => (spec ? derive(spec) : null), [spec]);
 
@@ -212,10 +211,7 @@ export function SetupScreen({ carId, build, onBuild, track, onTrack, onRace, onB
         </div>
       </div>
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "space-between" }}>
-        <button className="btn" onClick={onBack}>
-          ← Garage
-        </button>
+      <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
         <button className="btn primary" onClick={onRace}>
           Race →
         </button>

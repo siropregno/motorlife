@@ -13,6 +13,11 @@ page.on("console", (m) => {
 });
 
 const wallet = () => page.locator(".wallet").innerText();
+// The bottom-of-screen nav buttons are gone; the topbar icons replace them.
+// Selected by class rather than role, because the nav Race tab and Setup's
+// "Race →" action share an accessible name.
+const nav = (label) => page.locator(`.topnav-btn[aria-label="${label}"]`);
+const raceNow = () => page.getByRole("button", { name: "Race →" });
 
 await page.goto("http://localhost:5177/", { waitUntil: "networkidle" });
 await page.evaluate(() => localStorage.removeItem("motorlife.save"));
@@ -25,7 +30,7 @@ console.log(`        current car ${(await page.locator(".topcar").innerText()).r
 await page.screenshot({ path: `${OUT}/1-garage.png`, fullPage: true });
 
 // --- dealership: cannot afford anything yet -------------------------------
-await page.getByRole("button", { name: "Dealership" }).click();
+await nav("Dealership").click();
 await page.waitForSelector(".shop-item");
 const stock = await page.locator(".shop-item .card-title-bold").allInnerTexts();
 const prices = await page.locator(".shop-price").allInnerTexts();
@@ -34,8 +39,7 @@ console.log(`shop:   ${stock.length} listed -> ${stock.map((s, i) => `${s.trim()
 await page.screenshot({ path: `${OUT}/2-shop.png`, fullPage: true });
 
 // --- race for the money ---------------------------------------------------
-await page.getByRole("button", { name: /Garage/ }).click();
-await page.getByRole("button", { name: /Set up/ }).click();
+await nav("Race").click();
 await page.waitForSelector(".feel");
 
 // There is no predicted lap any more, so there is nothing to hill-climb.
@@ -54,7 +58,7 @@ for (const [name, v] of [["Aero", 0.5], ["Gearing", -0.25], ["Springs", 0.35], [
 await page.screenshot({ path: `${OUT}/2b-setup.png`, fullPage: true });
 console.log(`feel:   ${(await page.locator(".feel").innerText()).replace(/s+/g, " | ")}`);
 if (await page.locator(".laptime").count()) errors.push("the predicted lap is still on the Setup screen");
-await page.getByRole("button", { name: /Race/ }).click();
+await raceNow().click();
 await page.waitForSelector(".tower-row");
 const heading = (await page.locator(".screen-sub").innerText()).replace(/\s+/g, " ");
 console.log(`race:   ${heading}`);
@@ -70,9 +74,9 @@ const race1 = rows.map((r) => r.replace(/\s+/g, " ")).sort().join(" / ");
 
 // --- race the SAME setup again: it must be a different event --------------
 const rerun = async () => {
-  await page.getByRole("button", { name: /Setup/ }).click();
+  await nav("Race").click();
   await page.waitForSelector(".feel");
-  await page.getByRole("button", { name: /Race/ }).click();
+  await raceNow().click();
   await page.waitForSelector(".tower-row");
   await page.getByRole("button", { name: /Skip to flag/ }).click();
   await page.waitForTimeout(700);
@@ -90,7 +94,7 @@ await page.evaluate(() => {
   localStorage.setItem("motorlife.save", JSON.stringify(s));
 });
 await page.reload({ waitUntil: "networkidle" });
-await page.getByRole("button", { name: "Dealership" }).click();
+await nav("Dealership").click();
 await page.waitForSelector(".shop-item");
 const before = await page.locator(".shop-item").count();
 // HURACAN PROBE: the longest plausible model name, checked live rather than
@@ -117,7 +121,7 @@ console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).repl
 const buyToast = await page.locator(".toast").innerText().catch(() => "");
 console.log(`toast:  "${buyToast.replace(/\s+/g, " ")}"`);
 if (!/^Compraste un /.test(buyToast)) errors.push(`no buy toast, got "${buyToast}"`);
-await page.getByRole("button", { name: /Garage/ }).click();
+await nav("Garage").click();
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);
 await page.screenshot({ path: `${OUT}/5-garage-two.png`, fullPage: true });

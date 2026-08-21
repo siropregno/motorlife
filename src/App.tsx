@@ -140,13 +140,11 @@ export default function App() {
           currentId={carId}
           onDrive={pickCar}
           onSell={sell}
-          onShop={() => setScreen("shop")}
-          onContinue={() => setScreen("setup")}
         />
       )}
 
       {screen === "shop" && (
-        <Shop save={save} onBuy={buy} onBack={() => setScreen("garage")} />
+        <Shop save={save} onBuy={buy} />
       )}
 
       {screen === "setup" && (
@@ -157,7 +155,6 @@ export default function App() {
           track={track}
           onTrack={setTrackId}
           onRace={() => setScreen("race")}
-          onBack={() => setScreen("garage")}
         />
       )}
 
@@ -168,7 +165,6 @@ export default function App() {
           track={track}
           racesRun={save.racesRun}
           onFinish={finishRace}
-          onBack={() => setScreen("setup")}
         />
       )}
     </div>

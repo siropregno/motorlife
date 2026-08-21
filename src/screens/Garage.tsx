@@ -10,8 +10,6 @@ interface Props {
   currentId: string;
   onDrive: (id: string) => void;
   onSell: (id: string) => void;
-  onShop: () => void;
-  onContinue: () => void;
 }
 
 interface MenuAt {
@@ -20,7 +18,7 @@ interface MenuAt {
   id: string;
 }
 
-export function Garage({ owned, currentId, onDrive, onSell, onShop, onContinue }: Props) {
+export function Garage({ owned, currentId, onDrive, onSell }: Props) {
   const cars = useMemo(() => CARS.filter((c) => owned.includes(c.id)), [owned]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
 
@@ -86,14 +84,6 @@ export function Garage({ owned, currentId, onDrive, onSell, onShop, onContinue }
         <ContextMenu x={menu.x} y={menu.y} items={items} onClose={close} />
       ) : null}
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "space-between" }}>
-        <button className="btn" onClick={onShop}>
-          Dealership
-        </button>
-        <button className="btn primary" onClick={onContinue}>
-          Set up →
-        </button>
-      </div>
     </>
   );
 }

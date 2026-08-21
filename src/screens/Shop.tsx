@@ -21,10 +21,9 @@ import { classTierClass } from "../lib/tiers";
 interface Props {
   save: Save;
   onBuy: (carId: string, price: number) => void;
-  onBack: () => void;
 }
 
-export function Shop({ save, onBuy, onBack }: Props) {
+export function Shop({ save, onBuy }: Props) {
   /**
    * The whole catalogue, minus what you already own.
    *
@@ -169,11 +168,6 @@ export function Shop({ save, onBuy, onBack }: Props) {
         />
       ) : null}
 
-      <div className="row" style={{ marginTop: 26 }}>
-        <button className="btn" onClick={onBack}>
-          ← Garage
-        </button>
-      </div>
     </>
   );
 }

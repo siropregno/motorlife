@@ -19,7 +19,6 @@ interface Props {
   /** Which event this is. Seeds the race, so each one is a fresh draw. */
   racesRun: number;
   onFinish: (position: number, gridSize: number) => void;
-  onBack: () => void;
 }
 
 const REG: Regulation = { laps: 14, pitLossS: 22 };
@@ -145,7 +144,7 @@ function detune(opt: SetupValues, miss: number, rng: () => number): SetupValues 
   return { aero: off(opt.aero), gearing: off(opt.gearing), springs: off(opt.springs), brakeBias: off(opt.brakeBias) };
 }
 
-export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props) {
+export function Race({ carId, build, track, racesRun, onFinish }: Props) {
   const you = carById(carId);
   const rating = you ? ratingOf(you) : null;
 
@@ -406,10 +405,7 @@ export function Race({ carId, build, track, racesRun, onFinish, onBack }: Props)
         </div>
       </div>
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "space-between" }}>
-        <button className="btn" onClick={onBack}>
-          ← Setup
-        </button>
+      <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
         {done ? (
           <span className="payout">
             P{myFinish} · +{formatCredits(won)} cr
