@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import type { CarSpec } from "@contracts/car";
 import type { ClassLetter } from "@sim/rating";
 import type { Save } from "@progression/save";
 import { CARS } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
+import { applyFilters, groupBy, isActive, type FacetId, type Selection } from "@catalog/filters";
 import { priceOf, formatCredits } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
+import { FilterModal } from "../components/FilterModal";
+import { ShopControls } from "../components/ShopControls";
 import { classTierClass } from "../lib/tiers";
 
 interface Props {
@@ -14,13 +16,6 @@ interface Props {
   onBuy: (carId: string, price: number) => void;
   onBack: () => void;
 }
-
-interface Listing {
-  spec: CarSpec;
-  price: number;
-}
-
-const ORDER: ClassLetter[] = ["D", "C", "B", "A", "S", "X"];
 
 export function Shop({ save, onBuy, onBack }: Props) {
   /**
@@ -32,79 +27,139 @@ export function Shop({ save, onBuy, onBack }: Props) {
    * more, an F40 is permanently on the menu and the only thing between you and
    * it is the price.
    *
-   * Grouped by class and sorted by rating inside each, so a long list reads as
-   * a ladder rather than a wall.
+   * Grouped into sections and sorted by rating inside each, so a long list
+   * reads as a ladder rather than a wall. Which facet does the grouping is the
+   * "Ordenar por" control; the rating ladder inside a section is not optional.
    */
-  const groups = useMemo(() => {
-    const unowned = CARS.filter((c) => !save.owned.includes(c.id));
-    return ORDER.map((letter) => ({
-      letter,
-      cars: unowned
-        .filter((c) => ratingOf(c).letter === letter)
-        .sort((a, b) => ratingOf(a).index - ratingOf(b).index)
-        .map((spec): Listing => ({ spec, price: priceOf(spec) })),
-    })).filter((g) => g.cars.length > 0);
-  }, [save.owned]);
+  const unowned = useMemo(
+    () => CARS.filter((c) => !save.owned.includes(c.id)),
+    [save.owned],
+  );
+
+  const [filter, setFilter] = useState<Selection>({});
+  /*
+   * The filter narrows the listing, but the CHIP COUNTS are measured against
+   * `unowned`, not against what is on screen. Counting the visible list would
+   * make every count read either "all of them" or zero, since the visible list
+   * is already the answer.
+   */
+  const listed = useMemo(() => applyFilters(unowned, filter), [unowned, filter]);
+
+  const [order, setOrder] = useState<FacetId>("clase");
+  const [advanced, setAdvanced] = useState(false);
+
+  /*
+   * Sections come from whichever facet you are ordering by; inside a section
+   * the cars stay on the rating ladder regardless, so the cheapest thing that
+   * will do the job is always the top of its group.
+   */
+  const groups = useMemo(
+    () =>
+      groupBy(listed, order).map((g) => ({
+        ...g,
+        cars: [...g.cars].sort((a, b) => ratingOf(a).index - ratingOf(b).index),
+      })),
+    [listed, order],
+  );
 
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = openId ? groups.flatMap((g) => g.cars).find((l) => l.spec.id === openId) : null;
+  // resolved from the whole pool rather than the filtered groups, so an open
+  // spec sheet does not vanish if the listing behind it changes
+  const openSpec = openId ? unowned.find((c) => c.id === openId) : undefined;
 
-  const total = groups.reduce((n, g) => n + g.cars.length, 0);
-  const affordable = groups.reduce(
-    (n, g) => n + g.cars.filter((l) => save.credits >= l.price).length,
-    0,
-  );
+  const total = listed.length;
+  const affordable = listed.filter((c) => save.credits >= priceOf(c)).length;
+  const filtered = isActive(filter);
 
   return (
     <>
       <h2 className="screen-title">Dealership</h2>
       <p className="screen-sub">
-        {total} car{total === 1 ? "" : "s"} for sale, {affordable} you can afford. Grouped by
-        class, cheapest ladder first.
+        {filtered ? `${total} of ${unowned.length} cars` : `${total} car${total === 1 ? "" : "s"}`}
+        {" for sale, "}
+        {affordable} you can afford. Cheapest ladder first inside each group.
       </p>
 
-      {total === 0 ? (
+      {unowned.length > 0 ? (
+        <ShopControls
+          cars={unowned}
+          order={order}
+          onOrder={setOrder}
+          filter={filter}
+          onFilter={setFilter}
+          onOpenAdvanced={() => setAdvanced(true)}
+        />
+      ) : null}
+
+      {unowned.length === 0 ? (
         <div className="panel">
           <p className="note" style={{ margin: 0 }}>
             Nothing left to sell you. You own the whole catalogue.
           </p>
         </div>
+      ) : total === 0 ? (
+        <div className="panel">
+          <p className="note" style={{ margin: 0 }}>
+            No car matches that filter. <button className="linkish" onClick={() => setFilter({})}>Limpiar</button> to see all {unowned.length}.
+          </p>
+        </div>
       ) : (
         groups.map((g) => (
-          <section key={g.letter} className="shop-class">
+          <section key={g.value} className="shop-class">
             {/*
-              The whole label goes inside the pill: "Clase D", not a bare
-              coloured D that you have to already know how to read. The badge
-              is padding-sized rather than fixed-width, so it just grows -- and
-              the letter stays on the tier colour, which is the thing the badge
-              was carrying in the first place.
+              The whole label goes inside the pill -- "Clase D", not a bare
+              coloured D that you have to already know how to read.
+
+              The tier colour is only honest when the sections ARE the classes.
+              Group by década and a section holds a D and an A, so the pill
+              goes neutral rather than picking one of them to paint itself.
             */}
             <h3 className="shop-class-head">
-              <span className={`klass-badge ${classTierClass(g.letter)}`}>Clase {g.letter}</span>
+              <span
+                className={
+                  order === "clase"
+                    ? `klass-badge ${classTierClass(g.value as ClassLetter)}`
+                    : "klass-badge neutral"
+                }
+              >
+                {g.label}
+              </span>
               <span>
                 {g.cars.length} car{g.cars.length === 1 ? "" : "s"}
               </span>
             </h3>
             <div className="card-grid">
-              {g.cars.map(({ spec, price }) => (
-                <div key={spec.id} className="shop-item">
-                  <CarCard spec={spec} onOpen={setOpenId} />
-                  <span className={`shop-tag${save.credits >= price ? " afford" : ""}`}>
-                    {formatCredits(price)} cr
-                  </span>
-                </div>
-              ))}
+              {g.cars.map((spec) => {
+                const price = priceOf(spec);
+                return (
+                  <div key={spec.id} className="shop-item">
+                    <CarCard spec={spec} onOpen={setOpenId} />
+                    <span className={`shop-tag${save.credits >= price ? " afford" : ""}`}>
+                      {formatCredits(price)} cr
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </section>
         ))
       )}
 
-      {open ? (
+      {advanced ? (
+        <FilterModal
+          cars={unowned}
+          value={filter}
+          onChange={setFilter}
+          onClose={() => setAdvanced(false)}
+        />
+      ) : null}
+
+      {openSpec ? (
         <CarModal
-          spec={open.spec}
-          price={open.price}
+          spec={openSpec}
+          price={priceOf(openSpec)}
           credits={save.credits}
-          owned={save.owned.includes(open.spec.id)}
+          owned={save.owned.includes(openSpec.id)}
           onBuy={onBuy}
           onClose={() => setOpenId(null)}
         />

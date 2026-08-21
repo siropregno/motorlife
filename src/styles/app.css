@@ -405,6 +405,15 @@ p.screen-sub {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
+/* A section heading that is not a class heading. Grouping by década puts a D
+   and an A in the same section, so there is no honest tier colour to paint. */
+.klass-badge.neutral {
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  text-shadow: none;
+}
+
 /* ---------- payout ---------- */
 .payout {
   font-family: var(--mono);
@@ -456,6 +465,188 @@ p.screen-sub {
 .feel-word {
   font-size: 13px;
   color: var(--ink-2);
+}
+
+/* ---------- dealership sort + filter ---------- */
+/*
+ * A label column and a chip row per control. The label is a fixed 96px so the
+ * rows start on one left edge -- ragged starts are what makes a stack of rows
+ * read as separate widgets instead of one control.
+ */
+.shopbar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 18px 14px;
+  margin-bottom: 26px;
+}
+
+.shopbar-foot {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+/* Without this the lone child stretches the width of the bar and the button
+   reads as a banner rather than a control. */
+.shopbar-foot > .chip {
+  flex: none;
+}
+
+/* The door to the other three facets, with a count of what is already on so
+   the bar never hides an active filter behind a closed dialog. */
+.chip.advanced {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 12px;
+}
+
+.chip-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--purple);
+  color: #14061f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.filter-modal {
+  width: min(560px, calc(100vw - 32px));
+}
+.filter-modal-body {
+  padding: 16px 20px 18px;
+}
+.filter-modal .filters-head {
+  margin-bottom: 12px;
+}
+.filter-modal .modal-x {
+  margin-left: auto;
+}
+
+.filter-modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.filter-total {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.filter-modal-foot .btn {
+  margin-left: auto;
+  padding: 9px 20px;
+}
+
+.filters-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.filters-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 400;
+}
+
+.filters-clear,
+.linkish {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--purple);
+}
+.filters-clear:hover,
+.linkish:hover {
+  text-decoration: underline;
+}
+
+.filter-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.filter-label {
+  flex: none;
+  width: 96px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--ink-2);
+  font-family: var(--text);
+  font-size: 12.5px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--ink-4);
+  color: var(--ink);
+}
+.chip.on {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #14061f;
+  font-weight: 700;
+}
+/* Empty buckets stay in place and go quiet. Hiding them would reflow the row
+   under the cursor every time a chip in another row is clicked. */
+.chip:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.chip-n {
+  font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.chip.on .chip-n {
+  color: rgba(20, 6, 31, 0.65);
 }
 
 /* ---------- dealership class sections ---------- */
