@@ -6,6 +6,7 @@ import { conditionOf, formatKm } from "@progression/mileage";
 import { colorName, colorSwatch, colorsOf, imageFor } from "@progression/paint";
 import { classTierClass } from "../lib/tiers";
 import { ICON } from "../lib/icons";
+import { Glyph } from "./Glyph";
 
 /**
  * What the sheet can DO, which is the only thing that differs between the two
@@ -45,11 +46,6 @@ interface Props {
   /** Opens straight into the colour picker, for the menu row that means paint. */
   startPicking?: boolean;
   onClose: () => void;
-}
-
-/** A button's glyph. Never alt text: the label beside it already says the word. */
-function Glyph({ src }: { src: string }) {
-  return <img className="btn-icon" src={src} alt="" aria-hidden="true" />;
 }
 
 /** Motor / eje motriz. "Central" for MR is what the Argentine press called it. */

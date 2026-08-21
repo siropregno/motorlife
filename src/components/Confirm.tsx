@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { ICON } from "../lib/icons";
+import { Glyph } from "./Glyph";
 
 interface Props {
   question: string;
@@ -49,10 +51,18 @@ export function Confirm({ question, detail, yes, danger, onYes, onClose }: Props
         <p className="confirm-q">{question}</p>
         {detail ? <p className="confirm-detail">{detail}</p> : null}
         <div className="confirm-acts">
-          {/* No first, and focused first. The destructive answer should never
-              be the one a stray Enter picks. */}
-          <button className="btn" autoFocus onClick={() => ref.current?.close()}>
-            No
+          {/* Backing out first, and focused first: the destructive answer
+              should never be the one a stray Enter picks. It is the same back
+              arrow the colour picker uses, so "leave this without doing it"
+              is one gesture everywhere rather than a different word per box. */}
+          <button
+            className="btn"
+            autoFocus
+            aria-label="Volver"
+            title="Volver"
+            onClick={() => ref.current?.close()}
+          >
+            <Glyph src={ICON.back} />
           </button>
           <button
             className={`btn${danger ? " danger" : " primary"}`}

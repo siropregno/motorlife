@@ -212,19 +212,24 @@
  * menu.css with different colours. Keeping them behind .modal-foot means the
  * garage sheet can style its own buttons without reaching anywhere else.
  */
-.modal-foot .btn {
+/*
+ * Both rows that hold glyph buttons: the sheet's actions and the confirm
+ * box's answers. Listed rather than put on .btn, because .btn is shared by
+ * every screen and the gap would open up under the label of every button in
+ * the app that has no icon in it.
+ */
+.modal-foot .btn,
+.confirm-acts .btn {
   padding: 9px 14px;
   font-size: 12.5px;
-  /* inline-flex HERE and not on .btn: .btn is shared by every screen, and the
-     gap would open up under the label of every button in the app that has no
-     icon in it. */
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 
 /* White on transparency like the section nav, so opacity is the only lever. */
-.modal-foot .btn-icon {
+.modal-foot .btn-icon,
+.confirm-acts .btn-icon {
   flex: none;
   width: 15px;
   height: 15px;
@@ -234,8 +239,7 @@
 .modal-foot .btn:disabled .btn-icon {
   opacity: 0.35;
 }
-.modal-foot .btn.primary .btn-icon,
-.modal-foot .btn.armed .btn-icon {
+.modal-foot .btn.primary .btn-icon {
   opacity: 1;
 }
 

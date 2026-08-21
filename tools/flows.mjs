@@ -154,7 +154,17 @@ try {
     await page.locator(".confirm-detail").innerText(),
     "Te pagan 7.300 cr. No se puede deshacer.",
   );
-  check("with No focused, so a stray Enter does not sell", await page.evaluate(() => document.activeElement.textContent), "No");
+  check(
+    "with the way out focused, so a stray Enter does not sell",
+    await page.evaluate(() => document.activeElement.getAttribute("aria-label")),
+    "Volver",
+  );
+  check(
+    "and the answers are a back arrow and one word",
+    await page.locator(".confirm-acts .btn").evaluateAll((els) =>
+      els.map((e) => e.getAttribute("aria-label") ?? e.textContent.trim()).join(" | ")),
+    "Volver | Vender",
+  );
   check("nothing sold while the question is up", await wallet(), "114.300CR");
   // The sheet is still there behind it: you can see the car you are answering about.
   check("the car is still on screen behind the question", await page.locator("dialog.modal:not(.confirm)").isVisible(), true);

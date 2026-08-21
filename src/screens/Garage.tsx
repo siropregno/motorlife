@@ -172,7 +172,7 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
         <Confirm
           question={`¿Vender tu ${sellingCar.spec.make} ${sellingCar.spec.model}?`}
           detail={`Te pagan ${formatCredits(sellValueFor(sellingCar.spec, sellingCar.km))} cr. No se puede deshacer.`}
-          yes="Sí, vender"
+          yes="Vender"
           danger
           onYes={() => {
             onSell(sellingCar.spec.id);
