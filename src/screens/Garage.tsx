@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { CARS, carById } from "@catalog/cars";
 import { colorOfHeld, type OwnedCar } from "@progression/save";
-import { imageFor } from "@progression/paint";
+import { colorsOf, imageFor } from "@progression/paint";
 
-import { formatCredits, sellValueFor } from "@progression/economy";
+import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
+import { Confirm } from "../components/Confirm";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
+import { ICON } from "../lib/icons";
 
 interface Props {
   owned: OwnedCar[];
@@ -42,7 +44,22 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
    * it just made -- which is the point of paying to look at it.
    */
   const [openId, setOpenId] = useState<string | null>(null);
+  /** Set only by the menu's Repintar row, so the sheet opens on the colours. */
+  const [picking, setPicking] = useState(false);
+  /**
+   * The car being sold, while the question is on screen. Held HERE rather than
+   * in either surface that can ask, because both can: the sheet's Vender
+   * button and the menu's Vender row raise the same dialog and get the same
+   * answer, instead of each growing its own idea of how to confirm.
+   */
+  const [selling, setSelling] = useState<string | null>(null);
+  const sellingCar = selling ? cars.find((c) => c.spec.id === selling) : undefined;
   const open = openId ? cars.find((c) => c.spec.id === openId) : undefined;
+
+  const show = (id: string) => {
+    setPicking(false);
+    setOpenId(id);
+  };
 
   const close = useCallback(() => setMenu(null), []);
 
@@ -52,27 +69,44 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
     if (!spec) return [];
     const current = spec.id === currentId;
     const last = owned.length <= 1;
+    const paintable = colorsOf(spec).length > 1;
     return [
-      {
-        label: "Ver ficha",
-        onPick: () => setOpenId(spec.id),
-      },
+      /*
+       * No "Ver ficha" row. It was here for one commit, and once every action
+       * carries a glyph an iconless row sits with its label out of line with
+       * the rest -- and the thing it did is what a left click already does,
+       * which the line under the title now says out loud.
+       */
       {
         label: current ? "Ya estás en este auto" : "Subirse al auto",
+        icon: ICON.drive,
         // With no highlight on the card, this is what tells you which car you
         // are in without looking up at the topbar.
         disabled: current,
         onPick: () => onDrive(spec.id),
       },
       {
+        // Opens the sheet already showing the colours. The picker cannot live
+        // in the menu -- it needs the hero above it to preview against -- so
+        // the row is a way IN to it rather than a copy of it.
+        label: "Repintar",
+        icon: ICON.paint,
+        hint: paintable ? `${formatCredits(repaintPriceFor(spec, km))} cr` : "un solo color",
+        disabled: !paintable,
+        onPick: () => {
+          setOpenId(spec.id);
+          setPicking(true);
+        },
+      },
+      {
         label: "Vender",
+        icon: ICON.sell,
         // The hint doubles as the reason when the item is dead. A greyed row
         // with no explanation reads as a bug.
         hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km))} cr`,
-        confirm: `Vender por ${formatCredits(sellValueFor(spec, km))} cr`,
         danger: true,
         disabled: last,
-        onPick: () => onSell(spec.id),
+        onPick: () => setSelling(spec.id),
       },
     ];
   }, [menu, currentId, owned, onDrive, onSell]);
@@ -92,7 +126,7 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
             spec={c}
             km={km}
             image={image}
-            onOpen={setOpenId}
+            onOpen={show}
             onContextMenu={(e, id) => {
               e.preventDefault();
               // The Menu key and Shift+F10 fire contextmenu with zeroed
@@ -120,16 +154,32 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
           km={open.km}
           color={open.color}
           image={open.image}
+          startPicking={picking}
           sheet={{
             kind: "garage",
             credits,
             canSell: owned.length > 1,
             isCurrent: open.spec.id === currentId,
             onDrive: () => onDrive(open.spec.id),
-            onSell: () => onSell(open.spec.id),
+            onSell: () => setSelling(open.spec.id),
             onRepaint: (color) => onRepaint(open.spec.id, color),
           }}
           onClose={() => setOpenId(null)}
+        />
+      ) : null}
+
+      {sellingCar ? (
+        <Confirm
+          question={`¿Vender tu ${sellingCar.spec.make} ${sellingCar.spec.model}?`}
+          detail={`Te pagan ${formatCredits(sellValueFor(sellingCar.spec, sellingCar.km))} cr. No se puede deshacer.`}
+          yes="Sí, vender"
+          danger
+          onYes={() => {
+            onSell(sellingCar.spec.id);
+            // The sheet is showing a car that is about to leave the garage.
+            setOpenId(null);
+          }}
+          onClose={() => setSelling(null)}
         />
       ) : null}
     </>

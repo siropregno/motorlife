@@ -3,10 +3,14 @@ import { createPortal } from "react-dom";
 
 export interface MenuItem {
   label: string;
+  /**
+   * A glyph left of the label. White-on-transparent, like the section nav.
+   * The menu dims it with opacity alongside the row rather than shipping a
+   * second file per state, so a disabled item's icon greys out with its text.
+   */
+  icon?: string;
   /** Right-aligned secondary text: a price, or why the item is disabled. */
   hint?: string;
-  /** When set, the first activation arms the item and shows this instead. */
-  confirm?: string;
   danger?: boolean;
   disabled?: boolean;
   onPick: () => void;
@@ -33,7 +37,6 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pos, setPos] = useState({ x, y });
-  const [armed, setArmed] = useState<number | null>(null);
 
   const firstEnabled = items.findIndex((i) => !i.disabled);
 
@@ -91,16 +94,16 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
     return from;
   };
 
+  /*
+   * A destructive item used to arm here and fire on the second activation.
+   * That is gone: Vender raises a Confirm dialog now, which asks the question
+   * in words and puts "No" under the cursor first, and having two different
+   * confirmation gestures for the same sale was the worse half of the pair.
+   * An item that needs a question asks it in its own onPick.
+   */
   const pick = (i: number) => {
     const item = items[i];
     if (!item || item.disabled) return;
-    // Destructive items arm on the first activation and fire on the second.
-    // Selling cannot be undone, and a stray right-click plus a stray left
-    // click is a very cheap way to lose a car.
-    if (item.confirm && armed !== i) {
-      setArmed(i);
-      return;
-    }
     onClose();
     item.onPick();
   };
@@ -108,9 +111,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
   const onKeyDown = (e: React.KeyboardEvent, i: number) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      const next = step(i, e.key === "ArrowDown" ? 1 : -1);
-      setArmed(null);
-      itemRefs.current[next]?.focus();
+      itemRefs.current[step(i, e.key === "ArrowDown" ? 1 : -1)]?.focus();
     }
   };
 
@@ -122,29 +123,24 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
       style={{ left: pos.x, top: pos.y }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {items.map((item, i) => {
-        const isArmed = armed === i;
-        return (
-          <button
-            key={item.label}
-            ref={(el) => {
-              itemRefs.current[i] = el;
-            }}
-            type="button"
-            role="menuitem"
-            className={`ctx-item${item.danger ? " danger" : ""}${isArmed ? " armed" : ""}`}
-            disabled={item.disabled}
-            onClick={() => pick(i)}
-            onKeyDown={(e) => onKeyDown(e, i)}
-            onMouseEnter={() => {
-              if (!isArmed) setArmed(null);
-            }}
-          >
-            <span className="ctx-label">{isArmed ? item.confirm : item.label}</span>
-            {item.hint && !isArmed ? <span className="ctx-hint">{item.hint}</span> : null}
-          </button>
-        );
-      })}
+      {items.map((item, i) => (
+        <button
+          key={item.label}
+          ref={(el) => {
+            itemRefs.current[i] = el;
+          }}
+          type="button"
+          role="menuitem"
+          className={`ctx-item${item.danger ? " danger" : ""}`}
+          disabled={item.disabled}
+          onClick={() => pick(i)}
+          onKeyDown={(e) => onKeyDown(e, i)}
+        >
+          {item.icon ? <img className="ctx-icon" src={item.icon} alt="" aria-hidden="true" /> : null}
+          <span className="ctx-label">{item.label}</span>
+          {item.hint ? <span className="ctx-hint">{item.hint}</span> : null}
+        </button>
+      ))}
     </div>,
     document.body,
   );

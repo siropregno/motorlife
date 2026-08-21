@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CARS, carById } from "@catalog/cars";
-import { colorFor, colorName, colorsOf, imageFor, photoStem } from "./paint";
+import { colorFor, colorName, colorSwatch, colorsOf, imageFor, photoStem, SWATCHED } from "./paint";
 
 const m3 = carById("bmw-m3-e30")!;
 const f40 = carById("ferrari-f40")!;
@@ -40,6 +40,19 @@ describe("which colours a car comes in", () => {
     const used = [...new Set(CARS.flatMap((c) => colorsOf(c)))].sort();
     const untranslated = used.filter((k) => colorName(k) === k);
     expect(untranslated, `add these to NAMES in paint.ts`).toEqual([]);
+  });
+
+  /*
+   * Same rule, other table. The picker draws a dot per colour, and a colour
+   * with no swatch falls back to grey -- which is not a crash, it is worse: a
+   * grey dot labelled nothing, sitting in a row of real colours, in a picker
+   * whose entire job is to show you what you are buying.
+   */
+  it("has a swatch for every colour the catalogue actually uses", () => {
+    const used = [...new Set(CARS.flatMap((c) => colorsOf(c)))].sort();
+    const missing = used.filter((k) => !SWATCHED.includes(k));
+    expect(missing, `add these to SWATCH in paint.ts`).toEqual([]);
+    for (const k of used) expect(colorSwatch(k), k).toMatch(/^#[0-9a-f]{6}$/);
   });
 });
 

@@ -35,6 +35,42 @@ export function colorName(color: string): string {
   return NAMES[color] ?? color;
 }
 
+/**
+ * What the colour looks like, for the swatches in the repaint picker.
+ *
+ * These are approximations of the renders and they are MEANT to be edited by
+ * eye -- a dot 18px across only has to be recognisable next to the others in
+ * one car's palette, which is the only place two of them are ever seen
+ * together. I sampled them off the photos first and threw the results away:
+ * most of a car in a studio shot is its own shadow, so the honest average of
+ * Ferrari red is a dusty rose, and the honest average of black is mid grey.
+ *
+ * Note "light-blue" is a teal here rather than a sky blue, because the F-100
+ * and the R12 that wear it are teal. The swatch follows the cars.
+ */
+const SWATCH: Record<string, string> = {
+  black: "#1c1e20",
+  white: "#e8eaec",
+  red: "#c0392b",
+  blue: "#24397a",
+  "light-blue": "#3f8fa0",
+  "dark-blue": "#16224a",
+  silver: "#b6b8ba",
+  gray: "#6f747a",
+  yellow: "#e3b81c",
+  orange: "#d2652f",
+  green: "#2f7d4f",
+  bordo: "#6b2027",
+};
+
+/** Falls back to a mid grey: an unknown colour gets a dot, never an empty hole. */
+export function colorSwatch(color: string): string {
+  return SWATCH[color] ?? "#6f747a";
+}
+
+/** Every colour the swatch table knows. The gate test walks this against the catalogue. */
+export const SWATCHED = Object.keys(SWATCH);
+
 /** The colours a car can be had in, or none if it only has the one photo. */
 export function colorsOf(spec: CarSpec): string[] {
   return spec.colors ?? [];

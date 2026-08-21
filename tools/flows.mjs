@@ -66,23 +66,43 @@ try {
   await card("M3 E30").click();
   await page.waitForSelector("dialog.modal");
   check("left click opens the sheet", await page.locator(".modal-title h2").innerText(), "BMW M3 E30");
+  // Icon-only buttons, so the accessible name is the ONLY name they have --
+  // this check is the one that notices if a glyph ever ships without one.
   check(
     "it offers the three things you can do with a car you own",
-    (await page.locator(".modal-acts .btn").allTextContents()).join(" | "),
+    (await page.locator(".modal-acts .btn").evaluateAll((els) =>
+      els.map((e) => e.getAttribute("aria-label")))).join(" | "),
     "Subirse al auto | Repintar | Vender",
   );
 
+  check(
+    "each action carries its glyph",
+    await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.map((e) => new URL(e.src).pathname).join(" ")),
+    "/car-key.png /paint-brush.png /sell.svg",
+  );
+  check(
+    "and every one of them actually loaded",
+    await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.every((e) => e.complete && e.naturalWidth > 0)),
+    true,
+  );
+
   console.log("\nrepainting");
-  await page.getByRole("button", { name: "Repintar" }).click();
+  await page.locator('.modal-acts .btn[aria-label="Repintar"]').click();
   await page.waitForSelector(".paint-swatches");
   check(
-    "every colour is offered, and the one it wears is dead",
-    await page.locator(".paint-chip").evaluateAll((els) =>
-      els.map((e) => `${e.textContent}${e.disabled ? "*" : ""}`).join(" ")),
+    "every colour is a dot, and the one it wears is dead",
+    await page.locator(".paint-dot").evaluateAll((els) =>
+      els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" ")),
     "Negro* Rojo Blanco Amarillo",
   );
+  check(
+    "each dot is painted its own colour rather than a default",
+    await page.locator(".paint-dot").evaluateAll((els) =>
+      new Set(els.map((e) => getComputedStyle(e).backgroundColor)).size),
+    4,
+  );
   const walletBefore = await wallet();
-  await page.locator(".paint-chip", { hasText: "Amarillo" }).click();
+  await page.locator('.paint-dot[aria-label="Amarillo"]').click();
   check("the hero previews the colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.png");
   check("previewing is free", await wallet(), walletBefore);
   check("the confirm says what it costs", await page.locator(".modal-acts .btn").last().innerText(), "PINTAR POR 5.700 CR");
@@ -105,23 +125,35 @@ try {
   check(
     "a car that comes in one colour cannot be repainted",
     await page.locator(".modal-acts .btn").evaluateAll((els) =>
-      els.map((e) => `${e.textContent}${e.disabled ? "*" : ""}`).join(" | ")),
+      els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" | ")),
     "Subirse al auto | Repintar* | Vender",
   );
-  await page.locator(".modal-x").click();
-  await page.waitForSelector("dialog.modal", { state: "detached" });
 
   console.log("\nselling");
-  await card("Chevy 250").click();
-  await page.waitForSelector("dialog.modal");
-  const sell = page.locator(".modal-acts .btn").last();
-  await sell.click();
-  check("the first click only arms it", await sell.innerText(), "VENDER POR 7.300 CR");
-  check("and sells nothing", await wallet(), "114.300CR");
-  await sell.click();
-  await page.waitForSelector("dialog.modal", { state: "detached" });
-  check("the second click sells", await wallet(), "121.600CR");
+  await page.locator('.modal-acts .btn[aria-label="Vender"]').click();
+  await page.waitForSelector("dialog.confirm");
+  check("it asks, in words, naming the car", await page.locator(".confirm-q").innerText(), "¿Vender tu Chevrolet Chevy 250?");
+  check(
+    "and says what you get and that it is final",
+    await page.locator(".confirm-detail").innerText(),
+    "Te pagan 7.300 cr. No se puede deshacer.",
+  );
+  check("with No focused, so a stray Enter does not sell", await page.evaluate(() => document.activeElement.textContent), "No");
+  check("nothing sold while the question is up", await wallet(), "114.300CR");
+  // The sheet is still there behind it: you can see the car you are answering about.
+  check("the car is still on screen behind the question", await page.locator("dialog.modal:not(.confirm)").isVisible(), true);
+
+  await page.locator(".confirm-acts .btn").first().click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  check("No keeps the car", await page.locator(".car-card").count(), 3);
+
+  await page.locator('.modal-acts .btn[aria-label="Vender"]').click();
+  await page.waitForSelector("dialog.confirm");
+  await page.locator(".confirm-acts .btn.danger").click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  check("yes sells", await wallet(), "121.600CR");
   check("and the car is gone", await page.locator(".car-card").count(), 2);
+  check("and the sheet behind it closed with the car", await page.locator("dialog.modal").count(), 0);
 
   console.log("\nthe shop sheet, which shares the component");
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
@@ -134,6 +166,40 @@ try {
   await page.locator(".modal-foot .btn").last().click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
   check("and still buys", await wallet(), "109.400CR");
+
+  console.log("\nthe right-click menu");
+  await garage();
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  check(
+    "every row has a glyph, left of the word",
+    await page.locator(".ctx-item").evaluateAll((els) =>
+      els.map((e) => {
+        const img = e.querySelector(".ctx-icon");
+        const label = e.querySelector(".ctx-label");
+        const before = img && label && img.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING;
+        return `${label.textContent}:${img ? new URL(img.src).pathname.replace(/^\//, "") : "NONE"}${before ? "" : "!ORDER"}`;
+      }).join(" ")),
+    "Subirse al auto:car-key.png Repintar:paint-brush.png Vender:sell.svg",
+  );
+  // Repintar from the menu lands on the colours rather than on the sheet you
+  // would then have to click Repintar in again.
+  await page.locator(".ctx-item", { hasText: "Repintar" }).click();
+  await page.waitForSelector(".paint-swatches");
+  check("the menu's Repintar opens straight onto the dots", await page.locator(".paint-dot").count(), 4);
+  await page.locator(".modal-x").click();
+  await page.waitForSelector("dialog.modal", { state: "detached" });
+
+  console.log("\nthe menu sells the same way the sheet does");
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Vender" }).click();
+  await page.waitForSelector("dialog.confirm");
+  check("one click on the row, one question", await page.locator(".confirm-q").innerText(), "¿Vender tu BMW M3 E30?");
+  await page.locator(".confirm-acts .btn").first().click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  // Three, not two: the shop section above bought the Chevy 250 back.
+  check("and No still keeps it", await page.locator(".car-card").count(), 3);
 
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 } finally {

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { CarSpec } from "@contracts/car";
 import { ratingOf } from "@catalog/rating";
 import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
-import { colorName, colorsOf, imageFor } from "@progression/paint";
+import { colorName, colorSwatch, colorsOf, imageFor } from "@progression/paint";
 import { classTierClass } from "../lib/tiers";
+import { ICON } from "../lib/icons";
 
 /**
  * What the sheet can DO, which is the only thing that differs between the two
@@ -41,7 +42,14 @@ interface Props {
   color?: string | undefined;
   image?: string | undefined;
   sheet: CarSheet;
+  /** Opens straight into the colour picker, for the menu row that means paint. */
+  startPicking?: boolean;
   onClose: () => void;
+}
+
+/** A button's glyph. Never alt text: the label beside it already says the word. */
+function Glyph({ src }: { src: string }) {
+  return <img className="btn-icon" src={src} alt="" aria-hidden="true" />;
 }
 
 /** Motor / eje motriz. "Central" for MR is what the Argentine press called it. */
@@ -86,7 +94,7 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string | undefined }) 
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }: Props) {
+export function CarModal({ spec, km, color, image = spec.image, sheet, startPicking = false, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const rating = ratingOf(spec);
   const tier = classTierClass(rating.letter);
@@ -94,14 +102,12 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
   const cond = conditionOf(spec, km);
 
   /*
-   * Two footer states that are not the normal one. Selling arms before it
-   * fires, the way the right-click menu does -- a sale cannot be undone and
-   * one stray click is a cheap way to lose a car. Painting opens a picker,
-   * because choosing a colour is the feature; a button that resprayed the car
-   * whatever colour it felt like would be a slot machine.
+   * Painting opens a picker rather than firing, because choosing the colour is
+   * the feature: a button that resprayed the car whatever colour it felt like
+   * would be a slot machine. Selling asks in a dialog of its own, which is the
+   * caller's job -- see Confirm for why it is not an arming button.
    */
-  const [armed, setArmed] = useState(false);
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(startPicking);
   const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
@@ -117,6 +123,8 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
 
   const repaintPrice = repaintPriceFor(spec, km);
   const sellValue = sellValueFor(spec, km);
+  const driveLabel =
+    sheet.kind === "garage" && sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto";
 
   const close = () => ref.current?.close();
 
@@ -202,19 +210,24 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
             </footer>
           ) : picking ? (
             <footer className="modal-foot paint">
+              {/* Dots, not words. The name still reaches a screen reader
+                  through the label, and it is spelled out in the spec list on
+                  the left the moment a dot is picked -- so nothing is lost by
+                  showing the colour as a colour. */}
               <div className="paint-swatches" role="group" aria-label="Colores">
                 {palette.map((c) => (
                   <button
                     key={c}
                     type="button"
-                    className={`paint-chip${shown === c ? " on" : ""}`}
+                    className={`paint-dot${shown === c ? " on" : ""}`}
+                    style={{ "--dot": colorSwatch(c) } as CSSProperties}
                     // The colour it already wears is not a purchase, so it is
                     // not offered as one. repaintCar refuses it too.
                     disabled={c === color}
-                    onClick={() => setPreview(c)}
-                  >
-                    {colorName(c)}
-                  </button>
+                    aria-label={colorName(c)}
+                    title={colorName(c)}
+                  onClick={() => setPreview(c)}
+                  />
                 ))}
               </div>
               <div className="modal-acts">
@@ -245,46 +258,48 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
           ) : (
             <footer className="modal-foot">
               <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
+              {/*
+                * Icon-only, so every one of these carries an aria-label and a
+                * title: without them the button has no accessible name at all
+                * -- the glyph is aria-hidden, which leaves a screen reader
+                * announcing "button" three times -- and the title is what tells
+                * a mouse user which is which before they commit to a click.
+                */}
               <div className="modal-acts">
                 <button
                   className="btn"
                   disabled={sheet.isCurrent}
+                  aria-label={driveLabel}
+                  title={driveLabel}
                   onClick={() => {
                     sheet.onDrive();
                     close();
                   }}
                 >
-                  {sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto"}
+                  <Glyph src={ICON.drive} />
                 </button>
                 {/* Under two colours there is nothing to change it TO, so the
-                    button says why instead of opening an empty picker. */}
-                {/* The price lands on the confirm button in the picker rather
-                    than here: three labelled actions plus a figure do not fit
-                    the 448px column, and the cost has to be unmissable at the
-                    moment you pay it, not one click earlier. */}
+                    title says why rather than opening an empty picker. */}
                 <button
                   className="btn"
                   disabled={palette.length < 2}
-                  title={palette.length < 2 ? "Este auto viene en un solo color" : undefined}
+                  aria-label="Repintar"
+                  title={palette.length < 2 ? "Este auto viene en un solo color" : `Repintar · ${formatCredits(repaintPrice)} cr`}
                   onClick={() => setPicking(true)}
                 >
-                  Repintar
+                  <Glyph src={ICON.paint} />
                 </button>
+                {/* Asks in its own dialog rather than arming in place. The
+                    sheet stays open behind the question, so the car you are
+                    about to lose is still on the screen while you answer. */}
                 <button
-                  className={`btn danger${armed ? " armed" : ""}`}
+                  className="btn danger"
                   disabled={!sheet.canSell}
-                  title={sheet.canSell ? undefined : "Es tu único auto"}
-                  onClick={() => {
-                    if (!armed) {
-                      setArmed(true);
-                      return;
-                    }
-                    sheet.onSell();
-                    close();
-                  }}
-                  onMouseLeave={() => setArmed(false)}
+                  aria-label="Vender"
+                  title={sheet.canSell ? `Vender · ${formatCredits(sellValue)} cr` : "Es tu único auto"}
+                  onClick={() => sheet.onSell()}
                 >
-                  {armed ? `Vender por ${formatCredits(sellValue)} cr` : "Vender"}
+                  <Glyph src={ICON.sell} />
                 </button>
               </div>
             </footer>

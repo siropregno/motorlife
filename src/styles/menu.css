@@ -18,7 +18,9 @@
 .ctx-item {
   display: flex;
   align-items: center;
-  gap: 14px;
+  /* 10 rather than 14 now that a glyph sits at the head of the row: the hint
+     is pushed right by margin anyway, so this gap only ever sets icon-to-label. */
+  gap: 10px;
   width: 100%;
   padding: 8px 10px;
   border: 0;
@@ -44,24 +46,32 @@
 }
 
 /*
- * :not(.armed) is load-bearing. Without it this rule is (0,4,0) against the
- * armed rule's (0,3,0), so it wins on `color` and paints the confirm label
- * red on a red fill -- a solid bar with invisible text, which is what the
- * first screenshot of this menu actually showed.
+ * The glyphs are pure white on transparency, so opacity is the only lever --
+ * there is no ink to recolour. It tracks the row: quiet at rest, full on
+ * hover, well back when the item is dead, which is what the label does too.
+ *
+ * flex: none because a 15px image in a flex row will happily be squeezed to
+ * 11px by a long label, and three rows of slightly different icon sizes reads
+ * as sloppy rendering rather than as a layout.
  */
-.ctx-item.danger:hover:not(:disabled):not(.armed),
-.ctx-item.danger:focus-visible:not(.armed) {
-  color: var(--red);
+.ctx-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  opacity: 0.72;
+}
+.ctx-item:hover:not(:disabled) .ctx-icon,
+.ctx-item:focus-visible .ctx-icon {
+  opacity: 1;
+}
+.ctx-item:disabled .ctx-icon {
+  opacity: 0.3;
 }
 
-/* Armed: the first click asked, this click confirms. Filled rather than
-   tinted, so it cannot be mistaken for the hover state it replaced. */
-.ctx-item.armed,
-.ctx-item.armed:hover,
-.ctx-item.armed:focus-visible {
-  background: var(--red);
-  color: #fff;
-  font-weight: 600;
+.ctx-item.danger:hover:not(:disabled),
+.ctx-item.danger:focus-visible {
+  color: var(--red);
 }
 
 .ctx-label {

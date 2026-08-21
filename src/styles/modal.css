@@ -215,6 +215,28 @@
 .modal-foot .btn {
   padding: 9px 14px;
   font-size: 12.5px;
+  /* inline-flex HERE and not on .btn: .btn is shared by every screen, and the
+     gap would open up under the label of every button in the app that has no
+     icon in it. */
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* White on transparency like the section nav, so opacity is the only lever. */
+.modal-foot .btn-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  opacity: 0.85;
+}
+.modal-foot .btn:disabled .btn-icon {
+  opacity: 0.35;
+}
+.modal-foot .btn.primary .btn-icon,
+.modal-foot .btn.armed .btn-icon {
+  opacity: 1;
 }
 
 /* The actions sit hard right, away from the rarity word on the left. */
@@ -226,25 +248,76 @@
   margin-left: auto;
 }
 
-.modal-foot .btn.danger:hover:not(:disabled):not(.armed) {
+.modal-foot .btn.danger:hover:not(:disabled) {
   color: var(--red);
   border-color: var(--red);
 }
-/* Armed: the first click asked, this one confirms. Filled rather than tinted,
-   so it cannot be read as the hover state it replaced. */
-.modal-foot .btn.armed {
+
+/* ---------- "are you sure" ---------- */
+/*
+ * Narrow on purpose. It borrows .modal for the surface and the backdrop and
+ * then overrides the width, because the spec sheet's 720px is sized for two
+ * columns and a photo, and a one-line question in that frame reads as an
+ * empty room with a sentence in the corner.
+ */
+.confirm {
+  width: min(420px, calc(100vw - 32px));
+}
+
+/*
+ * Lighter than .modal's backdrop because it is the SECOND one: the sheet
+ * already sits behind 0.74, and another 0.74 over it took the car down to a
+ * silhouette. The point of stacking rather than replacing is that you can
+ * still see what you are about to sell, so the top layer only has to separate
+ * the question from the sheet, not hide it.
+ */
+.confirm::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: none;
+}
+
+.confirm-body {
+  padding: 24px;
+}
+
+.confirm-q {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.confirm-detail {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.confirm-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.confirm-acts .btn.danger {
   background: var(--red);
   border-color: var(--red);
   color: #fff;
+}
+.confirm-acts .btn.danger:hover {
+  filter: brightness(1.1);
 }
 
 /* ---------- repainting ---------- */
 /*
  * The picker REPLACES the action row rather than opening under it, so the
  * dialog does not jump in height at the moment you are looking at the car.
- * The swatches are words, not colour dots: the hero above is already showing
- * the car in the colour, which is a better swatch than any 14px square, and it
- * means no second table of hex values to keep in step with the photos.
+ *
+ * The dots carry no label. The name is not lost: it is on the dot for a
+ * screen reader and on hover, and the spec list on the left spells it out the
+ * moment one is picked. What the row is FOR is comparing four colours at a
+ * glance, and four words do not do that.
  */
 .paint-swatches {
   display: flex;
@@ -257,28 +330,45 @@
   flex: 1 1 100%;
 }
 
-.paint-chip {
-  padding: 7px 11px;
-  border-radius: 8px;
-  border: 1px solid var(--line-2);
-  background: var(--panel-2);
-  color: var(--ink-2);
-  font-family: var(--mono);
-  font-size: 11px;
+/*
+ * The dot is the background; the ring around it is a box-shadow rather than a
+ * border, because a border would eat into the 26px and the colours would each
+ * be a slightly different size depending on their state.
+ */
+.paint-dot {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dot, #6f747a);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
   cursor: pointer;
+  transition:
+    box-shadow 0.12s,
+    transform 0.12s;
 }
-.paint-chip:hover:not(:disabled) {
-  border-color: var(--purple-ink);
-  color: var(--ink);
+/* Dark paint on a dark panel needs the ring to find its edge. */
+.paint-dot:hover:not(:disabled) {
+  box-shadow: 0 0 0 2px var(--ink-3);
+  transform: translateY(-1px);
 }
-.paint-chip.on {
-  border-color: var(--purple);
-  background: var(--purple);
-  color: #fff;
+.paint-dot.on {
+  /* Two rings with the panel between them, so the halo reads on a white dot
+     as clearly as on a black one -- a single purple ring against Blanco is
+     nearly invisible. */
+  box-shadow:
+    0 0 0 2px var(--panel),
+    0 0 0 4px var(--purple);
 }
-/* The colour it already wears: shown, so the palette is complete, but dead. */
-.paint-chip:disabled {
-  opacity: 0.4;
+/*
+ * The colour it already wears: shown, so the palette is complete, but dead.
+ * Not dimmed much further than this -- Negro at 0.3 on a near-black panel was
+ * an empty ring rather than a dark dot, and "the colour you are already" is a
+ * thing the row should still be able to say.
+ */
+.paint-dot:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
