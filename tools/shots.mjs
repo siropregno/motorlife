@@ -27,7 +27,7 @@ const toDealer = async (name) => {
 };
 const toUsed = async () => {
   await nav("Concesionaria").click();
-  await page.getByRole("button", { name: /Mercado de usados/ }).click();
+  await page.getByRole("button", { name: /Marketplace/ }).click();
   await page.waitForSelector(".shop-item");
 };
 

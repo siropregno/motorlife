@@ -25,7 +25,7 @@ type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } 
  *   catalogue price, forever. If you want the F40 you know exactly where it
  *   is and exactly what it costs, and the only question is money.
  *
- *   The mercado de usados ROTATES and is cheaper. It turns over every race,
+ *   The Marketplace ROTATES and is cheaper. It turns over every race,
  *   it is mostly tired sedans, and roughly three lots in ten have something
  *   worth crossing the room for. You cannot plan for it; you can only look.
  *
@@ -60,7 +60,7 @@ export function Shop({ save, onBuy }: Props) {
           </button>
 
           <button className="pick-card pick-used" onClick={() => setView({ at: "used" })}>
-            <span className="pick-name">Mercado de usados</span>
+            <span className="pick-name">Marketplace</span>
             <span className="pick-note">
               {lot.length} autos · {Math.round((1 - USED_RATE) * 100)}% menos · rota cada carrera
             </span>
@@ -126,7 +126,7 @@ export function Shop({ save, onBuy }: Props) {
   return (
     <>
       <Crumb onBack={() => setView({ at: "choose" })} />
-      <h2 className="screen-title">Mercado de usados</h2>
+      <h2 className="screen-title">Marketplace</h2>
       <p className="screen-sub">
         {Math.round((1 - USED_RATE) * 100)}% menos que en la concesionaria. Rota cada carrera.
       </p>

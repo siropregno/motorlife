@@ -38,7 +38,7 @@ function offer(spec: CarSpec, salt: string, rate = 1): Offer {
  *
  * The catalogue used to be one flat list with a price on each row. It is two
  * places now: concesionarios, which are stable and sorted by what kind of car
- * they are, and the mercado de usados, which rotates and is cheaper.
+ * they are, and the Marketplace, which rotates and is cheaper.
  *
  * This lives in progression rather than catalog because it is about buying --
  * price, rotation, what you already own. catalog answers "what cars exist" and
