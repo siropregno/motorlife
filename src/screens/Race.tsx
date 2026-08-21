@@ -19,6 +19,8 @@ interface Props {
   /** Which event this is. Seeds the race, so each one is a fresh draw. */
   racesRun: number;
   onFinish: (position: number, gridSize: number) => void;
+  /** Leaving the tower. Only reachable once the flag has fallen. */
+  onClose: () => void;
 }
 
 const REG: Regulation = { laps: 14, pitLossS: 22 };
@@ -144,7 +146,7 @@ function detune(opt: SetupValues, miss: number, rng: () => number): SetupValues 
   return { aero: off(opt.aero), gearing: off(opt.gearing), springs: off(opt.springs), brakeBias: off(opt.brakeBias) };
 }
 
-export function Race({ carId, build, track, racesRun, onFinish }: Props) {
+export function Race({ carId, build, track, racesRun, onFinish, onClose }: Props) {
   const you = carById(carId);
   const rating = you ? ratingOf(you) : null;
 
@@ -284,6 +286,12 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
   const [done, setDone] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paid = useRef(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const el = dialog.current;
+    if (el && !el.open) el.showModal();
+  }, []);
 
   const reduced =
     typeof window !== "undefined" &&
@@ -344,7 +352,29 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
   const rowOf = new Map((ticks[lap - 1]?.rows ?? []).map((r) => [r.entryId, r]));
 
   return (
-    <>
+    <dialog
+      ref={dialog}
+      className="modal race-modal"
+      onClose={onClose}
+      /*
+       * Escape is refused until the flag falls.
+       *
+       * <dialog> fires `cancel` before it closes, and preventDefault on that
+       * is the only way to keep showModal()'s Escape from taking the tower off
+       * the screen mid-race. It has to be refused rather than allowed-and-
+       * handled: the payout lands when the race reaches the flag, so a race
+       * dismissed on lap 9 would be a race you entered, watched, and got
+       * nothing for, with no way back to it.
+       *
+       * There is no backdrop-click handler for the same reason -- and once
+       * `done` is true the arrow in the corner is the way out, so Escape being
+       * live after that is a convenience rather than a trapdoor.
+       */
+      onCancel={(e) => {
+        if (!done) e.preventDefault();
+      }}
+    >
+      <div className="race-body">
       <h2 className="screen-title">Carrera</h2>
       <p className="screen-sub">
         Clase {rating?.letter} · premio {formatCredits(purse)} cr.
@@ -404,17 +434,33 @@ export function Race({ carId, build, track, racesRun, onFinish }: Props) {
         </div>
       </div>
 
-      <div className="row" style={{ marginTop: 26, justifyContent: "flex-end" }}>
+      {/*
+        * While the race runs: the way to the end of it. Once it is over: what
+        * you won, and the arrow out. The arrow only exists after the flag,
+        * which is the same rule Escape follows -- there is one way to leave a
+        * race and it is to finish it.
+        */}
+      <div className="row race-foot">
         {done ? (
-          <span className="payout">
-            P{myFinish} · +{formatCredits(won)} cr
-          </span>
+          <>
+            <span className="payout">
+              P{myFinish} · +{formatCredits(won)} cr
+            </span>
+            <button
+              className="btn primary race-out"
+              autoFocus
+              onClick={() => dialog.current?.close()}
+            >
+              Al garaje
+            </button>
+          </>
         ) : (
           <button className="btn ghost" onClick={skipToFlag}>
             Ir a la bandera
           </button>
         )}
       </div>
-    </>
+      </div>
+    </dialog>
   );
 }

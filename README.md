@@ -69,9 +69,25 @@ copies of "png" would let the checker pass a set of photos the app cannot load.
 contracts/            types both sides import
 packages/sim/         the race engine. pure, no IO, no clock, no Math.random
 services/catalog/     cars (6 fields each) and committed track fixtures
-src/                  React UI: garage -> setup -> race
+src/                  React UI: garage / shop / setup, with the race over the top
 tools/                probes and the screenshot driver
 ```
+
+Three sections, and changing between them slides: the outgoing screen leaves
+towards the side you came from while the next one arrives from the other, with
+the direction taken off the tab order.
+
+**The race is a dialog, not a section.** It used to be a fourth screen, reached
+only by pressing Race on the Setup screen. The slide is what forced the change:
+a screen on its way out has to stay mounted while it leaves, and the race is a
+live clock — it ticks the tower on a timeout and pays the purse when the flag
+falls. A race left mounted to slide away would keep running off-screen and could
+bank a prize for a race you walked out of. As a dialog it never slides, so the
+question cannot arise.
+
+It also cannot be dismissed. Escape is refused until the flag, because the purse
+is paid at the flag and a race abandoned on lap 9 would be one you entered,
+watched, and got nothing for.
 
 ## The two ideas the whole thing rests on
 

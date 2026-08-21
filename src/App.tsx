@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Build } from "@contracts/race";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
@@ -13,8 +13,19 @@ import { Shop } from "./screens/Shop";
 import { useToast } from "./components/Toasts";
 import { TopNav } from "./components/TopNav";
 import { SettingsModal } from "./components/SettingsModal";
-import type { Screen } from "./lib/screens";
+import { directionBetween, type Direction, type Screen } from "./lib/screens";
 import { classTierClass } from "./lib/tiers";
+
+/**
+ * How long a screen takes to cross.
+ *
+ * Shared with the stylesheet, which cannot import it -- the CSS animations run
+ * for this long and this timer is what unmounts the outgoing screen when they
+ * finish. The two are written out in both places and the flow checks compare
+ * them, so a change to one that misses the other fails rather than leaving a
+ * dead screen on top of a live one.
+ */
+const SLIDE_MS = 260;
 
 /** "Renault R12 TL" -- how a car is named in prose rather than on its card. */
 const nameOf = (id: string) => {
@@ -45,13 +56,71 @@ export default function App() {
    * including from inside it.
    */
   const [shopEpoch, setShopEpoch] = useState(0);
-  const go = useCallback((next: Screen) => {
-    if (next === "shop") setShopEpoch((n) => n + 1);
-    setScreen(next);
+
+  /**
+   * The screen on its way out, kept rendered while it slides off.
+   *
+   * This is the whole cost of a directional slide: something has to still be
+   * drawing the old screen after it has stopped being the current one. It
+   * holds the screen AND the direction, because both are needed to place it --
+   * and it is one piece of state rather than two so they can never disagree
+   * about which way a transition is going.
+   *
+   * Null the rest of the time, which is the normal case: exactly one screen is
+   * mounted unless a slide is in flight.
+   */
+  const [leaving, setLeaving] = useState<{ screen: Screen; dir: Direction } | null>(null);
+  const sweep = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /*
+   * Clearing the outgoing screen is on a timer, so it has to be cancelled if
+   * the app goes away mid-slide. Without this a tab pressed just before
+   * unmount leaves a setState firing into nothing.
+   */
+  useEffect(() => () => {
+    if (sweep.current) clearTimeout(sweep.current);
   }, []);
+
+  const go = useCallback(
+    (next: Screen) => {
+      if (next === "shop") setShopEpoch((n) => n + 1);
+      setScreen((current) => {
+        /*
+         * Pressing the tab you are already on is not a slide. It still means
+         * something for the shop -- it takes you back to its top level -- but
+         * sending the screen off the left edge and bringing the same screen
+         * back from the right would be a lot of movement to say "you are
+         * already here".
+         */
+        if (current === next) return next;
+
+        // A slide already running is abandoned rather than queued. Pressing
+        // three tabs quickly should land on the third, not play three
+        // animations in a row.
+        if (sweep.current) clearTimeout(sweep.current);
+        setLeaving({ screen: current, dir: directionBetween(current, next) });
+        sweep.current = setTimeout(() => {
+          setLeaving(null);
+          sweep.current = null;
+        }, SLIDE_MS);
+        return next;
+      });
+    },
+    [],
+  );
 
   /** Ajustes is a dialog over the current screen, not a screen of its own. */
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  /**
+   * The tower, which is a dialog rather than a screen.
+   *
+   * Held as a flag here rather than as a Screen because a race is something
+   * that happens OVER the game, not a place in it: you cannot reach it from
+   * the nav, and while it is up the section behind it is still the section you
+   * were in.
+   */
+  const [racing, setRacing] = useState(false);
 
   useEffect(() => writeSave(save), [save]);
 
@@ -125,6 +194,8 @@ export default function App() {
     });
     setTrackId(TRACKS[0]!.id);
     setSettingsOpen(false);
+    // A race still on screen belongs to the game that just stopped existing.
+    setRacing(false);
     // Not the screen you reset from: the shop and the tower are both showing
     // a game that is gone. The garage is where a new save starts.
     go("garage");
@@ -164,6 +235,45 @@ export default function App() {
     [rating],
   );
 
+  /**
+   * One screen, by name.
+   *
+   * A function rather than the four inline blocks it replaced, because the
+   * stage draws a screen TWICE during a slide -- the one arriving and the one
+   * leaving -- and two copies of this markup would drift the moment a prop
+   * changed on one of them.
+   */
+  const renderScreen = (which: Screen) => {
+    switch (which) {
+      case "garage":
+        return (
+          <Garage
+            owned={save.owned}
+            credits={save.credits}
+            currentId={carId}
+            onDrive={pickCar}
+            onSell={sell}
+            onRepaint={repaint}
+          />
+        );
+      case "shop":
+        return <Shop save={save} onBuy={buy} />;
+      case "setup":
+        return (
+          <SetupScreen
+            carId={carId}
+            km={kmOwned(save, carId) ?? 0}
+            image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
+            build={build}
+            onBuild={setBuild}
+            track={track}
+            onTrack={setTrackId}
+            onRace={() => setRacing(true)}
+          />
+        );
+    }
+  };
+
   return (
     <div className="app">
       <header className="topbar">
@@ -197,62 +307,60 @@ export default function App() {
       </header>
 
       {/*
-        * The screen, in a wrapper that plays an entrance every time it changes.
+        * The stage: the arriving screen, and the leaving one while it leaves.
         *
-        * The KEY is what animates it. A CSS animation runs once when an element
-        * is created, so re-keying the wrapper on each arrival hands React a
-        * different element and the browser starts the animation over. No state,
-        * no timers, nothing to clean up if you tab away mid-transition.
+        * Only during a slide are there two. The stage takes its height from
+        * whichever is taller so the page cannot collapse mid-transition, and
+        * the outgoing screen is taken out of the flow by CSS -- it is on its
+        * way off the edge and should not push the incoming one down.
         *
-        * Only the ARRIVING screen moves. Animating the leaving one as well
-        * would mean keeping it mounted after it stopped being the current
-        * screen, and the Race screen is a live clock -- it ticks the tower on a
-        * timeout and pays out credits when the flag falls. A race left mounted
-        * to slide away would keep running, off-screen, and could bank a purse
-        * for a race you walked out of. A crossfade avoids the whole class of
-        * bug rather than defending against it.
+        * The KEY is what animates each of them. A CSS animation runs once when
+        * an element is created, so keying on the screen name hands React a new
+        * element per arrival and the browser starts the animation over. The
+        * direction rides in a data attribute rather than a class because it is
+        * a value, not a state -- the stylesheet selects on it either way, and
+        * this keeps `.screen` meaning one thing.
         *
-        * shopEpoch is in the key because pressing the shop tab while already in
-        * the shop remounts Shop to take you back to its top level. That is an
-        * arrival too, and it should look like one.
+        * shopEpoch is in the key because pressing the shop tab while already
+        * in the shop remounts Shop to take you back to its top level.
         */}
-      <div className="screen-swap" key={`${screen}-${screen === "shop" ? shopEpoch : 0}`}>
-        {screen === "garage" && (
-          <Garage
-            owned={save.owned}
-            credits={save.credits}
-            currentId={carId}
-            onDrive={pickCar}
-            onSell={sell}
-            onRepaint={repaint}
-          />
-        )}
+      <div className={`stage${leaving ? " sliding" : ""}`}>
+        {leaving ? (
+          <div className="screen going" data-dir={leaving.dir} key={`out-${leaving.screen}`} aria-hidden="true">
+            {renderScreen(leaving.screen)}
+          </div>
+        ) : null}
 
-        {screen === "shop" && <Shop save={save} onBuy={buy} />}
-
-        {screen === "setup" && (
-          <SetupScreen
-            carId={carId}
-            km={kmOwned(save, carId) ?? 0}
-            image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
-            build={build}
-            onBuild={setBuild}
-            track={track}
-            onTrack={setTrackId}
-            onRace={() => setScreen("race")}
-          />
-        )}
-
-        {screen === "race" && (
-          <Race
-            carId={carId}
-            build={build}
-            track={track}
-            racesRun={save.racesRun}
-            onFinish={finishRace}
-          />
-        )}
+        <div
+          className="screen coming"
+          data-dir={leaving ? leaving.dir : 0}
+          key={`in-${screen}-${screen === "shop" ? shopEpoch : 0}`}
+        >
+          {renderScreen(screen)}
+        </div>
       </div>
+
+      {/*
+        * The tower, over whatever section you were in.
+        *
+        * Closing it lands you in the garage rather than back on Setup: the
+        * race is over, the money is in, and the garage is where you go to
+        * spend it. `go` rather than setScreen, so arriving there slides like
+        * any other change of section.
+        */}
+      {racing ? (
+        <Race
+          carId={carId}
+          build={build}
+          track={track}
+          racesRun={save.racesRun}
+          onFinish={finishRace}
+          onClose={() => {
+            setRacing(false);
+            go("garage");
+          }}
+        />
+      ) : null}
 
       {/* Last in the tree and outside the screens, because it opens over any
           of them and must not unmount when the reset changes which one is up. */}

@@ -8,19 +8,18 @@ interface Props {
 }
 
 /**
- * Three icons, four screens.
+ * Three icons, three screens.
  *
- * Setup and Race are one section, not two. They are the same errand -- you go
- * to the Setup screen to choose a circuit and a setup, and the tower is what
- * happens when you press Race. Giving them a tab each would put a tab on the
- * board that you cannot reach without going through its neighbour first.
- *
- * So the Race tab lands on Setup, and stays lit through the race itself.
+ * Setup and the race are one section, not two. They are the same errand -- you
+ * go to the Setup screen to choose a circuit and a setup, and the tower is what
+ * happens when you press Race. The tower is a dialog rather than a place, so
+ * this tab stays lit underneath it: while a race is on, the section you are in
+ * is still Carrera.
  */
 const TABS: { to: Screen; lit: Screen[]; icon: string; label: string }[] = [
   { to: "garage", lit: ["garage"], icon: "/icon-garage.png", label: "Garaje" },
   { to: "shop", lit: ["shop"], icon: "/icon-shop.png", label: "Concesionaria" },
-  { to: "setup", lit: ["setup", "race"], icon: "/icon-race.png", label: "Carrera" },
+  { to: "setup", lit: ["setup"], icon: "/icon-race.png", label: "Carrera" },
 ];
 
 export function TopNav({ screen, onGo, onSettings }: Props) {

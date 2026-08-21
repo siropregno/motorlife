@@ -538,3 +538,54 @@
   object-fit: contain;
   opacity: 0.85;
 }
+
+/* ---------- the tower, as a dialog ---------- */
+/*
+ * The race used to be a screen. It is a dialog now because a screen that
+ * slides out has to stay mounted while it leaves, and this one is a live
+ * clock: it ticks the tower on a timeout and pays the purse when the flag
+ * falls. A race left mounted to slide away would keep running off-screen and
+ * could bank a prize for a race you walked out of.
+ *
+ * It borrows .modal for the top layer, the focus trap and the Escape key --
+ * though Escape is refused until the flag, see Race.tsx -- and then undoes
+ * .modal's surface entirely. The tower draws its own panel, its own radius and
+ * its own shadow, so leaving the dialog's background on would frame a panel
+ * inside a panel.
+ */
+.race-modal {
+  width: min(760px, calc(100vw - 32px));
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* Darker than the sheet's backdrop. Everything behind a race is irrelevant
+   for the ninety seconds it lasts, and the tower is the only lit thing. */
+.race-modal::backdrop {
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(3px);
+}
+
+.race-body {
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding: 4px;
+}
+
+/* The title sits on the backdrop rather than on a panel, so it needs no box
+   of its own -- but it does need to not hug the top edge of the viewport. */
+.race-body .screen-title {
+  margin-top: 0;
+}
+
+.race-foot {
+  margin-top: 26px;
+  justify-content: flex-end;
+}
+
+/* The payout and the way out, on one line. The payout reads as the result and
+   the button as what to do about it, so the number sits left of the verb. */
+.race-out {
+  margin-left: 4px;
+}

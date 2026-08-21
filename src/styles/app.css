@@ -15,43 +15,131 @@
 }
 
 /*
- * Arriving at a screen.
+ * Changing section: the old screen leaves sideways, the new one comes in from
+ * the other edge.
  *
- * A rise and a fade, not a slide across. The three sections are siblings, not
- * a filmstrip you scroll along -- the garage is not to the left of the shop in
- * any sense the player holds -- so sending one out sideways as another comes in
- * says there is a line to walk, and there is not. Coming up from under is what
- * a new page of content does, and it reads at the tab you just pressed.
+ * Direction is the point. Going right along the nav (garage -> shop) sends the
+ * old screen out to the LEFT and brings the new one in from the right, the way
+ * turning a page works; going back does the mirror. data-dir carries 1 or -1
+ * from App, which reads it off the tab order, so the movement always agrees
+ * with where the two sections sit relative to each other.
  *
- * 12px, and no more. The screens all start with a title in the same place, so
- * a big travel makes that heading visibly jump on every tab press; the point
- * is to say "this is new" and get out of the way. 190ms for the same reason --
- * long enough to be seen, short enough that going garage -> shop -> garage
- * three times in a row never feels like queueing.
+ * 260ms. Longer than the 190 the fade used, because this covers real distance
+ * and the same duration over a longer path reads as a flick; still short
+ * enough that garage -> shop -> garage in quick succession never queues.
  *
- * ease-out, so it is quickest at the start: the screen is already most of the
- * way there by the time the eye arrives, which is what keeps it from reading
- * as lag on the button.
+ * The stage is only `position: relative` WHILE a slide runs. Making it
+ * permanent would establish a containing block under every screen for no
+ * reason, and .sliding is also what turns on the clipping -- a screen on its
+ * way to the edge must not widen the page or raise a scrollbar on its way out.
  */
-@keyframes screen-in {
+.stage.sliding {
+  position: relative;
+  overflow: hidden;
+}
+
+/*
+ * The leaving screen is taken out of the flow so the arriving one can occupy
+ * the same space rather than being pushed below it. It is on its way off the
+ * edge; it should not own any height.
+ */
+.stage.sliding .screen.going {
+  position: absolute;
+  inset: 0 0 auto 0;
+}
+
+/*
+ * The fade is deliberately FASTER than the travel, on both halves.
+ *
+ * With opacity interpolated linearly alongside the movement, the two screens
+ * cross at 0.68 each and the overlap is a mess -- both have a title in the
+ * same place, so "GARAJE" and "COMPRAR" sit legibly on top of one another for
+ * a moment. Pushing the outgoing screen to 0 by 55% of its run, and holding
+ * the incoming one near 0 until 45% of its own, means the two are never both
+ * readable: one has gone before the other resolves. The MOVEMENT still runs
+ * the full duration, which is what keeps it feeling like travel rather than a
+ * hard cut.
+ */
+@keyframes screen-out-left {
+  55%,
+  to {
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-38px);
+  }
+}
+@keyframes screen-out-right {
+  55%,
+  to {
+    opacity: 0;
+  }
+  to {
+    transform: translateX(38px);
+  }
+}
+@keyframes screen-in-right {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateX(38px);
+  }
+  45% {
+    opacity: 0.06;
+  }
+}
+@keyframes screen-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-38px);
+  }
+  45% {
+    opacity: 0.06;
   }
 }
 
-.screen-swap {
-  animation: screen-in 190ms ease-out both;
+/* Going on: out to the left, in from the right. */
+.screen.going[data-dir="1"] {
+  animation: screen-out-left 260ms ease-in both;
 }
+.screen.coming[data-dir="1"] {
+  animation: screen-in-right 260ms ease-out both;
+}
+
+/* Going back: the mirror. */
+.screen.going[data-dir="-1"] {
+  animation: screen-out-right 260ms ease-in both;
+}
+.screen.coming[data-dir="-1"] {
+  animation: screen-in-left 260ms ease-out both;
+}
+
+/*
+ * ease-in leaving and ease-out arriving, rather than ease-in-out on both. The
+ * screen on its way out should accelerate away and the one arriving should
+ * decelerate into place; matched easing makes them look like one rigid strip
+ * being dragged, which is not what is happening -- they cross.
+ *
+ * 38px is deliberately not a screen width. A full-width slide at this duration
+ * is a blur, and at a readable duration it is slow. The distance only has to
+ * say which way you went.
+ */
 
 /*
  * Reduced motion takes the movement away, not the screen. `animation: none`
  * rather than a shorter duration: the setting is a request for no motion, and
- * 12px of travel in 60ms is still motion.
+ * 38px in 80ms is still motion.
+ *
+ * The leaving screen is hidden outright here. With no animation it would
+ * otherwise sit stacked over the arriving one at full opacity for the length
+ * of the timer, which is the one thing worse than the movement.
  */
 @media (prefers-reduced-motion: reduce) {
-  .screen-swap {
+  .screen.going,
+  .screen.coming {
     animation: none;
+  }
+  .screen.going {
+    display: none;
   }
 }
 

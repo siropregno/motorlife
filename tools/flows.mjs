@@ -458,72 +458,170 @@ try {
   check("with the old cars gone with it", await page.locator(".car-card").count(), 1);
 
   /*
-   * The transition between screens.
+   * The transition between sections.
    *
    * Runs after the reset, on the fresh save, because none of it cares what is
-   * in the garage -- it cares that changing section restarts an animation.
+   * in the garage -- it cares which way a screen moves when you change tab.
    *
-   * Everything here is read off getAnimations() rather than off a screenshot.
-   * "Did it animate" is a fact the browser will state precisely, and a pair of
-   * screenshots 100ms apart is the flaky way to ask the same question.
+   * Everything here is read off getAnimations() rather than off screenshots.
+   * "Which way did it go" is a fact the browser will state by name, and a pair
+   * of screenshots 100ms apart is the flaky way to ask the same question.
    */
   console.log("\nthe screen transition");
-  const anim = () =>
+  /** The animation on each half of the stage, by name. */
+  const stage = () =>
     page.evaluate(() => {
-      const el = document.querySelector(".screen-swap");
-      if (!el) return null;
-      const a = el.getAnimations()[0];
-      return a ? { name: a.animationName, ms: a.effect.getTiming().duration } : null;
+      const pick = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const a = el.getAnimations()[0];
+        return a ? { name: a.animationName, ms: a.effect.getTiming().duration } : null;
+      };
+      return { going: pick(".screen.going"), coming: pick(".screen.coming") };
     });
 
-  check("the screen sits in a wrapper", await page.locator(".screen-swap").count(), 1);
-  const first = await anim();
-  check("which arrives with an animation on it", first?.name, "screen-in");
-  check("short enough not to feel like queueing", first?.ms <= 250, true);
+  check("one screen on the stage when nothing is moving", await page.locator(".screen").count(), 1);
 
-  // The real question: does it play AGAIN on the next arrival? A CSS animation
-  // fires once per element, so this is what proves the wrapper is re-keyed
-  // rather than reused -- reuse would animate the first screen and nothing else.
+  // Garage -> Concesionaria is going RIGHT along the nav, so the garage leaves
+  // to the left and the shop arrives from the right. This is the whole ask.
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
-  await page.waitForSelector(".pick-grid, .shop-item, .card-grid");
-  check("changing section plays it again", (await anim())?.name, "screen-in");
+  const fwd = await stage();
+  check("going right, the old screen leaves to the left", fwd.going?.name, "screen-out-left");
+  check("and the new one comes in from the right", fwd.coming?.name, "screen-in-right");
+  check("both for the same length of time", fwd.going?.ms === fwd.coming?.ms, true);
+  check("which matches SLIDE_MS in App.tsx", fwd.coming?.ms, 260);
+  check("with both screens on the stage while it runs", await page.locator(".screen").count(), 2);
 
-  // Pressing the tab you are already on takes you to the top of that section,
-  // which is an arrival too and should look like one.
-  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
-  await page.waitForTimeout(30);
-  check("and so does pressing the tab you are already on", (await anim())?.name, "screen-in");
+  // Coming BACK is the mirror. A slide that went the same way in both
+  // directions would pass every check above and still be wrong.
+  await page.waitForTimeout(320);
+  await page.locator('.topnav-btn[aria-label="Garaje"]').click();
+  const back = await stage();
+  check("going back, the old screen leaves to the right", back.going?.name, "screen-out-right");
+  check("and the new one comes in from the left", back.coming?.name, "screen-in-left");
 
-  await garage();
-  check("going back plays it as well", (await anim())?.name, "screen-in");
+  // The leaving screen must not own height or the page would jump; and it must
+  // not widen the stage or a horizontal scrollbar appears mid-slide.
+  const geom = await page.evaluate(() => {
+    const st = document.querySelector(".stage");
+    const go = document.querySelector(".screen.going");
+    return {
+      lifted: go ? getComputedStyle(go).position : "none",
+      clipped: getComputedStyle(st).overflow,
+      noHScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    };
+  });
+  check("the leaving screen is out of the flow", geom.lifted, "absolute");
+  check("the stage clips it on its way out", geom.clipped, "hidden");
+  check("so nothing opens a horizontal scrollbar", geom.noHScroll, true);
 
-  // Opening a dialog must NOT re-run it: the settings box sits over the screen
-  // and the screen behind it did not arrive anywhere.
+  // And it is really gone afterwards, rather than left stacked invisibly over
+  // the live screen where it would eat clicks.
+  await page.waitForTimeout(360);
+  check("the old screen is dropped once it has left", await page.locator(".screen").count(), 1);
+  check("the stage stops being a stage", await page.locator(".stage.sliding").count(), 0);
   /*
-   * The entrance runs ONCE and stops.
-   *
-   * Asked as playState rather than as a count, because the animation is
-   * declared `both` -- the fill keeps a finished animation attached to the
-   * element forever, so getAnimations() stays length 1 and counting it proves
-   * nothing. "finished" is the fact worth pinning: still there, no longer
-   * moving, and the screen left at full opacity rather than mid-fade.
+   * At rest there is no animation on the screen AT ALL, rather than a finished
+   * one hanging around. That is a consequence of the direction living in
+   * data-dir: once the slide ends App sets it back to 0, no rule matches, and
+   * the `both` fill goes with it. Worth pinning, because the alternative -- a
+   * finished animation still holding the element at its end state -- is how a
+   * screen ends up stuck at opacity 0 if a keyframe is ever edited wrong.
    */
-  await page.waitForTimeout(260);
-  const rest = () =>
-    page.evaluate(() => {
-      const el = document.querySelector(".screen-swap");
-      const a = el.getAnimations()[0];
-      return `${a ? a.playState : "none"} @ opacity ${getComputedStyle(el).opacity}`;
-    });
-  check("the entrance runs once and settles", await rest(), "finished @ opacity 1");
+  check(
+    "and the one left is at rest, full opacity, with no animation on it",
+    await page.evaluate(() => {
+      const el = document.querySelector(".screen.coming");
+      return `${el.getAnimations().length} anims @ opacity ${getComputedStyle(el).opacity}`;
+    }),
+    "0 anims @ opacity 1",
+  );
 
-  // Opening a dialog must not re-key the wrapper: the settings box sits OVER
-  // the screen, and the screen behind it did not arrive anywhere.
+  // Pressing the tab you are already on is not a change of section, so it must
+  // not slide -- but it must still take the shop back to its top level.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await page.waitForTimeout(320);
+  // Two levels down -- the chooser, then a dealer -- so "back to the top" is
+  // a real journey rather than one click undone.
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: /Pacheco/ }).click();
+  await page.waitForSelector(".shop-item");
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  check("pressing the tab you are on does not slide", await page.locator(".screen.going").count(), 0);
+  check("but it does take you back to the top of the section", await page.locator(".pick-grid").count(), 1);
+
+  // Opening a dialog must not move the screen behind it: it did not arrive
+  // anywhere, it is just being covered.
+  await page.waitForTimeout(320);
   await page.locator('.topnav-btn[aria-label="Ajustes"]').click();
   await page.waitForSelector("dialog.settings-modal");
-  check("opening a dialog does not re-animate the screen behind it", await rest(), "finished @ opacity 1");
+  check("opening a dialog does not slide the screen behind it", await page.locator(".screen.going").count(), 0);
   await page.locator('.settings-acts .btn[aria-label="Volver"]').click();
   await page.waitForSelector("dialog.settings-modal", { state: "detached" });
+
+  /*
+   * The race, which is a dialog rather than a section.
+   *
+   * The lock is the part worth testing. The purse is paid when the tower
+   * reaches the flag, so a race that could be dismissed on lap 9 would be a
+   * race you entered, watched and got nothing for.
+   */
+  console.log("\nthe race");
+  await page.locator('.topnav-btn[aria-label="Carrera"]').click();
+  await page.waitForSelector(".setup-grid");
+  await page.waitForTimeout(320);
+  const before = await wallet();
+  await page.locator(".btn.primary", { hasText: "Correr" }).first().click();
+  await page.waitForSelector("dialog.race-modal");
+  check("pressing Race opens the tower as a dialog", await page.locator("dialog.race-modal").isVisible(), true);
+  check("it is not a section, so no screen slid", await page.locator(".screen.going").count(), 0);
+  check(
+    "and the section behind it is still the lit one",
+    await page.locator(".topnav-btn.on").getAttribute("aria-label"),
+    "Carrera",
+  );
+  check("the tower is up", (await page.locator(".tower-row").count()) > 0, true);
+
+  // Escape, mid-race. Refused.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(150);
+  check("Escape cannot abandon a race in progress", await page.locator("dialog.race-modal").isVisible(), true);
+  check("and nothing was paid for a race that has not finished", await wallet(), before);
+  check("there is no way out on the screen either", await page.locator(".race-out").count(), 0);
+
+  /*
+   * To the flag, which is the one way to end it.
+   *
+   * The wallet is waited FOR rather than read the moment .payout appears: the
+   * payout line is rendered by the race and the wallet by App, so they land on
+   * different ticks and reading straight away catches the old number.
+   */
+  await page.locator(".btn.ghost", { hasText: "bandera" }).click();
+  await page.waitForSelector(".payout");
+  await page.waitForFunction(
+    (was) => document.querySelector(".wallet")?.innerText !== was,
+    before,
+    { timeout: 5000 },
+  );
+  const paidWallet = await wallet();
+  check("finishing pays the purse", paidWallet !== before, true);
+  check("and now there is a way out", await page.locator(".race-out").count(), 1);
+
+  // Paid ONCE. The payout is guarded by a ref against React running an effect
+  // twice; this is that guard, asked from the outside.
+  await page.waitForTimeout(400);
+  check("and it is paid exactly once, not once per render", await wallet(), paidWallet);
+
+  await page.locator(".race-out").click();
+  await page.waitForSelector("dialog.race-modal", { state: "detached" });
+  await page.waitForTimeout(360);
+  check(
+    "leaving the tower lands you in the garage",
+    await page.locator(".topnav-btn.on").getAttribute("aria-label"),
+    "Garaje",
+  );
+  check("with the cars in it", (await page.locator(".car-card").count()) > 0, true);
+  check("and the money still there", await wallet(), paidWallet);
 
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 
@@ -542,13 +640,13 @@ try {
   await calm.waitForSelector(".car-card");
   check(
     "no animation runs",
-    await calm.evaluate(() => document.querySelector(".screen-swap").getAnimations().length),
+    await calm.evaluate(() => document.querySelector(".screen.coming").getAnimations().length),
     0,
   );
   check(
     "and the screen is fully there rather than left at opacity 0",
     await calm.evaluate(() => {
-      const el = document.querySelector(".screen-swap");
+      const el = document.querySelector(".screen.coming");
       return `opacity ${getComputedStyle(el).opacity}, ${el.getBoundingClientRect().height > 100 ? "visible" : "COLLAPSED"}`;
     }),
     "opacity 1, visible",
@@ -557,8 +655,28 @@ try {
   await calm.waitForSelector(".pick-grid, .shop-item, .card-grid");
   check(
     "and changing section still changes section",
-    await calm.evaluate(() => getComputedStyle(document.querySelector(".screen-swap")).opacity),
+    await calm.evaluate(() => getComputedStyle(document.querySelector(".screen.coming")).opacity),
     "1",
+  );
+  /*
+   * The leaving screen must never sit stacked at full opacity over the live
+   * one -- with no animation to carry it away that is the one outcome worse
+   * than the movement itself.
+   *
+   * Two answers are both right and which one you get is a race with the timer
+   * that unmounts it: still in the DOM but display:none, or already gone. The
+   * check names the property that matters (it is not covering anything) rather
+   * than pinning one of the two timings, because pinning the timing is how a
+   * test starts failing on a slower machine for no reason.
+   */
+  check(
+    "the leaving screen is never left stacked on top",
+    await calm.evaluate(() => {
+      const go = document.querySelector(".screen.going");
+      if (!go) return "not covering";
+      return getComputedStyle(go).display === "none" ? "not covering" : "COVERING";
+    }),
+    "not covering",
   );
   await calm.close();
 } finally {
