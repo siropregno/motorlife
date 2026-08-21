@@ -4,7 +4,6 @@ import type { ClassLetter } from "@sim/rating";
 import {
   applyFilters,
   groupBy,
-  isActive,
   type Direction,
   type FacetId,
   type Selection,
@@ -57,9 +56,6 @@ export function Listing({
   const groups = useMemo(() => groupBy(listed, order, dir), [listed, order, dir]);
   const openSpec = openId ? cars.find((c) => c.id === openId) : undefined;
 
-  const affordable = listed.filter((c) => credits >= priceFor(c)).length;
-  const filtered = isActive(filter);
-
   return (
     <>
       {controls && cars.length > 0 ? (
@@ -73,14 +69,6 @@ export function Listing({
           onFilter={setFilter}
           onOpenAdvanced={() => setAdvanced(true)}
         />
-      ) : null}
-
-      {cars.length > 0 ? (
-        <p className="listing-meta">
-          {filtered ? `${listed.length} de ${cars.length} autos` : `${listed.length} auto${listed.length === 1 ? "" : "s"}`}
-          {", "}
-          {affordable} a tu alcance.
-        </p>
       ) : null}
 
       {cars.length === 0 ? (

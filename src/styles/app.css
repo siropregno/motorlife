@@ -679,14 +679,6 @@ p.screen-sub {
   color: var(--purple-ink);
 }
 
-.listing-meta {
-  margin: 0 0 20px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-4);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---------- dealership sort + filter ---------- */
 /*
  * A label column and a chip row per control. The label is a fixed 96px so the
