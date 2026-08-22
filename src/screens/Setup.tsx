@@ -6,6 +6,7 @@ import { TRACKS } from "@catalog/tracks";
 import { derive } from "@sim/derive";
 import { applySetup, wearMultiplier } from "@sim/setup";
 import { CarCard } from "../components/CarCard";
+import { TrackMap } from "../components/TrackMap";
 
 interface Props {
   carId: string;
@@ -102,28 +103,24 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
 
       <div className="screen-body">
         <div className="setup-grid">
+        {/*
+          * Left: the car and where it is going. Right: how it behaves, and the
+          * two things you turn to change that.
+          *
+          * The split used to be car+feel on the left against circuit+tyres+
+          * sliders on the right, which came out 281px tall beside 770 -- a
+          * third of a metre of empty black next to a column that overflowed
+          * and scrolled.
+          *
+          * Comportamiento moved right because of what it IS rather than to
+          * even the columns up: it is the readout the sliders move, so it
+          * belongs at the top of the column that holds them, where you can see
+          * it change as you drag. On the left it was a caption under the car,
+          * as far from the controls that drive it as the layout allowed.
+          */}
         <div className="setup-col">
           <CarCard spec={spec} km={km} image={image} />
 
-          <div className="panel">
-            <h3>Comportamiento</h3>
-            <div className="feel">
-              {feel.map((f) => (
-                <div className="feel-row" key={f.name}>
-                  <span className="feel-name">{f.name}</span>
-                  <span className="feel-bar" aria-hidden="true">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <i key={i} className={i <= f.level ? "on" : ""} />
-                    ))}
-                  </span>
-                  <span className="feel-word">{f.words[f.level - 1]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="setup-col">
           <div className="panel">
             <h3>Circuito</h3>
             <div className="track-pick">
@@ -138,6 +135,51 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
                     {(t.publishedM / 1000).toFixed(3)} km · {t.corners} curvas
                   </span>
                 </button>
+              ))}
+            </div>
+
+            {/*
+              * The trazado, drawn from the circuit's own segment list -- the
+              * same geometry the race laps, so the picture cannot disagree
+              * with the track. It answers the question the three names above
+              * cannot: Monza is straights and chicanes, Galvez No. 6 wraps an
+              * infield inside an oval, and which one you are about to drive
+              * decides whether the wing is worth its drag.
+              */}
+            <div className="track-figure">
+              <TrackMap track={track} />
+              <dl className="track-facts">
+                <div>
+                  <dt>Largo</dt>
+                  <dd>{(track.publishedM / 1000).toFixed(3)} km</dd>
+                </div>
+                <div>
+                  <dt>Curvas</dt>
+                  <dd>{track.corners}</dd>
+                </div>
+                <div>
+                  <dt>Recta más larga</dt>
+                  <dd>{track.longestStraightM} m</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div className="setup-col">
+          <div className="panel">
+            <h3>Comportamiento</h3>
+            <div className="feel">
+              {feel.map((f) => (
+                <div className="feel-row" key={f.name}>
+                  <span className="feel-name">{f.name}</span>
+                  <span className="feel-bar" aria-hidden="true">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <i key={i} className={i <= f.level ? "on" : ""} />
+                    ))}
+                  </span>
+                  <span className="feel-word">{f.words[f.level - 1]}</span>
+                </div>
               ))}
             </div>
           </div>
