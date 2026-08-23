@@ -23,6 +23,7 @@ import {
 import { classTierClass, PART_TIER } from "../lib/tiers";
 import { ENGINE_ICON, ICON, PART_ICON } from "../lib/icons";
 import { Glyph } from "../components/Glyph";
+import { ScreenHead } from "../components/ScreenHead";
 
 interface Props {
   owned: OwnedCar[];
@@ -39,6 +40,15 @@ interface Props {
   openOn?: string | null;
   onFit: (id: string, part: PartId, level: PartLevel) => void;
   onRebuild: (id: string) => void;
+  /**
+   * Get into the car on the ramp.
+   *
+   * The workshop is where you find out a car is ready, and it was the one
+   * screen that could not act on that -- you fitted the part, then went to the
+   * garage to get in. Same handler the garage and its menu use, so there is one
+   * answer to "which car am I in" and the topbar sees this one too.
+   */
+  onDrive: (id: string) => void;
 }
 
 /**
@@ -122,7 +132,7 @@ function Figure({
  * out of your own class by your own turbo is a decision, and this screen's job
  * is to make it an informed one rather than to refuse the sale.
  */
-export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }: Props) {
+export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, onDrive }: Props) {
   const cars = useMemo(
     () =>
       owned.flatMap((o) => {
@@ -135,17 +145,19 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
   );
 
   /**
-   * Which car is on the ramp.
+   * Which car is on the ramp. You do not choose it HERE.
    *
-   * Null means "nobody has picked one in here yet", which is not the same as
-   * "the car you are in". The difference matters because `openOn` arrives one
-   * render AFTER this component mounts: the garage calls go("workshop") and
-   * then names the car, so seeding this from openOn would seed it from null
-   * and put the wrong car on the ramp for exactly one frame -- long enough to
-   * see. Leaving it null until a click lets openOn win whenever it turns up.
+   * It is the car the garage named on the way in ("Llevar al taller"), else the
+   * one you are driving. There is deliberately no picker on this screen: a list
+   * of your cars is what the garage IS, and putting a second one here made the
+   * workshop read as a browser of the collection rather than as a screen about
+   * one car. You pick the car where cars live, and you arrive here with it.
+   *
+   * Derived rather than held in state, so it cannot go stale: a car sold or
+   * driven elsewhere changes what this resolves to on the next render instead
+   * of leaving a dead id on the ramp.
    */
-  const [pickedId, setPicked] = useState<string | null>(null);
-  const wanted = pickedId ?? openOn ?? currentId;
+  const wanted = openOn ?? currentId;
   const car =
     cars.find((c) => c.spec.id === wanted) ??
     cars.find((c) => c.spec.id === currentId) ??
@@ -273,8 +285,47 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
     openPart && openPart !== "engine" ? partPrice(car.spec, car.km, openPart, offered) : 0;
   const payable = openPart !== null && openPart !== "engine" && offered !== fittedLevel;
 
+  const onRamp = car.spec.id === currentId;
+
   return (
     <>
+      {/*
+        * A header, like every other section has.
+        *
+        * It did not have one, on the theory that the car should fill the frame.
+        * What that actually bought was a screen you could arrive at with no
+        * idea what it was -- every other section names itself at the top left,
+        * and this one started with a photo. The car is still the biggest thing
+        * here; it just no longer has to double as the title.
+        *
+        * The subtitle is where the car on the ramp is NAMED, which is the fact
+        * the old .workshop-name block inside the ficha was carrying. Same
+        * information, in the place every other screen puts it.
+        */}
+      <ScreenHead
+        title="Taller"
+        sub={`${car.spec.make} ${car.spec.model} '${String(car.spec.year).slice(2)} · ${formatKm(car.km)}`}
+      >
+        {/*
+          * Getting into the car, from the screen where you just finished it.
+          *
+          * Without this the workshop could make a car ready and not let you
+          * take it -- fit the part, walk to the garage, right-click, subirse.
+          * Disabled rather than hidden when you are already in it, because a
+          * button that vanishes is a button you go looking for.
+          */}
+        <button
+          type="button"
+          className={`btn workshop-drive${onRamp ? "" : " primary"}`}
+          disabled={onRamp}
+          title={onRamp ? "Ya estás en este auto" : `Subirse al ${car.spec.model}`}
+          onClick={() => onDrive(car.spec.id)}
+        >
+          <Glyph src={ICON.drive} />
+          {onRamp ? "Estás en este" : "Subirse"}
+        </button>
+      </ScreenHead>
+
       <div className="workshop-stage">
         {/*
           * The ficha, left. Same figures the car sheet shows, because they are
@@ -283,25 +334,6 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
           * tier under your cursor would make it.
           */}
         <aside className="workshop-specs">
-          {/*
-            * Which car is on the ramp, in words.
-            *
-            * The photo says it to anyone who knows the car by sight, which is
-            * not the same as saying it -- and with the picker below able to
-            * change it, the screen has to name what it is describing. The
-            * marque logo rather than the word "Ford", the way the topbar and
-            * the car sheet both do it.
-            */}
-          <header className="workshop-name">
-            <span className="workshop-marque">
-              {car.spec.logo ? <img src={car.spec.logo} alt={car.spec.make} /> : null}
-            </span>
-            <h2>
-              {car.spec.model}
-              <span className="workshop-year">'{String(car.spec.year).slice(2)}</span>
-            </h2>
-          </header>
-
           <div className="spec-list">
             {/*
               * The four figures a part can move, each showing what it WOULD
@@ -361,26 +393,6 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
             </div>
           </div>
 
-          {/*
-            * The car picker, at the foot of the ficha. Only when there is a
-            * choice to make: with one car in the garage it would be a list of
-            * one, which is a control that cannot do anything.
-            */}
-          {cars.length > 1 ? (
-            <div className="workshop-pick">
-              {cars.map((c) => (
-                <button
-                  key={c.spec.id}
-                  type="button"
-                  className={`workshop-pick-opt${c.spec.id === car.spec.id ? " on" : ""}`}
-                  onClick={() => setPicked(c.spec.id)}
-                >
-                  <span>{c.spec.model}</span>
-                  <span className="meta">{formatKm(c.km)}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
         </aside>
 
         <div className="workshop-main">

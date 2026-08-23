@@ -1691,13 +1691,33 @@ p.screen-sub {
  * .chip: those are shared, and editing them from a new screen is what broke two
  * others.
  */
+/*
+ * As tall as what is in it, not as tall as the window.
+ *
+ * `height: 100%` was what made this a big square: the stage claimed the whole
+ * frame, the hero took `1fr` of it, and a 16:9 photo got stretched into a
+ * near-square box. Capping the hero alone only moved the problem -- the stage
+ * kept its full height and the slack turned into an empty panel under the
+ * strip. Sizing to content puts the leftover space OUTSIDE the box, which is
+ * where empty space belongs.
+ *
+ * align-self: start because the section's grid row would otherwise stretch it
+ * back to the full height and undo this.
+ */
 .workshop-stage {
   display: grid;
   grid-template-columns: 1fr;
-  height: 100%;
+  align-self: start;
+  max-height: 100%;
   min-height: 0;
   background: var(--panel);
-  border-radius: 14px;
+  /* The car sheet's surface, at the sheet's radius and with its shadow and top
+     highlight. The workshop IS the sheet seen bigger -- same car, same figures,
+     same two columns -- so it should be made of the same material. */
+  border-radius: 18px;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(255, 255, 255, 0.04) inset;
   overflow: hidden;
 }
 @media (min-width: 860px) {
@@ -1706,12 +1726,17 @@ p.screen-sub {
   }
 }
 
+/*
+ * The darker of the two surfaces, exactly as .modal-specs is: same colour, same
+ * job. It was `--ground` -- the black behind the whole app -- which made the
+ * column read as a hole in the panel rather than as a face of it.
+ */
 .workshop-specs {
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 22px 24px;
-  background: var(--ground);
+  background: #0e0e0e;
   overflow-y: auto;
   min-height: 0;
 }
@@ -1722,63 +1747,73 @@ p.screen-sub {
 /*
  * The rows sit together at the top and the empty space goes UNDER them.
  * `flex: 1` on the list spread seven rows down 650px of column, which reads as
- * seven unrelated facts rather than as one spec sheet.
+ * seven unrelated facts rather than as one spec sheet. It still matters: this
+ * column is the SHORTER of the two, so it is stretched to the height the photo
+ * and the strip set beside it.
  */
 .workshop-specs .spec-list {
   flex: none;
 }
-.workshop-specs::after {
-  content: "";
-  flex: 1;
+
+/*
+ * The workshop's header row: the title on the left, the way into the car hard
+ * right. Scoped to .screen.workshop rather than put on .screen-head, which
+ * every section shares -- the shop's sort bar is a child of the same block and
+ * has no business becoming a flex row because this screen wanted one.
+ */
+.screen.workshop .screen-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+/* The title line and the subtitle are the first column; the controls follow on
+   the same row. `flex-basis: 100%` on the sub keeps it under the title rather
+   than beside it, which is where every other screen puts it. */
+.screen.workshop .head-line {
+  flex: none;
+}
+.screen.workshop p.screen-sub {
+  order: 9;
+  flex-basis: 100%;
+  margin: 0;
 }
 
 /*
- * The car picker, at the foot of the ficha. Quiet on purpose: it is how you
- * change WHICH car you are working on, which is a thing you do once on the way
- * in rather than while you are deciding.
+ * Getting into the car, hard right of the header.
+ *
+ * `margin-left: auto` rather than a spacer: the picker sits with the title and
+ * this is the one thing in the row that acts on the car rather than choosing
+ * it, so the gap between them is what says they are different.
  */
-.workshop-pick {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.workshop-pick-opt {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  border: 1px solid transparent;
-  background: var(--panel-2);
-  color: var(--ink-3);
-  text-align: left;
-  font-family: var(--text);
+.workshop-drive {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
   font-size: 12.5px;
 }
-.workshop-pick-opt:hover {
-  border-color: var(--line-2);
-}
-.workshop-pick-opt.on {
-  border-color: var(--purple-ink);
-  color: var(--ink);
-}
-.workshop-pick-opt .meta {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--ink-4);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+.workshop-drive:disabled .btn-icon {
+  opacity: 0.35;
 }
 
-/* The car, and the strip under it. The photo takes whatever the strip does
-   not, which is what keeps the car the biggest thing on the screen at every
-   window height. */
+/*
+ * The car, and the strip under it.
+ *
+ * The photo used to take whatever the strip did not -- `1fr` -- which is why
+ * it went square: at 1440x1080 that is 740 wide by 796 tall against a 16:9
+ * source, so `cover` threw away a third of the picture's width and left the
+ * car small in the middle of the studio floor it was shot on.
+ *
+ * Now the hero is sized against its own WIDTH and the strip takes the rest.
+ * The row is `auto` so the aspect-ratio below is what decides, and the empty
+ * space collects under the strip instead of inflating the photo.
+ */
 .workshop-main {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto auto;
+  align-content: start;
   min-height: 0;
 }
 
@@ -1788,7 +1823,18 @@ p.screen-sub {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel-2);
+  /* The same bed .modal-hero lays a car on, so the photo sits on the same
+     colour in the sheet and in the workshop. */
+  background: #0e0e0e;
+  /* The shape the photos actually are. Anything else is a crop of a car, and
+     16:9 cropped to a square loses the nose and the tail -- the one crop a car
+     photo cannot afford, which is the same reasoning .modal-hero's fixed 252px
+     frame is written down for. */
+  aspect-ratio: 16 / 9;
+  /* But never so tall that the strip under it falls off a short window. The
+     strip is ~150px and the header ~90px; 62vh leaves both room at 1280x900
+     and still lets the photo grow on a tall screen. */
+  max-height: 62vh;
 }
 .workshop-hero img {
   width: 100%;
@@ -1820,10 +1866,19 @@ p.screen-sub {
 }
 
 /* ---------- the strip ---------- */
+/*
+ * The car sheet's surfaces, not a black box with a rule across it.
+ *
+ * This was `--ground` -- pure black -- with a 1px border-top, which is the look
+ * modal.css opens by arguing against: structure from a hairline around every
+ * box reads as a wireframe nobody went back to finish. The sheet gets its
+ * separation from two surfaces at different lightness and from spacing, and
+ * the workshop is the same object seen bigger, so it gets the same treatment:
+ * `--panel` here against the darker ficha beside it, and no border at all.
+ */
 .workshop-bar {
   padding: 18px 24px 22px;
-  background: var(--ground);
-  border-top: 1px solid var(--line);
+  background: var(--panel);
 }
 
 .workshop-bar-head {
@@ -1921,8 +1976,11 @@ p.screen-sub {
    saying which TIER this is, and a second fill would be two things in one
    colour. */
 .workshop-tile.on {
+  /* The inner ring is the gap, so it has to be the colour of the strip BEHIND
+     the tile -- `--panel` now that the strip is not pure black. Left at
+     --ground it draws a black halo around the fitted part. */
   box-shadow:
-    0 0 0 3px var(--ground),
+    0 0 0 3px var(--panel),
     0 0 0 5px var(--purple-ink);
 }
 
@@ -2021,16 +2079,18 @@ p.screen-sub {
 }
 
 /*
- * The workshop has no screen-head and no screen-body.
+ * The workshop has a header now, so it uses `.screen`'s two-row grid like
+ * every other section rather than collapsing to one.
  *
- * Every other section is a title over a scrolling list, which is what
- * `.screen`'s two-row grid is for. This one is a single box the size of the
- * frame: the car fills it, the strip sits at the bottom, and nothing inside
- * scrolls. So the grid collapses to one row here rather than the section
- * growing a header it has nothing to put in.
+ * It used to collapse, on the theory that the car should own the whole frame.
+ * What that bought was a section you could arrive at with nothing naming it,
+ * and a hero that grew to whatever was left -- 740x796 at 1440x1080, a
+ * near-square slab of studio backdrop with a car adrift in the middle of it.
+ * The header takes its row back and the hero is capped below; the car is still
+ * the biggest thing here.
  */
 .screen.workshop {
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 /*
@@ -2060,49 +2120,7 @@ p.screen-sub {
   font-variant-numeric: tabular-nums;
 }
 
-/*
- * Which car is on the ramp. The logo and the model, the same pairing the
- * topbar and the car sheet use, so a car is identified the same way wherever
- * it is named.
- */
-.workshop-name {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 14px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--line);
-}
-.workshop-marque {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.workshop-marque img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.workshop-name h2 {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 19px;
-  color: var(--ink);
-  line-height: 1.1;
-  min-width: 0;
-}
-/* Light, like the year on a card: it qualifies the model rather than being
-   part of the name. */
-.workshop-year {
-  font-weight: 300;
-  font-size: 15px;
-  color: var(--ink-3);
-  flex: none;
-}
+/* The .workshop-name block that used to sit at the top of the ficha -- marque
+   logo, model, year -- is gone. The section has a real ScreenHead now and the
+   car is named in its subtitle, which is where every other screen names what
+   it is showing. */

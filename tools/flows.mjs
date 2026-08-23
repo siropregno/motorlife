@@ -308,15 +308,70 @@ try {
   await page.waitForSelector(".workshop-stage");
   await settled();
 
-  // The title carries the model, the year and the class badge. Only the model
-  // is the answer to "which car is on the ramp".
+  /*
+   * Which car is on the ramp, read from the header's subtitle.
+   *
+   * It used to be a .workshop-name block inside the ficha. The section has a
+   * real ScreenHead now like every other one, and the car is named there --
+   * "BMW M3 E30 '87 · 90.000 km" -- so the model is what sits between the make
+   * and the year.
+   */
   const onRamp = () =>
-    page.locator(".workshop-name h2").first().innerText()
-      .then((t) => t.split("\n")[0].trim());
+    page.locator(".screen.workshop .screen-sub").innerText()
+      .then((t) => t.split("·")[0].replace(/'\d\d\s*$/, "").trim());
   check(
     "Llevar al taller opens the workshop on THAT car, not the one you drive",
     await onRamp(),
-    "M3 E30",
+    "BMW M3 E30",
+  );
+  /*
+   * The section names itself, which it did not used to. It was the one screen
+   * with no header at all -- you could arrive at it and be looking at a photo
+   * with nothing saying where you were.
+   */
+  check(
+    "and the workshop has a header like every other section",
+    await page.locator(".screen.workshop .screen-title").innerText(),
+    "TALLER",
+  );
+  /*
+   * And no car picker. There was one -- a stacked list of your cars at the
+   * foot of the ficha -- and it was the wrong control on the wrong screen: a
+   * list of your cars is what the garage IS. You pick the car where cars live
+   * and arrive here with it.
+   */
+  check("and no car picker on it", await page.locator(".workshop-pick").count(), 0);
+
+  /*
+   * The photo is the shape the photos ARE.
+   *
+   * It used to take `1fr` of a full-height stage, which at 1440x1080 made it
+   * 740x796 -- taller than wide, against a 16:9 source, so `cover` threw away a
+   * third of the picture's width and left the car small in the middle of the
+   * studio floor. Measured rather than eyeballed, because "it looks square" is
+   * exactly the kind of wrongness nobody can put a number on until it is
+   * pinned.
+   */
+  const heroRatio = await page.locator(".workshop-hero").boundingBox()
+    .then((b) => b.width / b.height);
+  check(
+    "the car photo is 16:9, not a square slab of studio backdrop",
+    Math.abs(heroRatio - 16 / 9) < 0.05,
+    true,
+  );
+  /*
+   * And the panel is as tall as what is in it. Capping the photo alone only
+   * moved the problem -- the stage kept its full height and the slack became an
+   * empty box under the strip.
+   */
+  const [stageH, frameH] = await Promise.all([
+    page.locator(".workshop-stage").boundingBox().then((b) => b.height),
+    page.locator(".screen.workshop").boundingBox().then((b) => b.height),
+  ]);
+  check(
+    "and the panel stops where its content does, leaving no empty box under it",
+    stageH < frameH - 40,
+    true,
   );
   check(
     "and the nav says you are in the workshop",
@@ -480,8 +535,56 @@ try {
   check(
     "the tab opens on the car you are in, not the one left on the ramp",
     await onRamp(),
-    "R12 TL",
+    "Renault R12 TL",
   );
+
+  /*
+   * Getting into the car from the workshop.
+   *
+   * The screen could make a car ready and not let you take it: fit the part,
+   * walk to the garage, right-click, subirse. The button is disabled on the car
+   * you are already in rather than hidden, because a control that vanishes is
+   * one you go looking for.
+   */
+  check(
+    "the car you arrived in offers no way to get into itself again",
+    await page.locator(".workshop-drive").isDisabled(),
+    true,
+  );
+  await page.locator('.topnav-btn[aria-label="Garaje"]').click();
+  await page.waitForSelector(".car-card");
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  check(
+    "but a car you are NOT in offers Subirse",
+    await page.locator(".workshop-drive").isDisabled(),
+    false,
+  );
+  await page.locator(".workshop-drive").click();
+  await page.waitForTimeout(400);
+  check(
+    "and pressing it puts you in that car, which the topbar says",
+    (await page.locator(".topcar-name").innerText()).replace(/\s+/g, " ").includes("M3 E30"),
+    true,
+  );
+  check(
+    "the button then says you are already in it",
+    await page.locator(".workshop-drive").isDisabled(),
+    true,
+  );
+  // Back to the R12 for the checks below, which pin its figures.
+  await page.locator('.topnav-btn[aria-label="Garaje"]').click();
+  await page.waitForSelector(".car-card");
+  await card("R12 TL").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Subirse al auto" }).click();
+  await page.waitForTimeout(400);
+  await page.locator('.topnav-btn[aria-label="Taller"]').click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
 
   /*
    * A tier you cannot afford is still selectable. Greying it out would hide

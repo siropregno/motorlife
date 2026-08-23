@@ -431,6 +431,7 @@ export default function App() {
             openOn={ramp}
             onFit={fitPart}
             onRebuild={rebuild}
+            onDrive={pickCar}
           />
         );
       case "setup":
