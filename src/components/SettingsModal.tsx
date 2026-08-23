@@ -1,31 +1,43 @@
 import { useEffect, useRef, useState } from "react";
+import { DEV_CREDITS } from "@progression/dev";
+import { formatCredits } from "@progression/economy";
 import { ICON } from "../lib/icons";
 import { Confirm } from "./Confirm";
 import { Glyph } from "./Glyph";
 
 interface Props {
   onReset: () => void;
+  onRefreshMarket: () => void;
+  onGrantCredits: () => void;
   onClose: () => void;
 }
 
 /**
- * Settings, which today is one thing: start again.
+ * Settings: the reset, and the two dev levers.
  *
  * A dialog rather than a fifth Screen, and that is the whole design decision.
  * The other three tabs are places you go to DO something with cars, and each
- * has a screen's worth of content; this has one row. Made a screen it would be
- * a page you can be left standing on, with the garage torn down behind it, and
- * the way back would be picking one of the other tabs rather than closing what
- * you opened. As a dialog the section you were in is still lit in the nav and
- * still there behind the backdrop, and the arrow puts you back in it.
+ * has a screen's worth of content; this has three rows. Made a screen it would
+ * be a page you can be left standing on, with the garage torn down behind it,
+ * and the way back would be picking one of the other tabs rather than closing
+ * what you opened. As a dialog the section you were in is still lit in the nav
+ * and still there behind the backdrop, and the arrow puts you back in it.
  *
  * The reset itself goes through the same Confirm the garage uses to sell a car,
  * stacked over this one. Wiping a save is the most destructive button in the
  * game, and it should not answer to a single click -- and it should ask in the
  * same box, with the same back arrow first, as everything else that cannot be
  * undone.
+ *
+ * DEV TOOLS is a labelled section rather than two more rows in the list, and
+ * the label is not decoration: rotating a shop and printing money are not
+ * settings, they are cheats, and a row that sits unlabelled beside "Resetear
+ * progreso" reads as a feature of the game. Under a heading that says what they
+ * are, nobody mistakes fifty thousand credits for a reward. Neither asks a
+ * Confirm -- both are additive and repeatable, and a question in front of a
+ * button you press five times in a row is friction with nothing to protect.
  */
-export function SettingsModal({ onReset, onClose }: Props) {
+export function SettingsModal({ onReset, onRefreshMarket, onGrantCredits, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const back = useRef<HTMLButtonElement>(null);
   const [asking, setAsking] = useState(false);
@@ -85,6 +97,48 @@ export function SettingsModal({ onReset, onClose }: Props) {
             Resetear
           </button>
         </div>
+
+        {/*
+          * The cheats, behind a label that names them as cheats.
+          *
+          * A <section> with its heading INSIDE it rather than an <h3> floating
+          * above two divs: to a screen reader that is what makes "Sumar plata"
+          * belong to Dev tools instead of being the third item in Ajustes.
+          */}
+        <section className="settings-dev" aria-labelledby="dev-tools-head">
+          <h3 className="settings-devhead" id="dev-tools-head">
+            Dev tools
+          </h3>
+
+          <div className="settings-row">
+            <div className="settings-what">
+              <span className="settings-label">Refrescar marketplace</span>
+              {/* Says what it does NOT touch, because that is the surprising
+                  half: the lot moving without the race counter moving. */}
+              <span className="settings-note">
+                Rota los usados una vuelta, sin correr ni tocar tus carreras.
+              </span>
+            </div>
+            <button className="btn settings-dev-btn" onClick={onRefreshMarket}>
+              Refrescar
+            </button>
+          </div>
+
+          <div className="settings-row">
+            <div className="settings-what">
+              <span className="settings-label">Sumar plata</span>
+              <span className="settings-note">
+                Te pone {formatCredits(DEV_CREDITS)} cr en la billetera. Podés
+                repetirlo.
+              </span>
+            </div>
+            {/* The amount is ON the button rather than only in the sentence, so
+                pressing it three times is a sum you can do without reading. */}
+            <button className="btn settings-dev-btn" onClick={onGrantCredits}>
+              +{formatCredits(DEV_CREDITS)}
+            </button>
+          </div>
+        </section>
 
         <div className="settings-acts">
           {/* The same arrow that leaves the paint shop and the sell question,

@@ -43,9 +43,19 @@ type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } 
 export function Shop({ save, onBuy }: Props) {
   const [view, setView] = useState<View>({ at: "choose" });
 
-  // Keyed to races run: the lot turns over when you race, which is the only
-  // clock this game has. Frozen per rotation, so filtering never reshuffles it.
-  const lot = useMemo(() => usedLot(save.racesRun, ownedIds(save)), [save.racesRun, save.owned]);
+  /*
+   * Keyed to races run: the lot turns over when you race, which is the only
+   * clock this game has. Frozen per rotation, so filtering never reshuffles it.
+   *
+   * Plus the nudge, which is the dev refresh in Ajustes. It is ADDED to the
+   * clock rather than replacing it so both still move the lot by exactly one
+   * rotation each -- a refreshed shop is a shop you could have raced your way
+   * to, and racing after a refresh still advances rather than jumping back.
+   */
+  const lot = useMemo(
+    () => usedLot(save.racesRun + save.lotNudge, ownedIds(save)),
+    [save.racesRun, save.lotNudge, save.owned],
+  );
 
   if (view.at === "choose") {
     /*

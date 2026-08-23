@@ -183,6 +183,7 @@ describe("save", () => {
         version: SAVE_VERSION,
         credits: 0,
         racesRun: 0,
+        lotNudge: 0,
         owned: [{ id: car.id, km: 1_000 }], // no `color`, the pre-paint shape
       };
       const color = colorOwned(save, car.id);
@@ -201,6 +202,7 @@ describe("save", () => {
       version: SAVE_VERSION,
       credits: 0,
       racesRun: 0,
+      lotNudge: 0,
       owned: [{ id: "bmw-m3-e30", km: 1_000, color: "white" }],
     };
     expect(colorOwned(save, "bmw-m3-e30")).toBe("white");
@@ -232,6 +234,7 @@ const save = (over: Partial<Save> = {}): Save => ({
   credits: 100_000,
   owned: [held("renault-12-tl"), held("ford-f100")],
   racesRun: 0,
+  lotNudge: 0,
   ...over,
 });
 

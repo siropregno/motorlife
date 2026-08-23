@@ -296,6 +296,7 @@ describe("modified listings", () => {
       credits: 5_000_000,
       owned: [],
       racesRun: 0,
+      lotNudge: 0,
     };
     const after = buyCar(save, o.spec.id, o.price, o.km, o.color, o.mods);
     expect(after).not.toBe(save);
@@ -311,6 +312,7 @@ describe("modified listings", () => {
       credits: 5_000_000,
       owned: [],
       racesRun: 0,
+      lotNudge: 0,
     };
     const after = buyCar(save, o.spec.id, o.price, o.km, o.color, o.mods);
     expect(after.owned[0]).not.toHaveProperty("mods");

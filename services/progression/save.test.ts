@@ -69,6 +69,7 @@ const PLAYED: Save = {
   version: SAVE_VERSION,
   credits: 412_500,
   racesRun: 37,
+  lotNudge: 9,
   owned: [
     { id: "ferrari-f40", km: 12_000, color: "red" },
     { id: "bmw-m3-e30", km: 240_100, color: "black" },
@@ -199,10 +200,59 @@ describe("older saves", () => {
     expect(up?.owned[0]).toEqual({ id: "bmw-m3-e30", km: 1_000, color: expect.any(String) });
   });
 
+  /*
+   * v4 -> v5, and the assertion that matters is the ZERO.
+   *
+   * The lot is seeded with racesRun + lotNudge. Migrating a v4 save to anything
+   * but 0 would move a player's Marketplace to a rotation they never reached,
+   * the day the game gained a dev button they did not press. A migration is not
+   * allowed to change what the game shows.
+   */
+  it("bring v4 up with the Marketplace exactly where it was", () => {
+    const up = migrate({
+      version: 4,
+      credits: 80_000,
+      racesRun: 12,
+      owned: [{ id: "bmw-m3-e30", km: 90_000, color: "black", mods: { turbo: 2 } }],
+    });
+    expect(up?.version).toBe(SAVE_VERSION);
+    expect(up?.lotNudge).toBe(0);
+    // and nothing else moved on the way up
+    expect(up?.credits).toBe(80_000);
+    expect(up?.racesRun).toBe(12);
+    expect(up?.owned[0]).toEqual({ id: "bmw-m3-e30", km: 90_000, color: "black", mods: { turbo: 2 } });
+  });
+
+  it("give every older shape a nudge of zero too", () => {
+    expect(migrate({ version: 1, credits: 9_000, racesRun: 2, owned: ["bmw-m3-e30"] })?.lotNudge).toBe(0);
+    expect(
+      migrate({ version: 2, credits: 500, racesRun: 0, owned: [{ id: "bmw-m3-e30", km: 1_000 }] })?.lotNudge,
+    ).toBe(0);
+    expect(
+      migrate({ version: 3, credits: 500, racesRun: 0, owned: [{ id: "bmw-m3-e30", km: 1_000, color: "black" }] })
+        ?.lotNudge,
+    ).toBe(0);
+  });
+
   it("refuse a shape they have never written", () => {
     expect(migrate({ version: 7 })).toBeNull();
     expect(migrate(null)).toBeNull();
     expect(migrate("save")).toBeNull();
+  });
+
+  /*
+   * A stored v5 with the field missing is NOT a v5, and this is the check that
+   * says so. isSave requires lotNudge, and without it the save falls through to
+   * migrate, which has no route from a broken v5 -- so it comes back as a new
+   * game rather than as a save whose seed is `racesRun + undefined`, which is
+   * NaN, which is a lot of six identical cars.
+   */
+  it("refuse a current-version save that is missing the nudge", () => {
+    store.mem.set(
+      SAVE_KEY,
+      JSON.stringify({ version: SAVE_VERSION, credits: 999, racesRun: 3, owned: [] }),
+    );
+    expect(loadSave().credits).toBe(STARTING_SAVE.credits);
   });
 
   it("and a stored v1 comes up through loadSave, not back as a new game", () => {

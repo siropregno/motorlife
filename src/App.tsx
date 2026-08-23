@@ -23,6 +23,7 @@ import {
   repaintCar,
   sellCar,
 } from "@progression/economy";
+import { DEV_CREDITS, grantCredits, refreshMarket } from "@progression/dev";
 import { LEVEL_NAME, modCount, PART_NAME } from "@progression/mods";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
@@ -370,6 +371,29 @@ export default function App() {
   }, [go, toast]);
 
   /**
+   * The two dev levers, wired the same way every other save move is: a pure
+   * function resolves the next save, identity says whether anything happened,
+   * and a toast reports it.
+   *
+   * Neither closes the dialog. Both are things you press more than once -- turn
+   * the lot over until something good shows up, tap the money until you can
+   * afford the car -- and a box that shuts itself after every press would make
+   * the second press four clicks. The reset closes because it is terminal;
+   * these are not.
+   */
+  const devRefreshMarket = () => {
+    setSave(refreshMarket(save));
+    toast("Marketplace rotado", "info");
+  };
+
+  const devGrantCredits = () => {
+    const next = grantCredits(save);
+    if (next === save) return;
+    setSave(next);
+    toast(`+${formatCredits(DEV_CREDITS)} cr`, "good");
+  };
+
+  /**
    * Repairs the selection when the selected car leaves the garage. Selling is
    * the only way that happens today, but the rule belongs to the selection
    * rather than to the sell handler -- anything that can shrink `owned` gets
@@ -583,7 +607,12 @@ export default function App() {
       {/* Last in the tree and outside the screens, because it opens over any
           of them and must not unmount when the reset changes which one is up. */}
       {settingsOpen ? (
-        <SettingsModal onReset={reset} onClose={() => setSettingsOpen(false)} />
+        <SettingsModal
+          onReset={reset}
+          onRefreshMarket={devRefreshMarket}
+          onGrantCredits={devGrantCredits}
+          onClose={() => setSettingsOpen(false)}
+        />
       ) : null}
     </div>
   );

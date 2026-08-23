@@ -13,7 +13,7 @@ import { kmFor } from "./mileage";
 import { colorFor } from "./paint";
 
 export const SAVE_KEY = "motorlife.save";
-export const SAVE_VERSION = 4 as const;
+export const SAVE_VERSION = 5 as const;
 
 /** What an already-owned car arrives with when a field is added under it. */
 function kmForOwned(id: string): number {
@@ -58,6 +58,18 @@ export interface Save {
   credits: number;
   owned: OwnedCar[];
   racesRun: number;
+  /**
+   * How many extra rotations the Marketplace has been pushed through by hand.
+   *
+   * The lot is seeded off `racesRun`, because racing is the only clock the game
+   * has. The dev tools can turn the lot over without racing, and the obvious
+   * way to do that -- bump racesRun -- would be a lie: racesRun is a stat the
+   * player is shown, the race screen counts with it, and inflating it to shuffle
+   * a shop would corrupt a number that means something else. So the nudge is its
+   * own counter and the seed is the SUM. Racing still rotates the lot exactly
+   * once, whatever the nudge is; the nudge just moves where the sequence starts.
+   */
+  lotNudge: number;
 }
 
 /** You start with the cheapest thing in the catalogue and enough to look. */
@@ -66,6 +78,7 @@ export const STARTING_SAVE: Save = {
   credits: 6_000,
   owned: [{ id: "renault-12-tl", km: 214_000, color: "light-blue" }],
   racesRun: 0,
+  lotNudge: 0,
 };
 
 export const ownedIds = (save: Save): string[] => save.owned.map((o) => o.id);
@@ -152,7 +165,8 @@ function isSave(v: unknown): v is Save {
     typeof s.credits === "number" &&
     Array.isArray(s.owned) &&
     s.owned.every(isOwnedCar) &&
-    typeof s.racesRun === "number"
+    typeof s.racesRun === "number" &&
+    typeof s.lotNudge === "number"
   );
 }
 
@@ -216,6 +230,13 @@ function isSaveV2(v: unknown): v is SaveV2 {
   );
 }
 
+interface SaveV4 {
+  version: 4;
+  credits: number;
+  owned: OwnedCar[];
+  racesRun: number;
+}
+
 function isSaveV3(v: unknown): v is SaveV3 {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Partial<SaveV3>;
@@ -257,18 +278,47 @@ const v2ToV3 = (s: SaveV2): SaveV3 => ({
  * save a free engine rebuild the day this shipped, and hand the biggest gift
  * to whoever had been driving the most tired car.
  */
-const v3ToV4 = (s: SaveV3): Save => ({
-  version: SAVE_VERSION,
+const v3ToV4 = (s: SaveV3): SaveV4 => ({
+  version: 4,
   credits: s.credits,
   racesRun: s.racesRun,
   owned: s.owned.map((o) => ({ ...o })),
 });
 
+/**
+ * v4 -> v5: the Marketplace nudge arrives, and every existing save is at zero.
+ *
+ * Zero rather than anything derived, and that is the whole migration: the lot
+ * seed is racesRun + lotNudge, so a nudge of 0 leaves every save looking at
+ * exactly the rotation it was looking at before this field existed. Nobody's
+ * shop shuffles because the game gained a dev button.
+ */
+const v4ToV5 = (s: SaveV4): Save => ({
+  version: SAVE_VERSION,
+  credits: s.credits,
+  racesRun: s.racesRun,
+  owned: s.owned.map((o) => ({ ...o })),
+  lotNudge: 0,
+});
+
+function isSaveV4(v: unknown): v is SaveV4 {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SaveV4>;
+  return (
+    s.version === 4 &&
+    typeof s.credits === "number" &&
+    Array.isArray(s.owned) &&
+    s.owned.every(isOwnedCar) &&
+    typeof s.racesRun === "number"
+  );
+}
+
 /** Any shape we have ever written, brought to the current one. */
 export function migrate(old: unknown): Save | null {
-  if (isSaveV1(old)) return v3ToV4(v2ToV3(v1ToV2(old)));
-  if (isSaveV2(old)) return v3ToV4(v2ToV3(old));
-  if (isSaveV3(old)) return v3ToV4(old);
+  if (isSaveV1(old)) return v4ToV5(v3ToV4(v2ToV3(v1ToV2(old))));
+  if (isSaveV2(old)) return v4ToV5(v3ToV4(v2ToV3(old)));
+  if (isSaveV3(old)) return v4ToV5(v3ToV4(old));
+  if (isSaveV4(old)) return v4ToV5(old);
   return null;
 }
 

@@ -581,6 +581,49 @@
   filter: brightness(1.1);
 }
 
+/*
+ * The dev tools, under their own heading.
+ *
+ * The gap above it is bigger than the gap between its own rows, which is the
+ * whole grouping: 22 over 10 says "these two belong together and neither
+ * belongs with the reset". No rule, no box -- the rows already draw themselves
+ * on #0e0e0e against the panel, and a border round a group of bordered-looking
+ * rows is the wireframe look the rest of this file avoids.
+ */
+.settings-dev {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/*
+ * The label, in the same mono-uppercase-tracked stamp .modal-section uses for
+ * the spec column's headings. It is deliberately quiet: it is a category
+ * marker, not a title competing with "Ajustes" above it.
+ */
+.settings-devhead {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 400;
+}
+
+/*
+ * Scoped, like .settings-reset beside it: these match the reset button's size
+ * so the right edge of the box is one column of buttons rather than three
+ * widths, and nowrap keeps "+50.000" on one line when the window is narrow and
+ * the sentence to its left is wrapping.
+ */
+.settings-dev-btn {
+  padding: 9px 16px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The way out, on the same right edge and the same 15px arrow as everywhere. */
 .settings-acts {
   display: flex;

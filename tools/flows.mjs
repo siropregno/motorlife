@@ -996,6 +996,96 @@ try {
   );
 
   /*
+   * DEV TOOLS, and the two things they must not break.
+   *
+   * It runs BEFORE the reset for the same reason everything else does -- the
+   * reset wipes the save -- and it plants its own, because both checks here are
+   * about a number changing by exactly one thing: the lot must rotate while
+   * racesRun does not, and the wallet must move by exactly the grant.
+   */
+  console.log("\ndev tools");
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 4,
+    credits: 10_000,
+    racesRun: 4,
+    owned: [{ id: "renault-12-tl", km: 214_000, color: "light-blue" }],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+
+  /** The Marketplace as it stands: which cars, in order. */
+  const lot = async () => {
+    await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+    // Scoped to the pick card rather than by role: the refresh toast is a
+    // <button> that also says "Marketplace", and it is still on screen here.
+    await page.locator(".pick-card.pick-used").click();
+    await page.waitForSelector(".shop-item");
+    return await page.locator(".shop-item .card-title-bold").evaluateAll((els) =>
+      els.map((e) => e.textContent.trim()).join(" | "));
+  };
+  const savedNudge = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem("motorlife.save")).lotNudge);
+  const savedRaces = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem("motorlife.save")).racesRun);
+
+  const lotBefore = await lot();
+  check("a v4 save comes up with the marketplace where it was", await savedNudge(), 0);
+  check("and it has a lot to show", lotBefore.length > 0, true);
+
+  await page.locator('.topnav-btn[aria-label="Ajustes"]').click();
+  await page.waitForSelector("dialog.settings-modal");
+  check(
+    "the dev tools are named as dev tools, not as a feature",
+    await page.locator(".settings-devhead").innerText(),
+    // innerText is what is rendered, and the stamp is uppercased in CSS -- the
+    // same treatment .modal-section gets in the spec column.
+    "DEV TOOLS",
+  );
+  check(
+    "and there are exactly the two of them under it",
+    await page.locator(".settings-dev .settings-label").evaluateAll((els) =>
+      els.map((e) => e.textContent.trim()).join(" | ")),
+    "Refrescar marketplace | Sumar plata",
+  );
+  check(
+    "the reset stayed OUT of them",
+    await page.locator(".settings-dev .settings-reset").count(),
+    0,
+  );
+
+  await page.locator(".settings-dev .settings-row", { hasText: "Refrescar marketplace" })
+    .locator("button").click();
+  // .last(), not .first(): toasts stack oldest-first and one from an earlier
+  // section can still be on screen for another three seconds.
+  check("refreshing says so", await page.locator(".toast").last().innerText(), "Marketplace rotado");
+  check("it moves the nudge by one", await savedNudge(), 1);
+  // The whole reason the nudge is its own field. racesRun is a stat the player
+  // is shown; rotating a shop must not claim they drove.
+  check("and does not claim you raced", await savedRaces(), 4);
+  // No question in front of it: it is additive and you press it until something
+  // good turns up.
+  check("it asks nothing first", await page.locator("dialog.confirm").count(), 0);
+  check("and leaves ajustes open, so you can press it again", await page.locator("dialog.settings-modal").isVisible(), true);
+
+  const purse = await wallet();
+  await page.locator(".settings-dev .settings-row", { hasText: "Sumar plata" })
+    .locator("button").click();
+  check("the money button says the amount on its face", purse, "10.000CR");
+  check("and pressing it pays exactly that", await wallet(), "60.000CR");
+  check("saying so", await page.locator(".toast").last().innerText(), "+50.000 cr");
+  await page.locator(".settings-dev .settings-row", { hasText: "Sumar plata" })
+    .locator("button").click();
+  check("it stacks", await wallet(), "110.000CR");
+  check("and still nothing raced", await savedRaces(), 4);
+
+  await page.locator('.settings-acts .btn[aria-label="Volver"]').click();
+  await page.waitForSelector("dialog.settings-modal", { state: "detached" });
+
+  const lotAfter = await lot();
+  check("the marketplace really is a different lot", lotAfter !== lotBefore, true);
+  check("and it is still a full lot rather than a broken one", (await page.locator(".shop-item").count()) > 0, true);
+
+  /*
    * Ajustes, and the reset.
    *
    * It runs last for one reason: it wipes the save. Anything after it would be
@@ -1050,11 +1140,24 @@ try {
     await gear.evaluate((e) => e.getAttribute("aria-current")),
     null,
   );
-  check("it offers resetting the progress, in words", await page.locator(".settings-label").innerText(), "Resetear progreso");
+  /*
+   * Scoped to the row the reset button is in. The box has three rows now -- the
+   * reset and the two dev tools -- so a bare .settings-label is three elements
+   * and the check that used to read the only one in the dialog is ambiguous.
+   */
+  const resetRow = page.locator(".settings-row", { has: page.locator(".settings-reset") });
+  check("it offers resetting the progress, in words", await resetRow.locator(".settings-label").innerText(), "Resetear progreso");
   check(
     "spelling out what goes",
-    await page.locator(".settings-note").innerText(),
+    await resetRow.locator(".settings-note").innerText(),
     "Borra tus autos, tu plata y tus carreras. Volvés a empezar de cero.",
+  );
+  // And it is the FIRST row, above the cheats. What the box is for comes before
+  // what it also happens to carry.
+  check(
+    "and it is the first thing in the box, above the dev tools",
+    await page.locator(".settings-row .settings-label").first().innerText(),
+    "Resetear progreso",
   );
   check("with the way out focused rather than the red button", await page.evaluate(() => document.activeElement.getAttribute("aria-label")), "Volver");
 
@@ -1096,6 +1199,13 @@ try {
   check("the page is clickable again, with no orphan backdrop", await page.locator(".car-card").first().isEnabled(), true);
   check("it says so", await page.locator(".toast").innerText(), "Empezás de cero");
   check("the money is back to the starting purse", await wallet(), "6.000CR");
+  // The dev nudge is progress too. A reset that left it standing would put a
+  // brand-new game in front of a Marketplace rotation nobody has raced to.
+  check(
+    "and the marketplace is back at its first rotation",
+    await page.evaluate(() => JSON.parse(localStorage.getItem("motorlife.save")).lotNudge),
+    0,
+  );
   check("the garage is the starting garage", await page.locator(".car-card").count(), 1);
   check(
     "holding the one car a new player gets",

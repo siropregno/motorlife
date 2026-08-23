@@ -41,6 +41,7 @@ const saveWith = (mods?: Mods, credits = 5_000_000): Save => ({
     { id: "ford-falcon-sprint", km: 100_000 },
   ],
   racesRun: 0,
+  lotNudge: 0,
 });
 
 // ---------------------------------------------------------------------------
