@@ -265,6 +265,26 @@
     inset 0 0 0 1px var(--purple-ink);
 }
 
+/*
+ * The glyph inside it.
+ *
+ * This is the rule the badge shipped without, and its absence is the whole bug:
+ * .card-shiny sizes its image and .card-tuned did not, so the wrench came in at
+ * its natural 512x512 and blew out of a 25px box -- a full-card grey smear over
+ * the photo on every modified car. The badge was never wrong; it had no glyph
+ * size at all.
+ *
+ * Same 15px and the same `contain` as .card-shiny img, because they are the
+ * same object at the same size in the same corner and the two drifting apart is
+ * how one corner ends up with two differently-weighted marks.
+ */
+.card-tuned img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  display: block;
+}
+
 /* 25px of badge plus a 6px gap. Written out rather than calc()'d off a
    variable, because .card-shiny states its 25px as a literal too and one
    number in two places beats a token nobody remembers is shared. */

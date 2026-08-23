@@ -242,6 +242,49 @@
   background: var(--part-racing);
 }
 
+/*
+ * The motor, last in the row and past a hairline.
+ *
+ * Same separator the workshop's strip puts before its engine tile, and the same
+ * reason it is there: everything to the left is a part somebody bolted on, and
+ * the engine is not one -- it is whether the car still makes what the factory
+ * gave it. Without the rule it reads as a fifth part that is always grey.
+ *
+ * Shorter than the workshop's 44px because these tiles are 40px rather than
+ * 68px; it is sized to the row it divides, not copied.
+ */
+.modal-part-sep {
+  width: 1px;
+  height: 26px;
+  background: var(--line-2);
+  margin: 0 2px;
+  flex: none;
+  align-self: center;
+}
+
+/*
+ * The two engine states, and they are the workshop's two hexes rather than a
+ * --part-* token.
+ *
+ * Deliberate: the four tokens are the PART ladder, and the engine is not on it.
+ * Painting a tired motor with --part-street would be claiming a tier it does
+ * not have. These are the same #3a3a3a and #7a5410 .workshop-tile.engine uses,
+ * so a car looks the same in the sheet and on the ramp -- which is the whole
+ * value of the tile being here, since the sheet is where you decide whether to
+ * walk the car into the taller at all.
+ *
+ * Not dimmed the way .stock is, either. A healthy engine is a fact worth
+ * stating at full strength -- the grey means "al día", not "absent".
+ */
+.modal-part.engine {
+  background: #3a3a3a;
+}
+/* Amber when it wants work. Not red: a tired engine is a car that needs a
+   weekend, not a car that is broken. */
+.modal-part.engine.worn {
+  background: #7a5410;
+}
+
 .modal-foot {
   display: flex;
   align-items: center;

@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import type { Mods } from "@contracts/mods";
 import { ownedIds, type Save } from "@progression/save";
 import { formatCredits } from "@progression/economy";
+import { modCount } from "@progression/mods";
 import {
   DEALERS,
   dealerById,
@@ -13,7 +15,7 @@ import { ScreenHead } from "../components/ScreenHead";
 
 interface Props {
   save: Save;
-  onBuy: (carId: string, price: number, km: number, color?: string) => void;
+  onBuy: (carId: string, price: number, km: number, color?: string, mods?: Mods) => void;
 }
 
 type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };
@@ -46,7 +48,19 @@ export function Shop({ save, onBuy }: Props) {
   const lot = useMemo(() => usedLot(save.racesRun, ownedIds(save)), [save.racesRun, save.owned]);
 
   if (view.at === "choose") {
-    const treasure = lot.some((o) => o.condition.band === "survivor" || !!["rare","epic","legendary","apex"].includes(o.spec.rarity));
+    /*
+     * What makes a lot worth crossing the room for: a shed-find, something
+     * above uncommon, or a car somebody already put parts on. The third is new
+     * and belongs with the other two -- a private sale with a turbo on it is
+     * the same kind of "look at this one" the other two are, and without it a
+     * lot whose only interesting car is a modified sedan says nothing.
+     */
+    const treasure = lot.some(
+      (o) =>
+        o.condition.band === "survivor" ||
+        ["rare", "epic", "legendary", "apex"].includes(o.spec.rarity) ||
+        modCount(o.mods) > 0,
+    );
     return (
       <>
         <ScreenHead title="Comprar" sub={`Tenés ${formatCredits(save.credits)} cr.`} />

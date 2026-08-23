@@ -7,9 +7,9 @@ import { modEffect } from "@sim/mods";
 import { formatCredits, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
 import { colorName } from "@progression/paint";
-import { LEVEL_NAME, modsSummary, PART_NAME } from "@progression/mods";
+import { LEVEL_NAME, modsSummary, needsRebuild, PART_NAME } from "@progression/mods";
 import { classTierClass, PART_TIER } from "../lib/tiers";
-import { ICON, PART_ICON } from "../lib/icons";
+import { ENGINE_ICON, ICON, PART_ICON } from "../lib/icons";
 import { Glyph } from "./Glyph";
 
 /**
@@ -130,6 +130,16 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
   const stockHp = Math.round(spec.kW * 1.35962);
   const tuned = Math.abs(power - spec.kW) > 0.05;
   const fitted = modsSummary(mods);
+  /*
+   * Does the motor want a rectificada?
+   *
+   * The same needsRebuild the workshop asks, not arithmetic off `km`. It reads
+   * `wearKm` when the engine has been rebuilt and the car's own odometer when it
+   * never has, which is the difference between "this car has done 300.000 km"
+   * and "this ENGINE has" -- a freshly rectified car with a high odometer is
+   * exactly the case a card doing its own sums would call tired.
+   */
+  const worn = needsRebuild(km, mods);
 
   useEffect(() => {
     const el = ref.current;
@@ -225,12 +235,25 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
             * and a stock car showing nothing, with no way to tell "nothing
             * fitted" from "no row here".
             *
-            * Garage only: the forecourt sells models, and a model has no parts
-            * on it. mods is undefined there, so every tile would be grey --
-            * four glyphs claiming a car is stock when there is no car yet.
+            * UNCONDITIONAL. Every sheet gets the row -- your garage, the
+            * Marketplace, and a concesionaria too.
+            *
+            * The row was garage-only at first, on the reasoning that a forecourt
+            * sells a MODEL and a model has no parts on it. That reasoning was
+            * about where you were standing rather than about the car, and it is
+            * the kind of rule that is wrong the day a dealer carries a car with
+            * a turbo already on it. Every listing in the game is an Offer with
+            * its own odometer, so every listing is already an object; whether a
+            * given forecourt happens to sell modified ones today is a fact about
+            * that forecourt's stock, not about what the sheet can describe.
+            *
+            * So the row reads the CAR. A dealer listing with nothing fitted
+            * shows four grey tiles and a healthy engine, which is true and is
+            * the same answer the garage gives for a stock car -- and the day a
+            * dealer lists something with parts on it, the sheet already says so
+            * without anyone remembering to come back here.
             */}
-          {sheet.kind === "garage" ? (
-            <div className="modal-parts" role="list" aria-label="Preparación">
+          <div className="modal-parts" role="list" aria-label="Preparación">
               {PART_IDS.map((part) => {
                 const level = levelOf(mods, part);
                 const label = level === 0 ? "de fábrica" : LEVEL_NAME[level as 1 | 2 | 3];
@@ -249,8 +272,41 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
                   </span>
                 );
               })}
-            </div>
-          ) : null}
+
+              {/*
+                * The motor, on the same row and deliberately last, past a
+                * hairline -- the same arrangement and the same reasoning as the
+                * workshop's strip. It is not a fifth part: every tile to its
+                * left is something bolted ON to make the car better than the
+                * factory built it, and this one only says whether the car still
+                * makes what the factory gave it.
+                *
+                * So it does not take a PART_TIER colour. It is amber when the
+                * engine wants a rectificada and the same grey as a stock part
+                * when it does not, which is the same two states the workshop's
+                * engine tile has -- a player who has seen one recognises the
+                * other, and the sheet and the taller never disagree about the
+                * car because both ask needsRebuild.
+                *
+                * This is where the engine wear went when the second odometer
+                * came out of the ficha. That row said "349.400 km de uso / sin
+                * rectificar" directly under the real odometer, wrapping to two
+                * lines to say in text what one coloured tile says here.
+                */}
+              <span className="modal-part-sep" aria-hidden="true" />
+              <span
+                role="listitem"
+                className={`modal-part engine${worn ? " worn" : ""}`}
+                title={
+                  worn
+                    ? `Motor · ${formatKm(mods?.wearKm ?? km)} sin rectificar`
+                    : "Motor · al día"
+                }
+                aria-label={worn ? "Motor, pide rectificada" : "Motor, al día"}
+              >
+                <Glyph src={ENGINE_ICON} />
+              </span>
+          </div>
 
           {sheet.kind === "buy" ? (
             <footer className="modal-foot">

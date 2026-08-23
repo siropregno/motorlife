@@ -275,14 +275,21 @@ try {
   await page.waitForSelector("dialog.modal");
   check("it still shows a price", await page.locator(".modal-price").innerText(), "12.200 cr");
   /*
-   * And NO part strip. The garage sheet carries four tiles saying what is
-   * bolted to the car; a listing is a MODEL, and a model has no parts on it.
-   * mods is undefined here, so an unguarded strip would draw four grey tiles
-   * claiming a car is stock when there is no car yet -- the failure that is
-   * invisible precisely because grey is also the honest colour for "nothing
-   * fitted".
+   * And the SAME part strip the garage sheet has: four parts plus the motor.
+   *
+   * It used to be garage-only, on the reasoning that a listing is a MODEL and a
+   * model has no parts on it. That was a rule about which screen you were
+   * standing on rather than about the car, and it is wrong the day a dealer
+   * carries something with a turbo already fitted -- so the row reads the car
+   * instead. A concesionaria's stock is stock, so what it draws here is four
+   * grey parts and an engine tile, which is true.
    */
-  check("a car for sale has no part strip", await page.locator(".modal-part").count(), 0);
+  check("a car for sale has the same part strip", await page.locator(".modal-part").count(), 5);
+  check(
+    "and nothing is fitted on a dealer's car, so the four parts are grey",
+    await page.locator(".modal-part.stock").count(),
+    4,
+  );
   await page.locator(".modal-foot .btn").last().click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
   check("and still buys", await wallet(), "109.400CR");
@@ -781,6 +788,38 @@ try {
   );
 
   /*
+   * The badge's GLYPH, sized.
+   *
+   * .card-tuned shipped without a `.card-tuned img` rule while .card-shiny had
+   * one, so the 512x512 wrench came in at natural size and covered the card --
+   * a bug that the count check above passes straight through, because the badge
+   * element was there and correct all along. Anything that draws a glyph in a
+   * 25px box needs its size pinned, so this measures the image rather than
+   * asserting a stylesheet rule exists.
+   */
+  const tunedBadge = await card("M3 E30").locator(".card-tuned").boundingBox();
+  const tunedGlyph = await card("M3 E30").locator(".card-tuned img").boundingBox();
+  // Strings, not arrays: check() compares with ===, so two equal arrays fail.
+  check(
+    "the wrench badge is a 25px square",
+    `${Math.round(tunedBadge.width)}x${Math.round(tunedBadge.height)}`,
+    "25x25",
+  );
+  check(
+    "and its glyph is 15px, not the source png's 512",
+    `${Math.round(tunedGlyph.width)}x${Math.round(tunedGlyph.height)}`,
+    "15x15",
+  );
+  check(
+    "so the glyph stays inside the badge",
+    tunedGlyph.x >= tunedBadge.x - 0.5 &&
+      tunedGlyph.y >= tunedBadge.y - 0.5 &&
+      tunedGlyph.x + tunedGlyph.width <= tunedBadge.x + tunedBadge.width + 0.5 &&
+      tunedGlyph.y + tunedGlyph.height <= tunedBadge.y + tunedBadge.height + 0.5,
+    true,
+  );
+
+  /*
    * The sheet's part strip.
    *
    * Four glyphs under the photo, each wearing the colour of the tier fitted to
@@ -799,12 +838,12 @@ try {
   await page.waitForSelector("dialog.modal");
   check(
     "the sheet shows all four parts, fitted or not",
-    await page.locator(".modal-part").count(),
+    await page.locator(".modal-part:not(.engine)").count(),
     4,
   );
   check(
     "each one coloured by the tier on it: a racing turbo, the rest factory",
-    await page.locator(".modal-part").evaluateAll((els) =>
+    await page.locator(".modal-part:not(.engine)").evaluateAll((els) =>
       els.map((e) => ["stock", "street", "sport", "racing"].find((c) => e.classList.contains(c))).join(" ")),
     "racing stock stock stock",
   );
@@ -821,9 +860,32 @@ try {
    */
   check(
     "and says in words what the colour says, part and tier",
-    await page.locator(".modal-part").evaluateAll((els) =>
+    await page.locator(".modal-part:not(.engine)").evaluateAll((els) =>
       els.map((e) => e.getAttribute("aria-label")).join(" | ")),
     "Turbo, Competición | Escape, de fábrica | Suspensión, de fábrica | Caja, de fábrica",
+  );
+
+  /*
+   * The motor, fifth in the row and past a hairline.
+   *
+   * This is where the engine-wear row went when the second odometer came out of
+   * the ficha (see the check below, which pins that it is gone). The M3 is at
+   * 293.800 km and has never been rectified, so it reads amber -- the same
+   * colour and the same two states the workshop's engine tile has, which is the
+   * point: the sheet is where you decide whether the car is worth walking into
+   * the taller at all.
+   */
+  check("the motor is on the same row, last", await page.locator(".modal-part.engine").count(), 1);
+  check("behind a hairline, because it is not a part", await page.locator(".modal-part-sep").count(), 1);
+  check(
+    "and it says the engine wants work",
+    await page.locator(".modal-part.engine").getAttribute("aria-label"),
+    "Motor, pide rectificada",
+  );
+  check(
+    "amber, the workshop's colour for a tired engine",
+    await page.locator(".modal-part.engine").evaluate((e) => getComputedStyle(e).backgroundColor),
+    "rgb(122, 84, 16)",
   );
   check(
     "and the row of text it replaced is gone",

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import type { Mods } from "@contracts/mods";
 import type { ClassLetter } from "@sim/rating";
 import {
   applyFilters,
@@ -22,7 +23,7 @@ interface Props {
   offers: Offer[];
   credits: number;
   owned: string[];
-  onBuy: (carId: string, price: number, km: number, color?: string) => void;
+  onBuy: (carId: string, price: number, km: number, color?: string, mods?: Mods) => void;
   /** Filters and sort. Off for a six-car lot, where they are furniture. */
   controls?: boolean;
   /** Whose forecourt this is, for the header it now draws itself. */
@@ -147,7 +148,17 @@ export function Listing({
                   const o = byId.get(spec.id)!;
                   return (
                     <div key={spec.id} className="shop-item">
-                      <CarCard spec={spec} km={o.km} image={o.image} onOpen={setOpenId} />
+                      {/* mods, so a Marketplace car that has had something done
+                          to it wears the wrench on its card the same way one in
+                          your garage does. A dealer's Offer carries none, so
+                          its cards are unchanged. */}
+                      <CarCard
+                        spec={spec}
+                        km={o.km}
+                        mods={o.mods}
+                        image={o.image}
+                        onOpen={setOpenId}
+                      />
                       <span className={`shop-tag${credits >= o.price ? " afford" : ""}`}>
                         {o.condition.band === "survivor" || o.condition.band === "cero" ? (
                           <b className="shop-flag">{o.condition.label}</b>
@@ -176,6 +187,7 @@ export function Listing({
         <CarModal
           spec={open.spec}
           km={open.km}
+          mods={open.mods}
           color={open.color}
           image={open.image}
           sheet={{
@@ -183,7 +195,10 @@ export function Listing({
             price: open.price,
             credits,
             owned: owned.includes(open.spec.id),
-            onBuy: (id, price, km) => onBuy(id, price, km, open.color),
+            // The parts travel with the sale, the same way the odometer and
+            // the colour already do: what you paid for is what lands in the
+            // garage.
+            onBuy: (id, price, km) => onBuy(id, price, km, open.color, open.mods),
           }}
           onClose={() => setOpenId(null)}
         />

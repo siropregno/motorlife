@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Build } from "@contracts/race";
-import type { PartId, PartLevel } from "@contracts/mods";
+import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
@@ -23,7 +23,7 @@ import {
   repaintCar,
   sellCar,
 } from "@progression/economy";
-import { LEVEL_NAME, PART_NAME } from "@progression/mods";
+import { LEVEL_NAME, modCount, PART_NAME } from "@progression/mods";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
@@ -256,12 +256,16 @@ export default function App() {
    * functions return the save unchanged when the move is illegal -- comparing
    * by identity out here is what lets a refused click stay silent.
    */
-  const buy = (id: string, price: number, km: number, color?: string) => {
-    const next = buyCar(save, id, price, km, color);
+  const buy = (id: string, price: number, km: number, color?: string, mods?: Mods) => {
+    const next = buyCar(save, id, price, km, color, mods);
     if (next === save) return;
     setSave(next);
     const name = nameOf(id);
-    if (name) toast(`Compraste un ${name} por ${formatCredits(price)} cr`, "good");
+    // A Marketplace car can arrive with parts on it, and that is the thing
+    // worth saying: the price already told you what it cost.
+    const fitted = modCount(mods);
+    const extra = fitted > 0 ? `, con ${fitted} pieza${fitted === 1 ? "" : "s"} puesta${fitted === 1 ? "" : "s"}` : "";
+    if (name) toast(`Compraste un ${name} por ${formatCredits(price)} cr${extra}`, "good");
   };
 
   const sell = (id: string) => {

@@ -1,9 +1,12 @@
 import type { CarSpec, Rarity } from "@contracts/car";
+import type { Mods, PartId, PartLevel } from "@contracts/mods";
+import { PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
 
 import { mulberry32 } from "@sim/rng";
 import { priceOf } from "./economy";
 import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
+import { modsValue } from "./mods";
 import { colorFor, imageFor } from "./paint";
 
 /**
@@ -21,16 +24,86 @@ export interface Offer {
   color?: string | undefined;
   /** The photo for THIS car: the colour if it has one, the single image if not. */
   image?: string | undefined;
+  /**
+   * What the last owner bolted to it. Absent everywhere but the Marketplace --
+   * a concesionaria sells the car the factory built, and a car in a dealer's
+   * stock has never had an owner to modify it.
+   */
+  mods?: Mods | undefined;
   price: number;
   condition: Condition;
 }
 
-function offer(spec: CarSpec, salt: string, rate = 1): Offer {
+/**
+ * How often a Marketplace car has had something done to it.
+ *
+ * Small on purpose. A private sale is where a modified car turns up -- somebody
+ * fitted a turbo, got bored, and listed it -- and that is a thing you should
+ * find occasionally rather than expect. At 0.22 roughly one lot in five has a
+ * modified car on it, so it is a reason to look rather than a feature of the
+ * screen.
+ */
+export const MODDED_CHANCE = 0.22;
+
+/**
+ * How many parts a modified one carries, and how far up the ladder.
+ *
+ * One or two parts, street or sport, never competición. The reasoning is the
+ * same one that keeps the treasure slot rare: a full racing build for 70% of
+ * list would be strictly better than building the car yourself, which would
+ * make the workshop a screen you visit once to confirm you should have waited.
+ * A street turbo on a tired sedan is a curiosity; a racing everything is an
+ * exploit.
+ */
+export const MODDED_MAX_PARTS = 2;
+export const MODDED_MAX_LEVEL = 2 as const;
+
+/**
+ * The parts on one Marketplace car, or undefined for the ordinary case.
+ *
+ * Undefined rather than `{}` for the reason save.ts gives: every function
+ * downstream already reads `undefined` as "nothing done to it", and an empty
+ * object would put a `{}` into the save on the first purchase of a stock car.
+ *
+ * `wearKm` is deliberately NOT set. Absent means "the engine has done the car's
+ * own km", which is the honest reading of a used car nobody has rebuilt -- and
+ * writing 0 here would hand every modified listing a free engine rebuild, which
+ * is worth more than the parts.
+ */
+function rollMods(rng: () => number): Mods | undefined {
+  if (rng() >= MODDED_CHANCE) return undefined;
+  const count = 1 + Math.floor(rng() * MODDED_MAX_PARTS);
+  const pool: PartId[] = [...PART_IDS];
+  const out: Mods = {};
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const part = pool.splice(Math.floor(rng() * pool.length), 1)[0]!;
+    out[part] = (1 + Math.floor(rng() * MODDED_MAX_LEVEL)) as PartLevel;
+  }
+  return out;
+}
+
+/**
+ * @param mods  what the previous owner left on it, for a private sale
+ */
+function offer(spec: CarSpec, salt: string, rate = 1, mods?: Mods | undefined): Offer {
   const km = kmFor(spec, salt);
   const color = colorFor(spec, salt);
-  const price = Math.round((priceWithKm(priceOf(spec), spec, km) * rate) / 100) * 100;
+  /*
+   * The parts are priced ON TOP of the discounted car, at what they are worth
+   * on resale -- the same modsValue sellValueFor uses.
+   *
+   * They cannot ride along free. sellValueFor pays modsValue for a build when
+   * you sell, so a listing that charged nothing for its parts would be a car
+   * you buy at 70% and sell with a build the trade pays for: the exact
+   * arbitrage USED_RATE exists to close, smuggled back in through the
+   * workshop. Charging exactly what the trade pays keeps the round trip losing
+   * the same 30% it loses on a stock car. There is a test.
+   */
+  const car = Math.round((priceWithKm(priceOf(spec), spec, km) * rate) / 100) * 100;
+  const price = car + modsValue(spec, km, mods);
   const base = { spec, km, price, condition: conditionOf(spec, km), image: imageFor(spec, color) };
-  return color === undefined ? base : { ...base, color };
+  const withColor = color === undefined ? base : { ...base, color };
+  return mods === undefined ? withColor : { ...withColor, mods };
 }
 
 /**
@@ -93,7 +166,16 @@ export function dealerById(id: string): Dealer | undefined {
   return DEALERS.find((d) => d.id === id);
 }
 
-/** What a dealer has on the floor: everything it carries that you do not own. */
+/**
+ * What a dealer has on the floor: everything it carries that you do not own.
+ *
+ * No mods on any of it, today. A concesionaria sells what the factory built,
+ * and that is a fact about these four dealers rather than a rule about
+ * forecourts -- `offer` takes mods from any caller, the sheet draws the
+ * preparación row off the CAR rather than off which screen you are on, and
+ * `buyCar` carries whatever a listing has into the save. So a dealer that
+ * stocks a modified car is a change to this function and nothing else.
+ */
 export function stockOf(dealer: Dealer, owned: string[] = []): Offer[] {
   return CARS.filter((c) => !owned.includes(c.id) && dealer.carries(c)).map((c) =>
     // salted with the dealer, so its cars keep their odometers between visits
@@ -159,5 +241,15 @@ export function usedLot(seed: number, owned: string[] = []): Offer[] {
     draw(available);
   }
 
-  return lot.map((c) => offer(c, `usados-${seed}`, USED_RATE));
+  /*
+   * The parts are rolled in a SECOND pass, after every car is picked.
+   *
+   * Same rng, so the lot is still one deterministic sequence -- but rolling
+   * mods inside the draw loop would put a variable number of calls between one
+   * car's draw and the next, and every existing rotation would come back a
+   * different list of cars. The lot is a thing players learn ("rotation 12 had
+   * the NSX"); which cars are on it is not something a new feature gets to
+   * change.
+   */
+  return lot.map((c) => offer(c, `usados-${seed}`, USED_RATE, rollMods(rng)));
 }

@@ -79,13 +79,28 @@ export function buyCar(
   price: number,
   km: number,
   color?: string,
+  mods?: Mods,
 ): Save {
   if (ownsCar(save, carId)) return save;
   if (!carById(carId)) return save;
   if (save.credits < price) return save;
   // the odometer travels with the car; see sellValueFor for why it must
   const held = color === undefined ? { id: carId, km } : { id: carId, km, color };
-  return { ...save, credits: save.credits - price, owned: [...save.owned, held] };
+  /*
+   * And so do the parts. A Marketplace car can come with a turbo already on it,
+   * and the listing CHARGED for it -- see market.offer -- so dropping the mods
+   * here would take the money and hand over a stock car.
+   *
+   * Spread conditionally rather than always, so a stock purchase writes no
+   * `mods` key at all: absent is what every reader downstream treats as "never
+   * touched", and `{}` in the save would be a lie about a car nobody has
+   * opened a wrench on.
+   */
+  return {
+    ...save,
+    credits: save.credits - price,
+    owned: [...save.owned, mods === undefined ? held : { ...held, mods }],
+  };
 }
 
 /**
