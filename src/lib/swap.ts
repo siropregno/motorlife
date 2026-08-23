@@ -17,6 +17,24 @@ import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "r
  */
 const FUSE_MS = 1200;
 
+/**
+ * Which way a swap is going.
+ *
+ * 1 is deeper -- into a dealer, into a part's ladder -- and the arriving half
+ * comes in from the left. -1 is back out, and it comes in from the right, so
+ * retracing your steps looks like retracing your steps rather than like
+ * another step forward.
+ *
+ * Same grammar as the screen slide's Direction in lib/screens.ts, one level
+ * down. It is deliberately the same two numbers meaning the same two things:
+ * the app should not have one idea of "forward" for tabs and another for
+ * everything inside them.
+ *
+ * 0 is a swap with no direction -- the workshop's strip, where the rows are
+ * siblings rather than a path, and every arrival comes from the same side.
+ */
+export type Way = -1 | 0 | 1;
+
 export interface Swap<T> {
   /** What is on screen now, arriving. */
   now: T;
@@ -34,8 +52,23 @@ export interface Swap<T> {
    * on -- that is the entire point of keeping it.
    */
   before: { value: T } | null;
-  /** Change the value. Setting it to what it already is does nothing. */
-  to: (next: T) => void;
+  /**
+   * Which way the swap in flight is going, for the stylesheet to select on.
+   *
+   * Lives beside `before` rather than inside it because BOTH halves need it --
+   * the one leaving and the one arriving have to agree about the direction, or
+   * they animate past each other. It holds its value until the next swap, so
+   * the arriving half still knows which way it came once the leaving half has
+   * unmounted.
+   */
+  way: Way;
+  /**
+   * Change the value, optionally saying which way you are going.
+   *
+   * Setting it to what it already is does nothing. `way` defaults to 0, which
+   * is what a swap between siblings wants.
+   */
+  to: (next: T, way?: Way) => void;
   /**
    * Put on the LEAVING element's onAnimationEnd. This is what makes the
    * stylesheet the source of truth for the duration: retune the CSS and the
@@ -61,6 +94,7 @@ export interface Swap<T> {
 export function useSwap<T>(initial: T): Swap<T> {
   const [now, setNow] = useState<T>(initial);
   const [before, setBefore] = useState<{ value: T } | null>(null);
+  const [way, setWay] = useState<Way>(0);
   const fuse = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const settle = useCallback(() => {
@@ -80,13 +114,14 @@ export function useSwap<T>(initial: T): Swap<T> {
     [],
   );
 
-  const to = useCallback((next: T) => {
+  const to = useCallback((next: T, going: Way = 0) => {
     setNow((current) => {
       // Swapping a thing for itself is not a transition, and playing one would
       // make pressing the open row's own tile look like a state change that
       // never happened.
       if (Object.is(current, next)) return current;
       setBefore({ value: current });
+      setWay(going);
       if (fuse.current) clearTimeout(fuse.current);
       // A swap already running is abandoned rather than queued: clicking three
       // tiles quickly should land on the third, not play three animations.
@@ -107,5 +142,5 @@ export function useSwap<T>(initial: T): Swap<T> {
     [settle],
   );
 
-  return { now, before, to, onLeft };
+  return { now, before, way, to, onLeft };
 }

@@ -9,18 +9,18 @@ interface Props {
 /**
  * The circuit, drawn from its own geometry.
  *
- * Not an illustration and not an asset: the path comes out of the same segment
- * list the lap model laps, so the shape on screen cannot disagree with the
- * track being simulated. Change a corner radius in the fixture and the map
- * changes with it.
+ * Not an illustration and not an asset: the path is the polyline the import
+ * traced, in metres, so the map is the real place rather than an impression of
+ * it. Re-import a track and the map moves with it.
  *
  * Two strokes on one path. The wide dark one underneath is the run-off, the
  * bright one on top is the racing line -- which is the cheapest way to make a
  * closed polyline read as a ROAD rather than as a wire diagram, and it costs
  * one extra element rather than a fill and a mask.
  *
- * Memoised on the track id: solving the turn directions is exhaustive over the
- * corners and there is no reason to redo it while someone drags a slider.
+ * Memoised on the track: the projection is cheap, but it allocates a path
+ * string of a few thousand characters and there is no reason to rebuild it
+ * while someone drags a setup slider.
  */
 export function TrackMap({ track }: Props) {
   const shape = useMemo(() => trackShape(track, 100, 7), [track]);

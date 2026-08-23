@@ -138,9 +138,9 @@
  */
 :root {
   --part-stock: #6b6b6b;
-  --part-street: #2eb85c;
-  --part-sport: #17a2e8;
-  --part-racing: #e6187f;
+  --part-street: #00aa00;
+  --part-sport: #00c3ff;
+  --part-racing: #ff00aa;
 }
 
 /* rarity bars, straight from the mockup */

@@ -216,11 +216,7 @@
      grid's two card widths, which showed as one badge rounder than the next */
   border-radius: 7px;
   background: var(--purple);
-  /* Against a headlight or a white roof the purple needs its own edge, and the
-     shadow alone does not give it one on a light photo. */
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.55),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 1);
 }
 
 /* White on transparency like every other glyph, so it sits on the purple
@@ -258,11 +254,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 7px;
-  background: rgba(0, 0, 0, 0.62);
-  color: var(--purple-ink);
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.55),
-    inset 0 0 0 1px var(--purple-ink);
+  background: var(--ink-4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 1);
 }
 
 /*

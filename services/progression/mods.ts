@@ -30,8 +30,8 @@ export const PART_BLURB: Record<PartId, string> = {
 };
 
 export const LEVEL_NAME: Record<Exclude<PartLevel, 0>, string> = {
-  1: "Calle",
-  2: "Sport",
+  1: "De calle",
+  2: "Deportivo",
   3: "Competición",
 };
 

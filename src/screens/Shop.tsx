@@ -21,6 +21,25 @@ interface Props {
 type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };
 
 /**
+ * How deep into the shop a view is, which is what gives a move its direction.
+ *
+ * The chooser is the front door, the two halves behind it are one step in, and
+ * a single dealer's forecourt is one further. Going to a bigger number is
+ * going deeper -- the arriving view comes in from the left -- and coming back
+ * is the mirror.
+ *
+ * The Marketplace sits at 1 rather than 2 despite being a list of cars: it is
+ * reached in one press from the front door, and what the number means here is
+ * how far you have walked, not how much is on the screen when you get there.
+ */
+const DEPTH: Record<View["at"], number> = {
+  choose: 0,
+  dealers: 1,
+  used: 1,
+  dealer: 2,
+};
+
+/**
  * Where you buy a car. Two doors, and the difference between them is the
  * point:
  *
@@ -68,7 +87,7 @@ export function Shop({ save, onBuy }: Props) {
     const treasure = lot.some(
       (o) =>
         o.condition.band === "survivor" ||
-        ["rare", "epic", "legendary", "apex"].includes(o.spec.rarity) ||
+        ["rare", "vrare", "exclusive", "unique"].includes(o.spec.rarity) ||
         modCount(o.mods) > 0,
     );
     return (

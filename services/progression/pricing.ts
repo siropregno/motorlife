@@ -24,9 +24,9 @@ const RARITY_PRICE: Record<Rarity, number> = {
   common: 14_000,
   uncommon: 32_000,
   rare: 70_000,
-  epic: 150_000,
-  legendary: 320_000,
-  apex: 700_000,
+  vrare: 150_000,
+  exclusive: 500_000,
+  unique: 2_000_000,
 };
 
 /** Performance nudges price, but only gently. Rarity dominates. */

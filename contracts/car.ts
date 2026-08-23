@@ -23,9 +23,9 @@ export type Rarity =
   | "common"
   | "uncommon"
   | "rare"
-  | "epic"
-  | "legendary"
-  | "apex";
+  | "vrare"
+  | "exclusive"
+  | "unique";
 
 /** How much the sim actually knows about this car. */
 export type Confidence = "rough" | "estimated" | "calibrated";

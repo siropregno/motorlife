@@ -325,6 +325,8 @@
   justify-content: center;
   border-radius: 10px;
   background: var(--part-stock);
+  
+  border: solid 3px rgba(255, 255, 255, 0.2);
 }
 .modal-part .btn-icon {
   width: 22px;

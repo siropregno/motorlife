@@ -76,10 +76,10 @@ const LAYOUT: Record<string, string> = {
 const RARITY: Record<string, string> = {
   common: "común",
   uncommon: "poco común",
-  rare: "rara",
-  epic: "épica",
-  legendary: "legendaria",
-  apex: "suprema",
+  rare: "raro",
+  vrare: "Muy raro",
+  exclusive: "Exclusivo",
+  unique: "Unico",
 };
 
 function Row({ k, v, alt }: { k: string; v: string; alt?: string | undefined }) {
@@ -325,9 +325,7 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
                     close();
                   }}
                 >
-                  {sheet.credits >= sheet.price
-                    ? "Comprar"
-                    : `Faltan ${formatCredits(sheet.price - sheet.credits)} cr`}
+                  Comprar
                 </button>
               )}
             </footer>

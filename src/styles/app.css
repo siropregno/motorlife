@@ -2157,6 +2157,7 @@ p.screen-sub {
   border-radius: 16px;
   background: var(--tile, #4a4a4a);
   padding: 0;
+  border: solid 5px rgba(255, 255, 255, 0.2);
 }
 /* The glyph IS the tile, so it overrides the 15px .btn-icon default that suits
    a glyph sitting beside a word. */

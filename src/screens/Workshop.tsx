@@ -927,7 +927,7 @@ export function Workshop({
                       }}
                     >
                       {!payable
-                        ? "Puesto"
+                        ? "Equipado"
                         : credits < price
                           ? `Faltan ${formatCredits(price - credits)} CR`
                           : `${formatCredits(price)} CR`}
