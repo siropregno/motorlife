@@ -7,6 +7,7 @@ import type {
   Compound,
 } from "@contracts/race";
 import { derive } from "./derive";
+import { applyMods } from "./mods";
 import { applySetup } from "./setup";
 import { lapTime } from "./lap";
 import { mulberry32 } from "./rng";
@@ -30,7 +31,15 @@ export function simulateRace(
   seed: number,
 ): RaceResult {
   const rng = mulberry32(seed);
-  const cars = entries.map((e) => derive(e.car));
+  /*
+   * Mods are applied AFTER derive, once per entry, before the first lap. See
+   * mods.ts: derive fits the calibration scalar against the car's published
+   * 0-100, so a part that raised power on the way in would be cancelled out by
+   * its own fit. Done here rather than inside the lap loop because a part does
+   * not change during a race -- the tyres do, and that is what applySetup is
+   * for.
+   */
+  const cars = entries.map((e) => applyMods(derive(e.car), e.build.mods, e.build.km ?? 0));
 
   const laps: LapRecord[][] = entries.map(() => []);
   const tyreAge = entries.map(() => 0);

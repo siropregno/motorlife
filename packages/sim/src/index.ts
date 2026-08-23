@@ -31,6 +31,7 @@ export {
   brakeDecel,
   cornerSpeed,
   accelerate,
+  topSpeed,
   zeroToHundred,
   type PhysicsCar,
   type AccelResult,
@@ -40,9 +41,26 @@ export {
   tyreGrip,
   fuelKg,
   gearFactor,
+  wearMultiplier,
   type EffectiveCar,
   type TyreState,
 } from "./setup";
+export {
+  applyMods,
+  modEffect,
+  engineWear,
+  tierOf,
+  PART_TIERS,
+  STOCK_TIER,
+  NO_EFFECT,
+  WEAR_TAU_KM,
+  WEAR_MAX_KW,
+  WEAR_MAX_GRIP,
+  type ModdedCar,
+  type ModEffect,
+  type EngineWear,
+  type PartTier,
+} from "./mods";
 export { lapTime, referenceLap } from "./lap";
 export {
   classIndex,

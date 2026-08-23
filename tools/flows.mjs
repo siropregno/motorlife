@@ -80,16 +80,16 @@ try {
   // Icon-only buttons, so the accessible name is the ONLY name they have --
   // this check is the one that notices if a glyph ever ships without one.
   check(
-    "it offers the three things you can do with a car you own",
+    "it offers the four things you can do with a car you own",
     (await page.locator(".modal-acts .btn").evaluateAll((els) =>
       els.map((e) => e.getAttribute("aria-label")))).join(" | "),
-    "Subirse al auto | Repintar | Vender",
+    "Subirse al auto | Taller | Repintar | Vender",
   );
 
   check(
     "each action carries its glyph",
     await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.map((e) => new URL(e.src).pathname).join(" ")),
-    "/car-key.png /paint-brush.png /icon-shop.png",
+    "/car-key.png /wrench.png /paint-brush.png /icon-shop.png",
   );
   check(
     "and every one of them actually loaded",
@@ -175,7 +175,9 @@ try {
     "a car that comes in one colour cannot be repainted",
     await page.locator(".modal-acts .btn").evaluateAll((els) =>
       els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" | ")),
-    "Subirse al auto | Repintar* | Vender",
+    // Taller carries no star: every car can be worked on, and the one with
+    // nothing fitted is exactly the one the workshop is for.
+    "Subirse al auto | Taller | Repintar* | Vender",
   );
 
   console.log("\nselling");
@@ -234,12 +236,13 @@ try {
     "every row has a glyph, left of the word",
     await page.locator(".ctx-item").evaluateAll((els) =>
       els.map((e) => {
-        const img = e.querySelector(".ctx-icon");
+        const icon = e.querySelector(".ctx-icon");
         const label = e.querySelector(".ctx-label");
-        const before = img && label && img.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING;
-        return `${label.textContent}:${img ? new URL(img.src).pathname.replace(/^\//, "") : "NONE"}${before ? "" : "!ORDER"}`;
+        const before = icon && label && icon.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const name = icon ? new URL(icon.src).pathname.replace(/^\//, "") : "NONE";
+        return `${label.textContent}:${name}${before ? "" : "!ORDER"}`;
       }).join(" ")),
-    "Subirse al auto:car-key.png Repintar:paint-brush.png Vender:icon-shop.png",
+    "Subirse al auto:car-key.png Llevar al taller:wrench.png Repintar:paint-brush.png Vender:icon-shop.png",
   );
   // Repintar from the menu lands on the colours rather than on the sheet you
   // would then have to click Repintar in again.
@@ -264,6 +267,318 @@ try {
   await page.waitForSelector("dialog.confirm", { state: "detached" });
   // Three, not two: the shop section above bought the Chevy 250 back.
   check("and No still keeps it", await page.locator(".car-card").count(), 3);
+
+  /*
+   * The workshop.
+   *
+   * A section rather than a dialog, so the checks are about NAVIGATION as much
+   * as about money: getting there by the tab, getting there by naming a car,
+   * and the ficha previewing the outcome before anything is paid for.
+   *
+   * Its own save, because fitting parts moves the wallet and every check above
+   * pins totals. Two cars so the picker exists.
+   */
+  console.log("\nthe workshop");
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 3,
+    credits: 900_000,
+    racesRun: 3,
+    owned: [
+      { id: "renault-12-tl", km: 214_000, color: "light-blue" },
+      { id: "bmw-m3-e30", km: 90_000, color: "black" },
+    ],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+
+  // Reached from a card by name, which is the path that has to carry WHICH car
+  // across a section change -- the tab alone would open on the car you drive.
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+
+  // The title carries the model, the year and the class badge. Only the model
+  // is the answer to "which car is on the ramp".
+  const onRamp = () =>
+    page.locator(".workshop-name h2").first().innerText()
+      .then((t) => t.split("\n")[0].trim());
+  check(
+    "Llevar al taller opens the workshop on THAT car, not the one you drive",
+    await onRamp(),
+    "M3 E30",
+  );
+  check(
+    "and the nav says you are in the workshop",
+    await page.locator('.topnav-btn[aria-label="Taller"]').getAttribute("aria-current"),
+    "page",
+  );
+
+  /*
+   * The top level: four parts plus the engine, each a tile. The engine is last
+   * and behind a separator, because it is the only one that does not make the
+   * car better than the factory made it.
+   */
+  check("four parts and the engine", await page.locator(".workshop-tile").count(), 5);
+  check(
+    "every tile drew its glyph rather than 404ing to an empty square",
+    await page.locator(".workshop-tile .btn-icon").evaluateAll((els) =>
+      els.every((e) => e.complete && e.naturalWidth > 0)),
+    true,
+  );
+  check(
+    "and nothing is fitted, so every part wears the factory colour",
+    await page.locator(".workshop-tile").evaluateAll((els) =>
+      els.slice(0, 4).every((e) => e.classList.contains("stock"))),
+    true,
+  );
+
+  /*
+   * Picking a part turns the same strip into that part's ladder. Four tiers --
+   * stock plus the three you can buy -- in one row, so the whole decision is
+   * visible without opening anything.
+   */
+  await page.locator('.workshop-tile[aria-label^="Turbo"]').click();
+  await page.waitForTimeout(150);
+  check(
+    "opening a part names it",
+    await page.locator(".workshop-bar-head h3").innerText(),
+    "TURBO",
+  );
+  check("and lays out its four tiers", await page.locator(".workshop-tile").count(), 4);
+  check(
+    "coloured as a ladder: factory, then the three you can buy",
+    await page.locator(".workshop-tile").evaluateAll((els) =>
+      els.map((e) => ["stock", "street", "sport", "racing"].find((c) => e.classList.contains(c))).join(" ")),
+    "stock street sport racing",
+  );
+  check(
+    "with the factory one marked as what the car has",
+    await page.locator(".workshop-tile.on").count(),
+    1,
+  );
+
+  /*
+   * THE check this screen exists for: the ficha says what the car WOULD be
+   * before any money moves, and says it in colour -- green for a figure that
+   * improves, red for one that gets worse.
+   */
+  const figure = (name) =>
+    page.locator(".workshop-specs .spec-row", { hasText: name }).locator(".spec-v");
+  const restingPower = await figure("Potencia").innerText();
+  await page.locator(".workshop-tile").last().hover();
+  await page.waitForFunction(
+    (was) => document.querySelector(".workshop-specs .spec-v")?.textContent !== was,
+    restingPower,
+  );
+  check(
+    "hovering a tier shows the power you would end up with",
+    (await figure("Potencia").innerText()) !== restingPower,
+    true,
+  );
+  check(
+    "in green, because more power is an improvement",
+    await figure("Potencia").evaluate((e) => e.classList.contains("up")),
+    true,
+  );
+  check(
+    "and it says what it is coming from",
+    /de \d+ CV/.test(await figure("Potencia").innerText()),
+    true,
+  );
+  check(
+    "top speed moves with it",
+    await figure("Velocidad").evaluate((e) => e.classList.contains("up")),
+    true,
+  );
+  /*
+   * 0-100 in SECONDS: fewer is better, so a turbo has to paint it green even
+   * though the number went DOWN. Taking this from the figure's own direction
+   * rather than from the sign of the change is the whole reason `better` is a
+   * parameter on the component.
+   */
+  /*
+   * By index, not by text: "0–100" uses an en dash and matching on "0" alone
+   * hits every row with a zero in it -- the top speed, the weight, the
+   * odometer. The order of the ficha is the contract here, and it is the
+   * third row.
+   */
+  check(
+    "a quicker 0-100 is green even though the number falls",
+    await page.locator(".workshop-specs .spec-row").nth(2).locator(".spec-v")
+      .evaluate((e) => e.classList.contains("up")),
+    true,
+  );
+  check(
+    "a turbo leaves grip alone, so that row stays uncoloured",
+    await figure("Agarre").evaluate((e) => e.className.trim()),
+    "spec-v",
+  );
+  check(
+    "the class badge previews too, and marks itself as a preview",
+    await page.locator(".workshop-klass").evaluate((e) => e.classList.contains("preview")),
+    true,
+  );
+  check("and nothing was charged for looking", await wallet(), "900.000CR");
+
+  /*
+   * Clicking a tile PICKS; only the price button pays. That split is what lets
+   * you try all four tiers and read the consequence of each one for free.
+   */
+  await page.locator(".workshop-tile").last().click();
+  await page.waitForTimeout(150);
+  check("picking a tier is still free", await wallet(), "900.000CR");
+  check(
+    "and the pick survives the cursor leaving, marked as not yet paid for",
+    await page.locator(".workshop-tile.picked").count(),
+    1,
+  );
+  /*
+   * The value and whatever aside follows it come back from innerText as one
+   * string with no line break between them. Two asides exist: "▲ de 194 CV"
+   * while previewing, and "de fábrica 194" once the part is on the car. The
+   * value is everything before either.
+   */
+  const valueOf = (t) => t.split(/[▲▼]|de fábrica/)[0].trim();
+  const promised = valueOf(await figure("Potencia").innerText());
+
+  await page.locator(".workshop-pay").click();
+  await page.waitForFunction(() => document.querySelectorAll(".workshop-tile.picked").length === 0);
+  check("the price button is what spends the money", (await wallet()) !== "900.000CR", true);
+  check(
+    "the tier is now the one on the car",
+    await page.locator(".workshop-tile.on").evaluate((e) => e.classList.contains("racing")),
+    true,
+  );
+  check(
+    "and the power the preview promised is the power you got",
+    valueOf(await figure("Potencia").innerText()),
+    promised,
+  );
+
+  const walletAfterTurbo = await wallet();
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.topnav-btn[aria-label="Taller"]').click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  check("and it survived a reload, so it reached the save", await wallet(), walletAfterTurbo);
+  /*
+   * The TAB opens on the car you are driving, which is the R12 -- not the M3
+   * that was on the ramp last visit. A car left on the ramp across a section
+   * change would be the wrong car quietly taking your money.
+   */
+  check(
+    "the tab opens on the car you are in, not the one left on the ramp",
+    await onRamp(),
+    "R12 TL",
+  );
+
+  /*
+   * A tier you cannot afford is still selectable. Greying it out would hide
+   * the two things you came to find out -- what it costs and what it would do
+   * to the car -- behind the fact that you are short today.
+   */
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("motorlife.save"));
+    s.credits = 300;
+    localStorage.setItem("motorlife.save", JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.topnav-btn[aria-label="Taller"]').click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  await page.locator('.workshop-tile[aria-label^="Turbo"]').click();
+  await page.waitForTimeout(150);
+  check(
+    "with almost no money, every tier is still enabled",
+    await page.locator(".workshop-tile").evaluateAll((els) => els.filter((e) => e.disabled).length),
+    0,
+  );
+  await page.locator(".workshop-tile").last().click();
+  await page.waitForTimeout(200);
+  check(
+    "and the button says how much you are short rather than going dead quietly",
+    /^faltan [\d.]+ cr$/i.test(await page.locator(".workshop-pay").innerText()),
+    true,
+  );
+  check(
+    "the ficha still previews what it would do",
+    await figure("Potencia").evaluate((e) => e.classList.contains("up")),
+    true,
+  );
+
+  // Put the money back for the engine checks below.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("motorlife.save"));
+    s.credits = 900000;
+    localStorage.setItem("motorlife.save", JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.topnav-btn[aria-label="Taller"]').click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+
+  /*
+   * The engine, which is not a part: it has no tiers, and what it does is put
+   * back what the kilometres took rather than add anything.
+   */
+  await page.locator('.workshop-tile[aria-label^="Motor"]').click();
+  await page.waitForTimeout(150);
+  check("the engine opens on its own", await page.locator(".workshop-bar-head h3").innerText(), "MOTOR");
+  check(
+    "a car with 214.000 km is offered a rebuild, with a price on it",
+    /^[\d.]+ cr$/i.test(await page.locator(".workshop-pay").innerText()),
+    true,
+  );
+  check(
+    "and says how long it has been since the last one",
+    /desde la última rectificada/i.test(await page.locator(".workshop-wear-note").innerText()),
+    true,
+  );
+  await page.locator(".workshop-pay").click();
+  await page.waitForTimeout(300);
+  check(
+    "rebuilding it leaves nothing to rebuild",
+    await page.locator('.workshop-tile[aria-label^="Motor"]').evaluate((e) =>
+      e.classList.contains("worn")),
+    false,
+  );
+  check(
+    "and the odometer is untouched -- a rebuild is not a way to clock a car",
+    (await page.locator(".workshop-specs .spec-row", { hasText: "Kilómetros" })
+      .locator(".spec-v").innerText()).startsWith("214.000 km"),
+    true,
+  );
+
+  /*
+   * Back in the garage, the modified car says so from across the grid.
+   *
+   * settled() is not optional here. A screen on its way out stays mounted for
+   * the length of the slide, and the workshop it is leaving renders a CarCard
+   * of its own -- so counting cards mid-slide counts the ramp's car twice.
+   */
+  await garage();
+  await settled();
+  check(
+    "the garage marks the car that has parts on it, and only that one",
+    await page.locator(".car-card").evaluateAll((els) =>
+      els.map((e) => `${e.querySelector(".card-title-bold").textContent.split("'")[0].trim()}:${e.querySelector(".card-tuned") ? "*" : "-"}`).join(" ")),
+    "R12 TL:- M3 E30:*",
+  );
+  /*
+   * The card reads what the car MAKES, not what the factory said.
+   *
+   * 194 CV stock; a racing turbo is 1.55x and 90.000 km of engine wear takes a
+   * little back, which lands on 283. Pinned exactly rather than "more than
+   * stock", because a card quietly showing catalogue power on a modified car
+   * would pass any looser check -- and that is the bug worth catching.
+   */
+  check(
+    "and its power reads as what it makes now, not what the factory said",
+    (await card("M3 E30").locator(".card-text-light").innerText()).split(" /")[0],
+    "283 CV",
+  );
 
   /*
    * The collector's mark, on its own save.
@@ -376,12 +691,18 @@ try {
   await garage();
 
   const gear = page.locator('.topnav-btn[aria-label="Ajustes"]');
-  check("the nav has a fourth button", await gear.count(), 1);
+  check("the nav has a gear beyond the sections", await gear.count(), 1);
+  /*
+   * Four sections then the gear, and the ORDER is the errand: you own a car,
+   * you buy another, you build one, you race it. Taller sits third rather than
+   * last because the slide direction is taken off this order -- putting it
+   * after Carrera would animate "race, then prepare".
+   */
   check(
-    "and the four read left to right in that order",
+    "and they read left to right in the order of the errand",
     await page.locator(".topnav-btn").evaluateAll((els) =>
       els.map((e) => e.getAttribute("aria-label")).join(" | ")),
-    "Garaje | Concesionaria | Carrera | Ajustes",
+    "Garaje | Concesionaria | Taller | Carrera | Ajustes",
   );
   check("its glyph loaded rather than 404ing", await gear.locator("img").evaluate((e) => e.complete && e.naturalWidth > 0), true);
 

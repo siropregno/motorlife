@@ -1,15 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Build } from "@contracts/race";
+import type { PartId, PartLevel } from "@contracts/mods";
 import { CARS, carById } from "@catalog/cars";
 import { TRACKS, trackById } from "@catalog/tracks";
 import { ratingOf } from "@catalog/rating";
-import { loadSave, writeSave, resetSave, colorOwned, kmOwned, ownsCar, type Save } from "@progression/save";
-import { buyCar, formatCredits, payoutFor, repaintCar, sellCar } from "@progression/economy";
+import {
+  loadSave,
+  writeSave,
+  resetSave,
+  colorOwned,
+  kmOwned,
+  modsOwned,
+  ownsCar,
+  type Save,
+} from "@progression/save";
+import {
+  buyCar,
+  formatCredits,
+  installPart,
+  payoutFor,
+  rebuildEngine,
+  repaintCar,
+  sellCar,
+} from "@progression/economy";
+import { LEVEL_NAME, PART_NAME } from "@progression/mods";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
 import { SetupScreen } from "./screens/Setup";
 import { Race } from "./screens/Race";
 import { Shop } from "./screens/Shop";
+import { Workshop } from "./screens/Workshop";
 import { useToast } from "./components/Toasts";
 import { TopNav } from "./components/TopNav";
 import { SettingsModal } from "./components/SettingsModal";
@@ -58,6 +78,20 @@ export default function App() {
   const [shopEpoch, setShopEpoch] = useState(0);
 
   /**
+   * Which car is on the ramp, when the workshop is reached by NAME rather than
+   * by pressing the tab.
+   *
+   * "Llevar al taller" on a card in the garage means that car, not the one you
+   * happen to be driving, so the section has to be told which one. Null is the
+   * ordinary case -- you pressed the tab -- and the workshop then opens on the
+   * car you are in, which is the one you are about to race.
+   *
+   * It is cleared when the section is left, so walking out of the workshop and
+   * back in through the tab does not silently reopen somebody else's car.
+   */
+  const [ramp, setRamp] = useState<string | null>(null);
+
+  /**
    * The screen on its way out, kept rendered while it slides off.
    *
    * This is the whole cost of a directional slide: something has to still be
@@ -91,6 +125,14 @@ export default function App() {
   const go = useCallback(
     (next: Screen) => {
       if (next === "shop") setShopEpoch((n) => n + 1);
+      /*
+       * Pressing the Taller TAB always means "the car I am in". Only "Llevar
+       * al taller" on a specific card names a different one, and it sets the
+       * ramp immediately after calling this -- so clearing here is what stops
+       * a car put on the ramp last visit from being there when you press the
+       * tab three screens later.
+       */
+      if (next === "workshop") setRamp(null);
 
       /*
        * Pressing the tab you are already on is not a slide. It still means
@@ -167,7 +209,38 @@ export default function App() {
 
   const track = trackById(trackId) ?? TRACKS[0]!;
   const car = carById(carId);
-  const rating = car ? ratingOf(car) : null;
+  /*
+   * The class you race in is the class of the car AS IT STANDS -- parts,
+   * odometer and all -- not of the model in the catalogue. That is the whole
+   * point of the class cap surviving mods: fit a racing turbo to a class D car
+   * and you have a class C car, and the grid you meet has to agree with the
+   * badge in the topbar.
+   */
+  const myKm = kmOwned(save, carId) ?? 0;
+  const myMods = modsOwned(save, carId);
+  const rating = car ? ratingOf(car, myMods, myKm) : null;
+
+  /**
+   * The build as the race receives it: the sliders and tyres you chose, plus
+   * the parts and odometer of the car you are actually sitting in.
+   *
+   * Merged HERE rather than kept in `build` state, because the parts are not
+   * something the Setup screen sets -- they belong to the car, they change in
+   * the workshop, and a copy of them living in React state would go stale the
+   * moment you fitted a turbo without touching a slider. One source of truth
+   * for what is bolted to the car, and it is the save.
+   *
+   * MEMOISED, and that is not a micro-optimisation. Race takes this as a
+   * dependency of the useMemo that simulates the whole race, so a fresh object
+   * on every render re-runs the simulation and restarts the playback effect --
+   * the tower resets to lap 1 forever and the button that leaves a finished
+   * race is torn out from under the cursor between renders. The flow checks
+   * caught exactly that: ".race-out ... element was detached from the DOM".
+   */
+  const raceBuild = useMemo<Build>(
+    () => ({ ...build, ...(myMods ? { mods: myMods } : {}), km: myKm }),
+    [build, myMods, myKm],
+  );
 
   const pickCar = (id: string) => {
     setCarId(id);
@@ -207,6 +280,55 @@ export default function App() {
     const paid = save.credits - next.credits;
     const name = nameOf(id);
     if (name) toast(`Pintaste tu ${name} de ${colorName(color).toLowerCase()} por ${formatCredits(paid)} cr`, "good");
+  };
+
+  /**
+   * Take a named car to the workshop.
+   *
+   * The only handler here that changes no save state: the workshop is a place,
+   * so this navigates. `go` first and the ramp after, because `go` clears the
+   * ramp on the way into the section -- doing it the other way round would set
+   * the car and then immediately throw it away.
+   */
+  const tune = (id: string) => {
+    go("workshop");
+    setRamp(id);
+  };
+
+  /**
+   * Fitting a part, and rectifying an engine.
+   *
+   * Same shape as buy/sell/repaint: resolve against the current save, compare
+   * by identity, and stay silent when the move was refused. The toast names
+   * the class the car ends up in whenever fitting the part moved it, because
+   * that is the consequence the player is actually buying and it is the one
+   * thing the price tag cannot tell them.
+   */
+  const fitPart = (id: string, part: PartId, level: PartLevel) => {
+    const next = installPart(save, id, part, level);
+    if (next === save) return;
+    const before = car ? ratingOf(car, modsOwned(save, id), kmOwned(save, id) ?? 0) : null;
+    setSave(next);
+    const paid = save.credits - next.credits;
+    const name = nameOf(id);
+    const spec = carById(id);
+    const after = spec ? ratingOf(spec, modsOwned(next, id), kmOwned(next, id) ?? 0) : null;
+    const what =
+      level === 0
+        ? `Le sacaste el ${PART_NAME[part].toLowerCase()}`
+        : `${PART_NAME[part]} ${LEVEL_NAME[level].toLowerCase()}`;
+    const klass =
+      before && after && before.letter !== after.letter ? ` · ahora corre en ${after.letter}` : "";
+    if (name) toast(`${what} a tu ${name} por ${formatCredits(paid)} cr${klass}`, "good");
+  };
+
+  const rebuild = (id: string) => {
+    const next = rebuildEngine(save, id);
+    if (next === save) return;
+    setSave(next);
+    const paid = save.credits - next.credits;
+    const name = nameOf(id);
+    if (name) toast(`Rectificaste el motor de tu ${name} por ${formatCredits(paid)} cr`, "good");
   };
 
   /**
@@ -295,17 +417,30 @@ export default function App() {
             onDrive={pickCar}
             onSell={sell}
             onRepaint={repaint}
+            onTune={tune}
           />
         );
       case "shop":
         return <Shop save={save} onBuy={buy} />;
+      case "workshop":
+        return (
+          <Workshop
+            owned={save.owned}
+            credits={save.credits}
+            currentId={carId}
+            openOn={ramp}
+            onFit={fitPart}
+            onRebuild={rebuild}
+          />
+        );
       case "setup":
         return (
           <SetupScreen
             carId={carId}
-            km={kmOwned(save, carId) ?? 0}
+            km={myKm}
+            mods={myMods}
             image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
-            build={build}
+            build={raceBuild}
             onBuild={setBuild}
             track={track}
             onTrack={setTrackId}
@@ -430,7 +565,7 @@ export default function App() {
       {racing ? (
         <Race
           carId={carId}
-          build={build}
+          build={raceBuild}
           track={track}
           racesRun={save.racesRun}
           onFinish={finishRace}

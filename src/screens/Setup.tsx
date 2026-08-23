@@ -1,9 +1,11 @@
 import { useMemo } from "react";
+import type { Mods } from "@contracts/mods";
 import type { Build, Compound, Setup as SetupValues } from "@contracts/race";
 import type { TrackSpec } from "@contracts/track";
 import { carById } from "@catalog/cars";
 import { TRACKS } from "@catalog/tracks";
 import { derive } from "@sim/derive";
+import { applyMods } from "@sim/mods";
 import { applySetup, wearMultiplier } from "@sim/setup";
 import { CarCard } from "../components/CarCard";
 import { TrackMap } from "../components/TrackMap";
@@ -12,6 +14,8 @@ interface Props {
   carId: string;
   /** The odometer of the car you are in, straight off the save. */
   km: number;
+  /** What is bolted to it. The readout below is the modified car, not the model. */
+  mods?: Mods | undefined;
   /** Its photo, in the colour you own it in. */
   image?: string | undefined;
   build: Build;
@@ -44,9 +48,19 @@ const COMPOUND_LABEL: Record<Compound, string> = {
   hard: "Duro",
 };
 
-export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, onRace }: Props) {
+export function SetupScreen({ carId, km, mods, image, build, onBuild, track, onTrack, onRace }: Props) {
   const spec = carById(carId);
-  const car = useMemo(() => (spec ? derive(spec) : null), [spec]);
+  /*
+   * The car the sliders are being set on is the car with its parts on it. A
+   * readout computed from the catalogue model would tell you how a stock car
+   * behaves while you tune a modified one -- and Gomas in particular would be
+   * a lie, because a racing suspension is most of what decides how long a set
+   * lasts.
+   */
+  const car = useMemo(
+    () => (spec ? applyMods(derive(spec), mods, km) : null),
+    [spec, mods, km],
+  );
 
   /**
    * No lap time. There used to be one, and it decided the game: move a
@@ -119,7 +133,7 @@ export function SetupScreen({ carId, km, image, build, onBuild, track, onTrack, 
           * as far from the controls that drive it as the layout allowed.
           */}
         <div className="setup-col">
-          <CarCard spec={spec} km={km} image={image} />
+          <CarCard spec={spec} km={km} mods={mods} image={image} />
 
           <div className="panel">
             <h3>Circuito</h3>

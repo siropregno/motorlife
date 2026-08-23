@@ -1,10 +1,29 @@
-import type { CarSpec, Rarity } from "@contracts/car";
+import type { CarSpec } from "@contracts/car";
+import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { classCap, type ClassLetter } from "@sim/rating";
 import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
 import { colorOfHeld, ownsCar, type Save } from "./save";
 import { colorsOf } from "./paint";
 import { priceWithKm } from "./mileage";
+import { priceOf } from "./pricing";
+import {
+  canFit,
+  modsValue,
+  needsRebuild,
+  partPrice,
+  rebuildPrice,
+  withPart,
+  withRebuild,
+} from "./mods";
+
+/**
+ * priceOf lives in pricing.ts so that mods.ts can price a part without
+ * importing this module, which imports mods.ts. Re-exported here because it
+ * has always been part of the economy's surface and every caller already
+ * reaches for it at this address.
+ */
+export { priceOf } from "./pricing";
 
 /**
  * The economy exists to make the collection mean something. It is built so
@@ -13,35 +32,6 @@ import { priceWithKm } from "./mileage";
  * the failure mode and class caps are the only defence once the cars are real
  * and their numbers cannot be edited.
  */
-
-/**
- * Price is set by desirability, not by lap time. A cheap car that is
- * exceptional for its class index is a bargain, and hunting those is the
- * meta-game. Real classic markets work the same way: an E30 M3 costs more
- * than its lap time justifies.
- */
-const RARITY_PRICE: Record<Rarity, number> = {
-  common: 14_000,
-  uncommon: 32_000,
-  rare: 70_000,
-  epic: 150_000,
-  legendary: 320_000,
-  apex: 700_000,
-};
-
-/** Performance nudges price, but only gently. Rarity dominates. */
-const INDEX_PIVOT = 550;
-const INDEX_INFLUENCE = 0.6;
-
-export function priceOf(spec: CarSpec): number {
-  const base = RARITY_PRICE[spec.rarity];
-  const { index } = ratingOf(spec);
-  const mul = Math.max(
-    0.6,
-    Math.min(2, 1 + (INDEX_INFLUENCE * (index - INDEX_PIVOT)) / INDEX_PIVOT),
-  );
-  return Math.round((base * mul) / 100) * 100;
-}
 
 /**
  * Selling takes a haircut, and the haircut is the whole point.
@@ -64,8 +54,17 @@ export const SELL_SPREAD = 1 - SELL_RATE;
  * discount, sell it at the catalogue rate, repeat. Both sides have to price
  * the same object.
  */
-export function sellValueFor(spec: CarSpec, km: number): number {
-  return Math.round((priceWithKm(priceOf(spec), spec, km) * SELL_RATE) / 100) * 100;
+export function sellValueFor(spec: CarSpec, km: number, mods?: Mods): number {
+  const car = Math.round((priceWithKm(priceOf(spec), spec, km) * SELL_RATE) / 100) * 100;
+  /*
+   * The parts are added AFTER the haircut, at their own much steeper one.
+   * They are two different markets: the car goes back to a dealer who will
+   * resell it, the parts go with it as a fitted build nobody asked for. If
+   * they shared a rate, modifying a car would be a way to store value in it
+   * at 60 cents on the credit -- better than the 35 a build is actually
+   * worth, and enough to make the workshop a savings account.
+   */
+  return car + modsValue(spec, km, mods);
 }
 
 /**
@@ -150,10 +149,71 @@ export function sellCar(save: Save, carId: string): Save {
   if (!held) return save;
   const spec = carById(carId);
   if (!spec) return save;
+  // the build goes with the car, and is paid for at its own rate
   return {
     ...save,
-    credits: save.credits + sellValueFor(spec, held.km),
+    credits: save.credits + sellValueFor(spec, held.km, held.mods),
     owned: save.owned.filter((o) => o.id !== carId),
+  };
+}
+
+/**
+ * Fit a part to a car in the garage.
+ *
+ * Refuses the same way buy, sell and repaint refuse -- by returning the save
+ * unchanged -- so a click that should not have been possible does nothing
+ * rather than throwing under a handler. Fitting the level already on the car
+ * is one of those: a no-op that would charge for nothing.
+ *
+ * There is deliberately no check on what the part does to your class. Being
+ * priced out of class D by your own turbo is a consequence, not an error, and
+ * the shop shows it to you before you pay. Refusing the sale would make the
+ * class cap a rule about SHOPPING instead of a rule about racing.
+ */
+export function installPart(
+  save: Save,
+  carId: string,
+  part: PartId,
+  level: PartLevel,
+): Save {
+  const held = save.owned.find((o) => o.id === carId);
+  if (!held) return save;
+  const spec = carById(carId);
+  if (!spec) return save;
+  if (!canFit(held.mods, part, level)) return save;
+  const price = partPrice(spec, held.km, part, level);
+  if (save.credits < price) return save;
+  return {
+    ...save,
+    credits: save.credits - price,
+    owned: save.owned.map((o) =>
+      o.id === carId ? { ...o, mods: withPart(o.mods, part, level) } : o,
+    ),
+  };
+}
+
+/**
+ * Rebuild the engine: the km on it go back to zero and the power it lost comes
+ * back. The car's OWN odometer does not move -- that is its history and it is
+ * what the trade prices it on. A rebuild that reset the odometer would be
+ * clocking the car, and it would also be a money printer: buy a hammered car
+ * cheap, rebuild, sell as a low-km example.
+ *
+ * That split is the entire reason `wearKm` is a separate number from `km`.
+ */
+export function rebuildEngine(save: Save, carId: string): Save {
+  const held = save.owned.find((o) => o.id === carId);
+  if (!held) return save;
+  const spec = carById(carId);
+  if (!spec) return save;
+  // nothing worth paying to put back
+  if (!needsRebuild(held.km, held.mods)) return save;
+  const price = rebuildPrice(spec, held.km, held.mods);
+  if (save.credits < price) return save;
+  return {
+    ...save,
+    credits: save.credits - price,
+    owned: save.owned.map((o) => (o.id === carId ? { ...o, mods: withRebuild(o.mods) } : o)),
   };
 }
 

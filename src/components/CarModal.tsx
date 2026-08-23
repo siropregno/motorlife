@@ -1,9 +1,12 @@
 import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
+import type { Mods } from "@contracts/mods";
 import { ratingOf } from "@catalog/rating";
+import { engineWear, modEffect } from "@sim/mods";
 import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
 import { colorName, colorsOf } from "@progression/paint";
+import { modsSummary } from "@progression/mods";
 import { classTierClass } from "../lib/tiers";
 import { ICON } from "../lib/icons";
 import { Glyph } from "./Glyph";
@@ -34,17 +37,24 @@ export type CarSheet =
       onDrive: () => void;
       onSell: () => void;
       /**
-       * Both of these only ASK. Selling and painting each own a dialog of
-       * their own, raised by the caller over this one, so the sheet does not
-       * need to know what a colour costs or what a sale pays -- it needs to
-       * know that a button was pressed.
+       * All three of these only ASK. Selling, painting and tuning each own a
+       * dialog of their own, raised by the caller over this one, so the sheet
+       * does not need to know what a colour costs or what a sale pays -- it
+       * needs to know that a button was pressed.
        */
       onPaint: () => void;
+      onTune: () => void;
     };
 
 interface Props {
   spec: CarSpec;
   km: number;
+  /**
+   * What is bolted to THIS car. Absent on a forecourt listing, where there is
+   * no such thing yet -- the shop sells models, and a car only acquires parts
+   * once somebody owns it.
+   */
+  mods?: Mods | undefined;
   color?: string | undefined;
   image?: string | undefined;
   sheet: CarSheet;
@@ -93,12 +103,31 @@ function Row({ k, v, alt }: { k: string; v: string; alt?: string | undefined }) 
  * job is "do I want this car", and dropping it lets the photo be a strip
  * rather than a near-square slab.
  */
-export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }: Props) {
+export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const rating = ratingOf(spec);
+  /*
+   * The badge rates the car AS IT STANDS. A forecourt listing passes no mods
+   * and gets the catalogue rating, which is right -- what is for sale there is
+   * the model. A garage car passes its own, because the class it races in is
+   * the class of the object, not of the model it happens to be.
+   */
+  const rating = ratingOf(spec, mods, mods ? km : 0);
   const tier = classTierClass(rating.letter);
-  const hp = Math.round(spec.kW * 1.35962);
   const cond = conditionOf(spec, km);
+
+  /*
+   * Power as the car makes it today: the published figure, plus whatever the
+   * parts add, minus what the engine has lost. Published stays visible beside
+   * it whenever the two differ, so the sheet never quietly disagrees with the
+   * number on Wikipedia -- it says "this car makes X, and it left the factory
+   * making Y", which is a different and more useful statement.
+   */
+  const wear = engineWear(mods?.wearKm ?? km);
+  const power = spec.kW * modEffect(mods, km).kW;
+  const hp = Math.round(power * 1.35962);
+  const stockHp = Math.round(spec.kW * 1.35962);
+  const tuned = Math.abs(power - spec.kW) > 0.05;
+  const fitted = modsSummary(mods);
 
   useEffect(() => {
     const el = ref.current;
@@ -113,7 +142,8 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
    */
   const palette = colorsOf(spec);
   const repaintPrice = repaintPriceFor(spec, km);
-  const sellValue = sellValueFor(spec, km);
+  // the build goes with the car, so what the sheet quotes has to include it
+  const sellValue = sellValueFor(spec, km, mods);
   const driveLabel =
     sheet.kind === "garage" && sheet.isCurrent ? "Ya estás en este auto" : "Subirse al auto";
 
@@ -134,7 +164,14 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
         <aside className="modal-specs">
           <h3 className="modal-section">Ficha técnica</h3>
           <div className="spec-list">
-            <Row k="Potencia" v={`${hp} CV`} alt={`${spec.kW} kW`} />
+            {/* The alt line carries the published figure whenever the car no
+                longer makes it, so a modified car reads as "180 CV, de fábrica
+                134" rather than silently contradicting its own spec sheet. */}
+            <Row
+              k="Potencia"
+              v={`${hp} CV`}
+              alt={tuned ? `de fábrica ${stockHp}` : `${spec.kW} kW`}
+            />
             <Row k="Peso" v={`${spec.kg} kg`} />
             <Row k="Velocidad máx." v={spec.topKph ? `${spec.topKph} km/h` : "—"} />
             <Row k="0–100" v={spec.zeroTo100 ? `${spec.zeroTo100.toFixed(1)} s` : "—"} />
@@ -142,6 +179,12 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
+            {/* Only in the garage, and only once there is something to say.
+                A forecourt car has no parts and a stock car has no list. */}
+            {fitted ? <Row k="Preparación" v={fitted} /> : null}
+            {sheet.kind === "garage" && wear.fraction >= 0.05 ? (
+              <Row k="Motor" v={`${formatKm(mods?.wearKm ?? km)} de uso`} alt="sin rectificar" />
+            ) : null}
             {color ? <Row k="Color" v={colorName(color)} /> : null}
           </div>
         </aside>
@@ -219,6 +262,16 @@ export function CarModal({ spec, km, color, image = spec.image, sheet, onClose }
                   }}
                 >
                   <Glyph src={ICON.drive} />
+                </button>
+                {/* Always live: every car can be modified, and the one with
+                    nothing fitted is exactly the one the workshop is for. */}
+                <button
+                  className="btn"
+                  aria-label="Taller"
+                  title={fitted ? `Taller · ${fitted}` : "Taller"}
+                  onClick={() => sheet.onTune()}
+                >
+                  <Glyph src={ICON.wrench} />
                 </button>
                 {/* Under two colours there is nothing to change it TO, so the
                     title says why rather than opening an empty picker. */}

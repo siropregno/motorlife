@@ -8,17 +8,23 @@ interface Props {
 }
 
 /**
- * Three icons, three screens.
+ * Four icons, four screens.
  *
  * Setup and the race are one section, not two. They are the same errand -- you
  * go to the Setup screen to choose a circuit and a setup, and the tower is what
  * happens when you press Race. The tower is a dialog rather than a place, so
  * this tab stays lit underneath it: while a race is on, the section you are in
  * is still Carrera.
+ *
+ * Taller sits third rather than last because this order is the errand -- you
+ * own a car, you buy another, you build one, you race it -- and the slide
+ * direction is taken off it. After Carrera it would animate "race, then
+ * prepare".
  */
 const TABS: { to: Screen; lit: Screen[]; icon: string; label: string }[] = [
   { to: "garage", lit: ["garage"], icon: "/icon-garage.png", label: "Garaje" },
   { to: "shop", lit: ["shop"], icon: "/icon-shop.png", label: "Concesionaria" },
+  { to: "workshop", lit: ["workshop"], icon: ICON.wrench, label: "Taller" },
   { to: "setup", lit: ["setup"], icon: "/icon-race.png", label: "Carrera" },
 ];
 

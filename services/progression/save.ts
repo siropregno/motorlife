@@ -7,12 +7,13 @@
  * data means guessing.
  */
 
+import type { Mods } from "@contracts/mods";
 import { carById } from "@catalog/cars";
 import { kmFor } from "./mileage";
 import { colorFor } from "./paint";
 
 export const SAVE_KEY = "motorlife.save";
-export const SAVE_VERSION = 3 as const;
+export const SAVE_VERSION = 4 as const;
 
 /** What an already-owned car arrives with when a field is added under it. */
 function kmForOwned(id: string): number {
@@ -39,6 +40,17 @@ export interface OwnedCar {
   km: number;
   /** Absent for a car that only comes in one colour. */
   color?: string;
+  /**
+   * What is bolted to this car, and how many km its engine has done since the
+   * last rebuild. Absent for a car nobody has touched, which is every car in
+   * a save written before v4.
+   *
+   * It lives on the OWNED car rather than on the model for the same reason the
+   * odometer does: two people can own the same model and they are not the same
+   * object. It travels with the car through a sale, which is why sellValueFor
+   * has to price it -- see modsValue.
+   */
+  mods?: Mods;
 }
 
 export interface Save {
@@ -88,6 +100,50 @@ export const colorOwned = (save: Save, id: string): string | undefined => {
 export const colorOfHeld = (o: OwnedCar): string | undefined =>
   o.color ?? colorForOwned(o.id);
 
+/**
+ * What is fitted to a car in the garage, and what is fitted to a car you are
+ * already holding.
+ *
+ * Both return undefined for a stock car rather than an empty object, because
+ * `undefined` is what every function downstream already treats as "nothing
+ * done to it" -- levelOf, modEffect and modsValue all take `Mods | undefined`
+ * -- and manufacturing an empty object here would put a `{}` into the save on
+ * the first read of a car nobody has modified.
+ */
+export const modsOwned = (save: Save, id: string): Mods | undefined =>
+  save.owned.find((o) => o.id === id)?.mods;
+
+export const modsOfHeld = (o: OwnedCar): Mods | undefined => o.mods;
+
+/**
+ * A mods blob out of storage.
+ *
+ * Levels are clamped to 0..3 rather than merely checked, because this is the
+ * one field a player can edit by hand in devtools and a level of 99 would
+ * index straight past PART_TIERS into undefined -- which is a crash at the
+ * next lap solve, not a cheat. Clamping turns tampering into an ordinary
+ * maximum-spec car.
+ */
+function isMods(v: unknown): v is Mods {
+  if (typeof v !== "object" || v === null) return false;
+  const m = v as Record<string, unknown>;
+  for (const k of ["turbo", "exhaust", "suspension", "gearbox"]) {
+    const lv = m[k];
+    if (lv === undefined) continue;
+    if (typeof lv !== "number" || !Number.isInteger(lv) || lv < 0 || lv > 3) return false;
+  }
+  if (m.wearKm !== undefined && (typeof m.wearKm !== "number" || m.wearKm < 0)) return false;
+  return true;
+}
+
+function isOwnedCar(x: unknown): x is OwnedCar {
+  if (typeof x !== "object" || x === null) return false;
+  const o = x as Partial<OwnedCar>;
+  if (typeof o.id !== "string" || typeof o.km !== "number") return false;
+  if (o.mods !== undefined && !isMods(o.mods)) return false;
+  return true;
+}
+
 function isSave(v: unknown): v is Save {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Partial<Save>;
@@ -95,9 +151,7 @@ function isSave(v: unknown): v is Save {
     s.version === SAVE_VERSION &&
     typeof s.credits === "number" &&
     Array.isArray(s.owned) &&
-    s.owned.every(
-      (x) => typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.km === "number",
-    ) &&
+    s.owned.every(isOwnedCar) &&
     typeof s.racesRun === "number"
   );
 }
@@ -129,6 +183,13 @@ interface SaveV2 {
   racesRun: number;
 }
 
+interface SaveV3 {
+  version: 3;
+  credits: number;
+  owned: { id: string; km: number; color?: string }[];
+  racesRun: number;
+}
+
 function isSaveV1(v: unknown): v is SaveV1 {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Partial<SaveV1>;
@@ -155,6 +216,20 @@ function isSaveV2(v: unknown): v is SaveV2 {
   );
 }
 
+function isSaveV3(v: unknown): v is SaveV3 {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SaveV3>;
+  return (
+    s.version === 3 &&
+    typeof s.credits === "number" &&
+    Array.isArray(s.owned) &&
+    s.owned.every(
+      (x) => typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.km === "number",
+    ) &&
+    typeof s.racesRun === "number"
+  );
+}
+
 const v1ToV2 = (s: SaveV1): SaveV2 => ({
   version: 2,
   credits: s.credits,
@@ -162,8 +237,8 @@ const v1ToV2 = (s: SaveV1): SaveV2 => ({
   owned: s.owned.map((id) => ({ id, km: kmForOwned(id) })),
 });
 
-const v2ToV3 = (s: SaveV2): Save => ({
-  version: SAVE_VERSION,
+const v2ToV3 = (s: SaveV2): SaveV3 => ({
+  version: 3,
   credits: s.credits,
   racesRun: s.racesRun,
   owned: s.owned.map((o) => {
@@ -172,10 +247,28 @@ const v2ToV3 = (s: SaveV2): Save => ({
   }),
 });
 
+/**
+ * v3 -> v4: mods arrive, and every existing car is stock.
+ *
+ * `mods` is left ABSENT rather than set to `{}`, which is the whole migration.
+ * An absent mods field means "engine has done exactly the car's own km", which
+ * is the honest reading of a car that existed before anyone could rebuild one
+ * -- writing `{ wearKm: 0 }` instead would hand every car in every existing
+ * save a free engine rebuild the day this shipped, and hand the biggest gift
+ * to whoever had been driving the most tired car.
+ */
+const v3ToV4 = (s: SaveV3): Save => ({
+  version: SAVE_VERSION,
+  credits: s.credits,
+  racesRun: s.racesRun,
+  owned: s.owned.map((o) => ({ ...o })),
+});
+
 /** Any shape we have ever written, brought to the current one. */
 export function migrate(old: unknown): Save | null {
-  if (isSaveV1(old)) return v2ToV3(v1ToV2(old));
-  if (isSaveV2(old)) return v2ToV3(old);
+  if (isSaveV1(old)) return v3ToV4(v2ToV3(v1ToV2(old)));
+  if (isSaveV2(old)) return v3ToV4(v2ToV3(old));
+  if (isSaveV3(old)) return v3ToV4(old);
   return null;
 }
 

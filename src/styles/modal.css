@@ -227,10 +227,21 @@
   gap: 7px;
 }
 
-/* White on transparency like the section nav, so opacity is the only lever. */
-.modal-foot .btn-icon,
-.confirm-acts .btn-icon,
-.paint-row .btn-icon {
+/*
+ * White on transparency like the section nav, so opacity is the only lever.
+ *
+ * UNSCOPED, and that is the fix rather than the shortcut. This was three
+ * ancestor-qualified selectors -- .modal-foot, .confirm-acts, .paint-row --
+ * which meant a Glyph used anywhere else rendered at the PNG's native 512px.
+ * It is not a hypothetical: the workshop's back arrow came out as a white blob
+ * over half the screen, and nothing failed, because a correctly-loaded image at
+ * the wrong size is not an error.
+ *
+ * A component that ships its own class should carry its own size with it. The
+ * size is overridable per surface below; the default is what stops the next
+ * screen from rediscovering this.
+ */
+.btn-icon {
   flex: none;
   width: 15px;
   height: 15px;

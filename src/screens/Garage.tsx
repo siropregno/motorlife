@@ -4,6 +4,7 @@ import { colorOfHeld, type OwnedCar } from "@progression/save";
 import { colorsOf, imageFor } from "@progression/paint";
 
 import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
+import { modCount } from "@progression/mods";
 import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
 import { Confirm } from "../components/Confirm";
@@ -19,6 +20,12 @@ interface Props {
   onDrive: (id: string) => void;
   onSell: (id: string) => void;
   onRepaint: (id: string, color: string) => void;
+  /**
+   * Take this car to the workshop. The garage does not fit parts itself -- the
+   * workshop is a section of its own -- so this navigates rather than acting,
+   * which is why it is the only handler here that does not change the save.
+   */
+  onTune: (id: string) => void;
 }
 
 interface MenuAt {
@@ -27,12 +34,20 @@ interface MenuAt {
   id: string;
 }
 
-export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }: Props) {
+export function Garage({
+  owned,
+  credits,
+  currentId,
+  onDrive,
+  onSell,
+  onRepaint,
+  onTune,
+}: Props) {
   const cars = useMemo(
     () => owned.flatMap((o) => {
       const spec = CARS.find((c) => c.id === o.id);
       const color = colorOfHeld(o);
-      return spec ? [{ spec, km: o.km, color, image: imageFor(spec, color) }] : [];
+      return spec ? [{ spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }] : [];
     }),
     [owned],
   );
@@ -61,11 +76,13 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
 
   const items = useMemo<MenuItem[]>(() => {
     const spec = menu ? carById(menu.id) : null;
-    const km = menu ? (owned.find((o) => o.id === menu.id)?.km ?? 0) : 0;
+    const held = menu ? owned.find((o) => o.id === menu.id) : undefined;
+    const km = held?.km ?? 0;
     if (!spec) return [];
     const current = spec.id === currentId;
     const last = owned.length <= 1;
     const paintable = colorsOf(spec).length > 1;
+    const fitted = modCount(held?.mods);
     return [
       /*
        * No "Ver ficha" row. It was here for one commit, and once every action
@@ -82,6 +99,22 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
         onPick: () => onDrive(spec.id),
       },
       {
+        /*
+         * Above Repintar because it is the row that changes the car rather
+         * than what it looks like, and the menu reads top to bottom in order
+         * of consequence: get in it, change it, paint it, lose it.
+         *
+         * The hint says what is fitted rather than a price, because there is
+         * no single price -- twelve parts at twelve prices is a screen, not a
+         * hint, and the count is the thing you actually want to know from
+         * outside: whether this car has been touched.
+         */
+        label: "Llevar al taller",
+        icon: ICON.wrench,
+        hint: fitted === 0 ? "de fábrica" : `${fitted} de 4`,
+        onPick: () => onTune(spec.id),
+      },
+      {
         // Straight to the paint shop, without the spec sheet in between. The
         // picker cannot live in the menu itself -- it needs the photo above it
         // to preview against -- so the row is a way IN to it, not a copy.
@@ -96,13 +129,14 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
         icon: ICON.sell,
         // The hint doubles as the reason when the item is dead. A greyed row
         // with no explanation reads as a bug.
-        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km))} cr`,
+        // the parts go with the car, so the quote has to count them
+        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km, held?.mods))} cr`,
         danger: true,
         disabled: last,
         onPick: () => setSelling(spec.id),
       },
     ];
-  }, [menu, currentId, owned, onDrive, onSell]);
+  }, [menu, currentId, owned, onDrive, onTune]);
 
   return (
     <>
@@ -116,11 +150,12 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
 
       <div className="screen-body">
         <div className="card-grid">
-          {cars.map(({ spec: c, km, image }) => (
+          {cars.map(({ spec: c, km, mods, image }) => (
             <CarCard
               key={c.id}
               spec={c}
               km={km}
+              mods={mods}
               image={image}
               onOpen={setOpenId}
               onContextMenu={(e, id) => {
@@ -149,6 +184,7 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
         <CarModal
           spec={open.spec}
           km={open.km}
+          mods={open.mods}
           color={open.color}
           image={open.image}
           sheet={{
@@ -158,6 +194,7 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
             onDrive: () => onDrive(open.spec.id),
             onSell: () => setSelling(open.spec.id),
             onPaint: () => setPainting(open.spec.id),
+            onTune: () => onTune(open.spec.id),
           }}
           onClose={() => setOpenId(null)}
         />
@@ -177,7 +214,11 @@ export function Garage({ owned, credits, currentId, onDrive, onSell, onRepaint }
       {sellingCar ? (
         <Confirm
           question={`¿Vender tu ${sellingCar.spec.make} ${sellingCar.spec.model}?`}
-          detail={`Te pagan ${formatCredits(sellValueFor(sellingCar.spec, sellingCar.km))} cr. No se puede deshacer.`}
+          detail={`Te pagan ${formatCredits(
+            sellValueFor(sellingCar.spec, sellingCar.km, sellingCar.mods),
+          )} cr${
+            modCount(sellingCar.mods) > 0 ? ", con las piezas puestas" : ""
+          }. No se puede deshacer.`}
           yes="Vender"
           danger
           onYes={() => {

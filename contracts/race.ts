@@ -1,4 +1,5 @@
 import type { CarSpec } from "./car";
+import type { Mods } from "./mods";
 
 /** Tyre compounds. Softer is faster and wears quicker. */
 export type Compound = "soft" | "medium" | "hard";
@@ -23,6 +24,19 @@ export interface Build {
   carId: string;
   compound: Compound;
   setup: Setup;
+  /**
+   * What is bolted to the car for this race. Part of the BUILD rather than of
+   * the entry, because a build is the complete answer to "what are you
+   * running" -- parts, tyres and setup -- and the race has to be reproducible
+   * from it alone. Absent means stock.
+   */
+  mods?: Mods;
+  /**
+   * The odometer the car arrives with. Engine wear reads it, so the same car
+   * with the same parts is a shade slower at 300.000 km than at 20.000, and a
+   * replay has to know which one ran.
+   */
+  km?: number;
 }
 
 /** One entry on the grid. */

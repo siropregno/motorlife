@@ -128,6 +128,34 @@ export function accelerate(
 }
 
 /**
+ * Terminal speed, m/s: where tractive force and resistance balance.
+ *
+ * The inverse of what cdaFromTopSpeed does. That reads a published top speed
+ * and solves for drag; this takes the drag a car ended up with -- after a
+ * turbo raised its power or an exhaust cost it a little area -- and says how
+ * fast it now goes.
+ *
+ * Bisection rather than the closed form, and for a reason: the closed form
+ * assumes the car is power-limited at the top, which is true of every road car
+ * but not of a 54 kW saloon on a short enough gear. Bisection on
+ * `tractive - resistance` is monotonic in v over this range and cannot
+ * diverge, which is the same argument fitCalibration makes.
+ *
+ * 200 m/s is 720 km/h -- above anything four wheels do, so the bracket always
+ * contains the answer.
+ */
+export function topSpeed(car: PhysicsCar, massKg = car.massKg): number {
+  let lo = 1;
+  let hi = 200;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (tractiveForce(car, mid, massKg) > resistance(car, mid, massKg)) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
  * 0 to 100 km/h from a standstill, seconds. This is what the calibration
  * scalar is fitted against, so it must include the shift losses a real
  * published figure includes.

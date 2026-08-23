@@ -53,11 +53,12 @@ export const CARS: CarSpec[] = [
     make: "Peugeot",
     model: "504 TN",
     year: 1977,
-    kW: 81,
+    kW: 81, // XN1-S 1971 cm³, 110 CV DIN at 5500
     kg: 1180,
     layout: "FR",
     cls: "sports",
-    topKph: 170,
+    topKph: 175, // 175,183 measured at the SAFRAR launch. Was 170.
+    zeroTo100: 11.3,
     nm: 166,
     rarity: "common",
     blurb: "Sedán deportivo",
@@ -96,12 +97,17 @@ export const CARS: CarSpec[] = [
     make: "Renault",
     model: "Torino ZX",
     year: 1978,
-    kW: 96, // Tornado 3.0 I6, 130 CV DIN -- the single-carb ZX, not the 176 CV 5V
+    // OHC 233, 3770 cm³, 200 hp at 4500 rpm and 33 mKg at 3000, per
+    // es.wikipedia Torino ZX. This said "130 CV DIN, the single-carb ZX" and
+    // that car is not what the ZX was: it is the last and most powerful
+    // Torino, not a detuned one.
+    kW: 147,
     kg: 1250,
     layout: "FR",
     cls: "muscle",
-    topKph: 180,
-    nm: 230,
+    // tutorino's ficha for the Cupé ZX. Was 180.
+    topKph: 196,
+    nm: 324,
     rarity: "rare",
     blurb: "Coupé",
     logo: "/renault-logo.png",
@@ -115,7 +121,13 @@ export const CARS: CarSpec[] = [
     kg: 1290,
     layout: "FR",
     cls: "muscle",
-    topKph: 185, // sources give 175-190; the middle of that is the honest pick
+    // Ford Motor Argentina's own figure, not the middle of a range of
+    // hearsay. This was 185 -- "sources give 175-190, the middle is the
+    // honest pick" -- which is what you write when you have not found the
+    // factory number. maximavelocidad.com.ar and todofalcon both carry the
+    // official 180, with a measured 179,566.
+    topKph: 180,
+    zeroTo100: 10.8,
     nm: 300,
     rarity: "uncommon",
     blurb: "Sedán deportivo",
@@ -144,11 +156,13 @@ export const CARS: CarSpec[] = [
     make: "Dodge",
     model: "1500 GT90",
     year: 1975,
-    kW: 66, // 1.5 I4, 90 CV -- the car sold here on Fittipaldi's name
+    kW: 66, // 1498 cm³ I4, 90 CV -- the car sold here on Fittipaldi's name
     kg: 925,
     layout: "FWD",
     cls: "sports",
-    topKph: 160,
+    // 156,569 measured by Corsa, road test November 1973. Was 160.
+    topKph: 157,
+    zeroTo100: 13.6,
     nm: 115,
     rarity: "common",
     blurb: "Compacto",
@@ -222,11 +236,12 @@ export const CARS: CarSpec[] = [
     make: "Renault",
     model: "18 GTX",
     year: 1985,
-    kW: 76, // 2.0 I4, 104 CV
+    kW: 76, // 1995 cm³ I4, 104 CV
     kg: 1050,
     layout: "FWD",
     cls: "saloon",
-    topKph: 175,
+    topKph: 185, // ultimatespecs, 18 2.0 TX/GTX. Was 175.
+    zeroTo100: 11.6,
     nm: 160,
     rarity: "common",
     blurb: "Sedán",
@@ -237,11 +252,12 @@ export const CARS: CarSpec[] = [
     make: "Chevrolet",
     model: "Chevy Super Sport",
     year: 1972,
-    kW: 114, // 3.8 I6, 155 CV
+    kW: 115, // 4093 cm³ I6, 155 CV -- automobile-catalog's Chevy SS Coupé
     kg: 1230,
     layout: "FR",
     cls: "muscle",
     topKph: 185,
+    zeroTo100: 10.5, // automobile-catalog, Chevy SS Coupé 1972
     nm: 300,
     rarity: "uncommon",
     blurb: "Coupé",
@@ -251,11 +267,11 @@ export const CARS: CarSpec[] = [
     make: "Renault",
     model: "Fuego GTA Max",
     year: 1990,
-    kW: 88, // 2.2 I4, 120 CV
+    kW: 90, // 2.2 I4, 123 CV at 6000 -- the Berta-developed GTA Max
     kg: 1130,
     layout: "FWD",
     cls: "sports",
-    topKph: 190,
+    topKph: 198, // Was 190. Renault Argentina and testdelayer both give 198.
     nm: 180,
     rarity: "uncommon",
     blurb: "Coupé",
@@ -268,11 +284,14 @@ export const CARS: CarSpec[] = [
     make: "Ford",
     model: "Sierra XR4",
     year: 1990,
-    kW: 92, // 2.3 I4, 125 CV
-    kg: 1180,
+    // The Argentine 2.3 with the Weber 32/36, ~120 CV -- not the European
+    // 2.8i XR4i. ultimatespecs lists the Argentine car at 1155 kg.
+    kW: 88,
+    kg: 1155,
     layout: "FR",
     cls: "sports",
-    topKph: 195,
+    topKph: 190, // Was 195.
+    zeroTo100: 10.3,
     nm: 190,
     rarity: "uncommon",
     blurb: "Coupé",
@@ -283,12 +302,22 @@ export const CARS: CarSpec[] = [
     make: "Volkswagen",
     model: "Gol GTI",
     year: 1994,
-    kW: 107, // 2.0 16v, 145 CV
-    kg: 1010,
+    /*
+     * The Argentine GTI, off testdelayer's own road test: 1984 cm³ 8v, 125 CV
+     * at 5700, 970 kg, and 173,300 km/h as the average of its two best runs.
+     *
+     * This was entered as "2.0 16v, 145 CV" at 200 km/h, which is a car that
+     * did not exist here -- 145 CV is the European 16v. The measured top speed
+     * is the one to use rather than a factory claim: it is what the car did,
+     * and it is what cdaFromTopSpeed is solving drag against.
+     */
+    kW: 92,
+    kg: 970,
     layout: "FWD",
     cls: "sports",
-    topKph: 200,
-    nm: 180,
+    topKph: 173,
+    zeroTo100: 10.4,
+    nm: 172,
     rarity: "uncommon",
     blurb: "Compacto deportivo",
   },
@@ -297,11 +326,16 @@ export const CARS: CarSpec[] = [
     make: "Renault",
     model: "Torino 380W",
     year: 1970,
-    kW: 129, // Tornado 3.0 I6, 176 CV -- the triple-Weber 380W, not the ZX
-    kg: 1290,
+    // 3770 cm³ Tornado I6, 176 HP at 5000 rpm, per es.wikipedia Torino 380 W.
+    // The mass was 1290 and the real kerb figure is 1497 -- 207 kg is not a
+    // rounding difference, it is a sixth of the car, and it was making a big
+    // heavy coupé corner like a light one.
+    kW: 129,
+    kg: 1497,
     layout: "FR",
     cls: "muscle",
-    topKph: 190,
+    // 199,390 measured. Was 190.
+    topKph: 199,
     nm: 285,
     rarity: "rare",
     blurb: "Coupé",
@@ -316,8 +350,11 @@ export const CARS: CarSpec[] = [
     kg: 880,
     layout: "FWD",
     cls: "sports",
-    topKph: 206,
-    zeroTo100: 7.8,
+    // 197,9 measured by automobile-catalog; 0-100 in 7,7. Was 206/7.8 -- the
+    // 206 is the figure Peugeot quoted for the later 1.9 with the catalysed
+    // 122 CV engine, not this one.
+    topKph: 198,
+    zeroTo100: 7.7,
     nm: 165,
     rarity: "rare",
     blurb: "Hot hatch",
@@ -396,8 +433,11 @@ export const CARS: CarSpec[] = [
     kg: 1370,
     layout: "MR",
     cls: "supercar",
-    topKph: 270,
-    zeroTo100: 5.7,
+    // 255 and 6,1 for the European NA1, per automobile-catalog and
+    // encycarpedia. Was 270/5.7, which is the figure the motoring press
+    // repeated for the later 3.2 rather than the 3.0 this car is.
+    topKph: 255,
+    zeroTo100: 6.1,
     nm: 285,
     rarity: "legendary",
     blurb: "Superdeportivo",
@@ -413,8 +453,8 @@ export const CARS: CarSpec[] = [
     kg: 1270,
     layout: "AWD",
     cls: "sports",
-    topKph: 250,
-    zeroTo100: 5.0,
+    topKph: 248, // fastestlaps / carfolio. Was 250.
+    zeroTo100: 4.9,
     nm: 363,
     rarity: "legendary",
     blurb: "Rally homologado",

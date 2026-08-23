@@ -1,3 +1,5 @@
+import type { PartId } from "@contracts/mods";
+
 /**
  * The glyphs, in one place because most of them are used twice: once in the
  * right-click menu on a card and once on a button in the sheet. A path written
@@ -19,4 +21,25 @@ export const ICON = {
    * rest, so it belongs to the same table rather than to a path in CarCard.
    */
   shiny: "/shiny.png",
+  /** The workshop, on the nav tab and on the sheet's button. */
+  wrench: "/wrench.png",
 } as const;
+
+/**
+ * The four parts, each with its own glyph.
+ *
+ * Separate from ICON because these are indexed by PartId rather than reached
+ * by name: the workshop maps over PART_IDS and needs a glyph per part, and a
+ * lookup that can miss would be a hole in the row rather than a type error.
+ * Record<PartId, string> is what makes adding a fifth part a compile failure
+ * here instead of a blank tile at runtime.
+ */
+export const PART_ICON: Record<PartId, string> = {
+  suspension: "/suspension.png",
+  gearbox: "/transmission.png",
+  exhaust: "/exhaust.png",
+  turbo: "/turbo.png",
+};
+
+/** The engine rebuild, which is not one of the four. */
+export const ENGINE_ICON = "/engine.png";

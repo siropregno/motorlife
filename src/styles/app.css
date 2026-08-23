@@ -1674,3 +1674,434 @@ p.screen-sub {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+
+
+/* ---------- the workshop ---------- */
+/*
+ * A section laid out like the car sheet rather than like Setup: a narrow ficha
+ * of figures down the left, and the car filling everything else with a strip of
+ * controls under it.
+ *
+ * It is a SECTION and not a dialog, so it has no screen-head and no scroll box
+ * -- the whole thing is the height of the frame and nothing inside it moves.
+ * That is what lets the photo be as big as it is, and the photo being big is
+ * the point: you are deciding what to do to this car.
+ *
+ * Every rule here is prefixed `workshop-`. Nothing reaches into .btn, .panel or
+ * .chip: those are shared, and editing them from a new screen is what broke two
+ * others.
+ */
+.workshop-stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  height: 100%;
+  min-height: 0;
+  background: var(--panel);
+  border-radius: 14px;
+  overflow: hidden;
+}
+@media (min-width: 860px) {
+  .workshop-stage {
+    grid-template-columns: 300px 1fr;
+  }
+}
+
+.workshop-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  background: var(--ground);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* The ficha borrows .spec-list / .spec-row / .spec-k / .spec-v from the car
+   sheet, which is where those are defined. Same facts, same shape, one set of
+   rules -- the only thing this adds is the gap under the last row. */
+/*
+ * The rows sit together at the top and the empty space goes UNDER them.
+ * `flex: 1` on the list spread seven rows down 650px of column, which reads as
+ * seven unrelated facts rather than as one spec sheet.
+ */
+.workshop-specs .spec-list {
+  flex: none;
+}
+.workshop-specs::after {
+  content: "";
+  flex: 1;
+}
+
+/*
+ * The car picker, at the foot of the ficha. Quiet on purpose: it is how you
+ * change WHICH car you are working on, which is a thing you do once on the way
+ * in rather than while you are deciding.
+ */
+.workshop-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.workshop-pick-opt {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--panel-2);
+  color: var(--ink-3);
+  text-align: left;
+  font-family: var(--text);
+  font-size: 12.5px;
+}
+.workshop-pick-opt:hover {
+  border-color: var(--line-2);
+}
+.workshop-pick-opt.on {
+  border-color: var(--purple-ink);
+  color: var(--ink);
+}
+.workshop-pick-opt .meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The car, and the strip under it. The photo takes whatever the strip does
+   not, which is what keeps the car the biggest thing on the screen at every
+   window height. */
+.workshop-main {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+}
+
+.workshop-hero {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+}
+.workshop-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Over the photo's top right, where no car in the catalogue has anything worth
+   looking at. It stays visible while you work because it is the number the
+   whole screen is about. */
+.workshop-klass {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  z-index: 2;
+}
+
+/*
+ * The class badge while a tier is under the cursor.
+ *
+ * It has to read as a PREVIEW and not as a number that already changed. The
+ * dashed ring is the whole signal: same colour, same size, same place, and an
+ * outline that says "not yet".
+ */
+.klass-badge.preview {
+  outline: 2px dashed var(--purple-ink);
+  outline-offset: 3px;
+}
+
+/* ---------- the strip ---------- */
+.workshop-bar {
+  padding: 18px 24px 22px;
+  background: var(--ground);
+  border-top: 1px solid var(--line);
+}
+
+.workshop-bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.workshop-bar-head h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.09em;
+  color: var(--ink-3);
+}
+/* The tier being offered, right of the heading. Bright, because it is the
+   answer to "what am I about to buy" and the price beside it is the cost. */
+.workshop-tier-name {
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.workshop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.workshop-tiles {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/*
+ * A tile. Square, rounded, one glyph, and the colour carries the meaning.
+ *
+ * White-on-transparency glyphs, so the same four files work on all four tier
+ * colours without a second set -- the same rule every other icon in the game
+ * follows.
+ */
+.workshop-tile {
+  width: 68px;
+  height: 68px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 16px;
+  background: var(--tile, #4a4a4a);
+  padding: 0;
+}
+/* The glyph IS the tile, so it overrides the 15px .btn-icon default that suits
+   a glyph sitting beside a word. */
+.workshop-tile .btn-icon {
+  width: 36px;
+  height: 36px;
+  opacity: 1;
+}
+.workshop-tile:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+/*
+ * The ladder. Grey is the factory part and reads as "nothing done"; green,
+ * blue and pink climb from there. The same three colours mean the same three
+ * tiers on every part, so learning that pink is competición is learning it
+ * once for the whole screen.
+ */
+.workshop-tile.stock {
+  --tile: #6b6b6b;
+}
+.workshop-tile.street {
+  --tile: #2eb85c;
+}
+.workshop-tile.sport {
+  --tile: #17a2e8;
+}
+.workshop-tile.racing {
+  --tile: #e6187f;
+}
+
+/* What is fitted. A ring rather than a different fill: the fill is already
+   saying which TIER this is, and a second fill would be two things in one
+   colour. */
+.workshop-tile.on {
+  box-shadow:
+    0 0 0 3px var(--ground),
+    0 0 0 5px var(--purple-ink);
+}
+
+/*
+ * What you have CHOSEN and not yet paid for. Dashed, the same signal the class
+ * badge uses while previewing, and for the same reason: it has to be legible
+ * as "not yet" beside the solid ring that means "on the car".
+ */
+.workshop-tile.picked {
+  outline: 2px dashed var(--purple-ink);
+  outline-offset: 4px;
+}
+
+/* Out of reach, not unavailable: it stays legible, because the price in the
+   tooltip is what you came to read. */
+.workshop-tile.poor {
+  opacity: 0.4;
+}
+
+/* The engine, which is not a part. A hairline before it says so -- the same
+   separator the nav uses between the sections and the gear, and for the same
+   reason: what is on the left navigates, what is on the right is different. */
+.workshop-tile-sep {
+  width: 1px;
+  height: 44px;
+  background: var(--line-2);
+  margin: 0 4px;
+  flex: none;
+}
+.workshop-tile.engine {
+  --tile: #3a3a3a;
+}
+/* Amber when it wants work. Not red: a tired engine is a car that needs a
+   weekend, not a car that is broken. */
+.workshop-tile.engine.worn {
+  --tile: #7a5410;
+}
+
+/* ---------- the engine's row, which has no tiers ---------- */
+.workshop-wear-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 260px;
+  flex: 1;
+}
+.workshop-wear {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--line);
+  overflow: hidden;
+}
+.workshop-wear i {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+}
+.workshop-wear-note {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-4);
+}
+
+/* ---------- back, and the money ---------- */
+.workshop-acts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.workshop-back .btn-icon {
+  width: 17px;
+  height: 17px;
+}
+.workshop-back {
+  width: 56px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+}
+/* Wide and loud. It is the only control on the screen that spends money --
+   clicking a tile picks, this pays -- so it should not be the same size as
+   anything that does not. */
+.workshop-pay {
+  min-width: 168px;
+  height: 52px;
+  border-radius: 14px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The workshop has no screen-head and no screen-body.
+ *
+ * Every other section is a title over a scrolling list, which is what
+ * `.screen`'s two-row grid is for. This one is a single box the size of the
+ * frame: the car fills it, the strip sits at the bottom, and nothing inside
+ * scrolls. So the grid collapses to one row here rather than the section
+ * growing a header it has nothing to put in.
+ */
+.screen.workshop {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/*
+ * A figure that is about to change.
+ *
+ * Green up, red down, with the direction decided by the caller rather than by
+ * the sign -- more CV is an improvement and more seconds to 100 is not, and
+ * only the component knows which is which.
+ *
+ * The colours are the tokens the timing tower already uses for good and bad
+ * news, so a green number means the same thing here as it does mid-race.
+ */
+.workshop-specs .spec-v.up {
+  color: var(--green);
+}
+.workshop-specs .spec-v.down {
+  color: var(--red);
+}
+
+/*
+ * Where the figure came from, under the new one. It deliberately does NOT take
+ * the green or red: the coloured thing should be the number you are about to
+ * have, and painting the old one too makes the row read as two claims.
+ */
+.workshop-specs .figure-was {
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Which car is on the ramp. The logo and the model, the same pairing the
+ * topbar and the car sheet use, so a car is identified the same way wherever
+ * it is named.
+ */
+.workshop-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.workshop-marque {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.workshop-marque img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.workshop-name h2 {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ink);
+  line-height: 1.1;
+  min-width: 0;
+}
+/* Light, like the year on a card: it qualifies the model rather than being
+   part of the name. */
+.workshop-year {
+  font-weight: 300;
+  font-size: 15px;
+  color: var(--ink-3);
+  flex: none;
+}

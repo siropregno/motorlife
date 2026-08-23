@@ -1,7 +1,10 @@
 import type { MouseEvent } from "react";
 import type { CarSpec } from "@contracts/car";
+import type { Mods } from "@contracts/mods";
 import { ratingOf } from "@catalog/rating";
+import { modEffect } from "@sim/mods";
 import { conditionOf, formatKm } from "@progression/mileage";
+import { modCount } from "@progression/mods";
 import { classTierClass } from "../lib/tiers";
 import { ICON } from "../lib/icons";
 
@@ -12,6 +15,12 @@ interface Props {
    * Absent on the Setup screen, where the card is just "the car you drive".
    */
   km?: number;
+  /**
+   * What is bolted to THIS car. Absent on a forecourt listing, where the card
+   * is a model rather than an object -- the shop sells cars, and a car does
+   * not acquire parts until somebody owns it.
+   */
+  mods?: Mods | undefined;
   /** Overrides spec.image: the photo of THIS car, in its colour. */
   image?: string | undefined;
   /** Opens the spec sheet. A card does nothing else on click. */
@@ -39,11 +48,18 @@ interface Props {
  * from the right-click menu now, and the topbar says which one you are in.
  * Opening a read-only sheet is the one thing a click can safely mean.
  */
-export function CarCard({ spec, km, image = spec.image, onOpen, onContextMenu }: Props) {
-  const hp = Math.round(spec.kW * 1.35962);
+export function CarCard({ spec, km, mods, image = spec.image, onOpen, onContextMenu }: Props) {
+  /*
+   * Power and class are read off the car AS IT STANDS. A card in the garage
+   * showing catalogue figures would disagree with the workshop that just
+   * changed them, and the class badge in particular has to be the class you
+   * would actually race in -- it is the same badge the topbar wears.
+   */
+  const hp = Math.round(spec.kW * modEffect(mods, km ?? 0).kW * 1.35962);
   // cached in the catalogue, so this is a map lookup after the first call
-  const rating = ratingOf(spec);
+  const rating = ratingOf(spec, mods, mods ? (km ?? 0) : 0);
   const tier = classTierClass(rating.letter);
+  const fitted = modCount(mods);
   // "De colección": low kilometres for its age. The shop already prints that
   // label in purple next to the price, so this is the same claim as a mark you
   // can see from across the grid -- and the only way to see it in the garage,
@@ -91,6 +107,29 @@ export function CarCard({ spec, km, image = spec.image, onOpen, onContextMenu }:
         <span className="card-shiny" title="De colección">
           <img src={ICON.shiny} alt="" aria-hidden="true" />
           <span className="sr-only">De colección</span>
+        </span>
+      ) : null}
+
+      {/*
+        A car that has been worked on says so from across the grid.
+
+        It sits in the same bottom-right corner as the collector's mark and
+        SHIFTS LEFT when both are present -- the two are not alternatives, since
+        a shed-find you then modified is exactly the car that wears both. The
+        left corner was the other option and is not available: that is where the
+        title column puts the odometer, and a badge there would land on it.
+
+        Same accessibility shape as the mark above: the glyph is decorative and
+        the words are in a .sr-only span, since `title` on a span is a mouse
+        affordance and not an accessible name.
+      */}
+      {fitted > 0 ? (
+        <span
+          className={`card-tuned${collectible ? " beside" : ""}`}
+          title={`Preparado · ${fitted} de 4`}
+        >
+          <img src={ICON.wrench} alt="" aria-hidden="true" />
+          <span className="sr-only">Preparado, {fitted} de 4 piezas</span>
         </span>
       ) : null}
     </>

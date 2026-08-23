@@ -107,13 +107,20 @@ const WEAR_FROM_SPRINGS = 0.35;
  */
 const WEAR_FROM_BIAS = 0.15;
 
-export function wearMultiplier(setup: Setup): number {
+/**
+ * @param modWear what the fitted parts do to tyre life, 1 being stock. It
+ *   multiplies rather than adds for the same reason the parts multiply each
+ *   other: a racing suspension on a full-wing setup should compound, not sum,
+ *   or a stack of small wear costs eventually outruns the grip floor.
+ */
+export function wearMultiplier(setup: Setup, modWear = 1): number {
   const clA = Math.max(0, AERO_CLA_BASE + AERO_CLA_SPAN * setup.aero);
   return (
-    1 +
-    WEAR_FROM_AERO * (clA - AERO_CLA_BASE) +
-    WEAR_FROM_SPRINGS * Math.max(0, setup.springs) +
-    WEAR_FROM_BIAS * Math.max(0, setup.brakeBias)
+    (1 +
+      WEAR_FROM_AERO * (clA - AERO_CLA_BASE) +
+      WEAR_FROM_SPRINGS * Math.max(0, setup.springs) +
+      WEAR_FROM_BIAS * Math.max(0, setup.brakeBias)) *
+    modWear
   );
 }
 
@@ -149,12 +156,19 @@ export interface EffectiveCar extends PhysicsCar {
  * Collapse a car, a setup, a tyre state and a fuel load into the numbers the
  * lap model actually reads. Everything downstream is pure geometry.
  */
+/**
+ * `car` may be a plain DerivedCar or one that has been through applyMods. The
+ * mod's tyre cost rides in an optional field rather than in a fifth parameter
+ * so that every existing caller -- the rating harness, the rival solver, the
+ * Setup readout -- keeps working unchanged and a stock car is `modWear` 1.
+ */
 export function applySetup(
-  car: DerivedCar,
+  car: DerivedCar & { modWear?: number },
   setup: Setup,
   tyres: TyreState,
   lap: number,
 ): EffectiveCar {
+  const wearMul = wearMultiplier(setup, car.modWear ?? 1);
   const clAForSprings = Math.max(0, AERO_CLA_BASE + AERO_CLA_SPAN * setup.aero);
   const springMul =
     1 +
@@ -170,13 +184,12 @@ export function applySetup(
     // a wing costs drag everywhere, and only pays where the corner is fast
     cda: car.cda + AERO_DRAG_QUAD * clA * clA + AERO_DRAG_LIN * clA,
     clA,
-    muLateral: car.muLateral * springMul * tyreGrip(tyres, wearMultiplier(setup)),
+    muLateral: car.muLateral * springMul * tyreGrip(tyres, wearMul),
     // bias moves the braking number ONLY. How much that is worth is a
     // property of the circuit -- a lap with heavy braking zones rewards it and
     // a flowing one does not -- which is what makes it a decision rather than
     // a free 0.25 everywhere.
-    muBrake:
-      car.muLateral * springMul * tyreGrip(tyres, wearMultiplier(setup)) * biasMul,
+    muBrake: car.muLateral * springMul * tyreGrip(tyres, wearMul) * biasMul,
     eta: car.eta,
     driven: car.driven,
     transferSign: car.transferSign,
