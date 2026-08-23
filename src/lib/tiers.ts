@@ -1,3 +1,4 @@
+import type { PartLevel } from "@contracts/mods";
 import type { ClassLetter } from "@sim/rating";
 
 /**
@@ -22,3 +23,19 @@ export const CLASS_TIER: Record<ClassLetter, string> = {
 export function classTierClass(letter: ClassLetter): string {
   return CLASS_TIER[letter] ?? "common";
 }
+
+/**
+ * The PART ladder's class names, which are not the class ladder's.
+ *
+ * Here rather than in Workshop.tsx because the car sheet reads the same four
+ * colours off the same four levels: the workshop is where you fit a part and
+ * the sheet is where you check what is fitted, and the two disagreeing about
+ * what pink means would make the colour worth nothing. The hexes they resolve
+ * to are --part-* in tokens.css.
+ */
+export const PART_TIER: Record<PartLevel, string> = {
+  0: "stock",
+  1: "street",
+  2: "sport",
+  3: "racing",
+};

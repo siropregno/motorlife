@@ -193,6 +193,55 @@
   color: var(--ink-4);
 }
 
+/*
+ * The four parts, under the photo.
+ *
+ * Smaller than the workshop's 68px tiles on purpose. There they are the thing
+ * you are aiming at and they have to take a click; here they are a readout of
+ * what is on the car, sitting under a photo that is the point of the panel.
+ * Same colours, same glyphs, less weight.
+ *
+ * Scoped to .modal-*, like everything else in this file: .stock/.street/
+ * .sport/.racing are shared words -- the workshop already uses them -- so the
+ * colour is pulled from a --part-* token by a selector that cannot reach
+ * outside a dialog.
+ */
+.modal-parts {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.modal-part {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--part-stock);
+}
+.modal-part .btn-icon {
+  width: 22px;
+  height: 22px;
+  opacity: 1;
+}
+/* Stock is dimmed rather than recoloured. It is the absence of a part, and at
+   full strength four grey tiles read as four things that are ON the car. */
+.modal-part.stock {
+  background: var(--part-stock);
+  opacity: 0.45;
+}
+.modal-part.street {
+  background: var(--part-street);
+}
+.modal-part.sport {
+  background: var(--part-sport);
+}
+.modal-part.racing {
+  background: var(--part-racing);
+}
+
 .modal-foot {
   display: flex;
   align-items: center;

@@ -64,6 +64,23 @@
   --tier-apex: linear-gradient(180deg, #cc0044 0%, #ff5500 100%);
 }
 
+/*
+ * The PART ladder, which is a different ladder: stock, calle, sport,
+ * competición. Grey is the factory part and reads as "nothing done"; green,
+ * blue and pink climb from there.
+ *
+ * Here rather than beside .workshop-tile because two screens ask the same
+ * question of the same four parts -- the workshop, where you buy them, and the
+ * car sheet, where you check what is on the car. The colours have to agree or
+ * pink stops meaning competición the moment you leave the taller.
+ */
+:root {
+  --part-stock: #6b6b6b;
+  --part-street: #2eb85c;
+  --part-sport: #17a2e8;
+  --part-racing: #e6187f;
+}
+
 /* rarity bars, straight from the mockup */
 .common {
   background: var(--tier-common);

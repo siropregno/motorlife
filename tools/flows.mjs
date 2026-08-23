@@ -224,6 +224,15 @@ try {
   await card("Chevy 250").click();
   await page.waitForSelector("dialog.modal");
   check("it still shows a price", await page.locator(".modal-price").innerText(), "12.200 cr");
+  /*
+   * And NO part strip. The garage sheet carries four tiles saying what is
+   * bolted to the car; a listing is a MODEL, and a model has no parts on it.
+   * mods is undefined here, so an unguarded strip would draw four grey tiles
+   * claiming a car is stock when there is no car yet -- the failure that is
+   * invisible precisely because grey is also the honest colour for "nothing
+   * fitted".
+   */
+  check("a car for sale has no part strip", await page.locator(".modal-part").count(), 0);
   await page.locator(".modal-foot .btn").last().click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
   check("and still buys", await wallet(), "109.400CR");
@@ -579,6 +588,59 @@ try {
     (await card("M3 E30").locator(".card-text-light").innerText()).split(" /")[0],
     "283 CV",
   );
+
+  /*
+   * The sheet's part strip.
+   *
+   * Four glyphs under the photo, each wearing the colour of the tier fitted to
+   * it -- the same ladder the workshop uses, which is why the colours live in
+   * tokens.css rather than beside either screen. It replaced a "Preparación"
+   * row that spelled the same facts out as four names and four tier words, and
+   * could wrap to four lines in a 300px column.
+   *
+   * Checked HERE because this is the only point in the run where a car has a
+   * part on it and the sheet can be opened over it: the M3 took a racing turbo
+   * and nothing else, so the strip has to read pink, then three greys. A car
+   * with everything fitted would pass a looser check just as well; the mixed
+   * one is what proves the colour is read per part.
+   */
+  await card("M3 E30").click();
+  await page.waitForSelector("dialog.modal");
+  check(
+    "the sheet shows all four parts, fitted or not",
+    await page.locator(".modal-part").count(),
+    4,
+  );
+  check(
+    "each one coloured by the tier on it: a racing turbo, the rest factory",
+    await page.locator(".modal-part").evaluateAll((els) =>
+      els.map((e) => ["stock", "street", "sport", "racing"].find((c) => e.classList.contains(c))).join(" ")),
+    "racing stock stock stock",
+  );
+  check(
+    "the glyphs are the workshop's, and every one of them loaded",
+    await page.locator(".modal-part .btn-icon").evaluateAll((els) =>
+      els.every((e) => e.complete && e.naturalWidth > 0)),
+    true,
+  );
+  /*
+   * Colour is not a label. These tiles are the only thing left saying what is
+   * fitted now that the text row is gone, so each has to name its part AND its
+   * tier -- otherwise a screen reader gets a car with no preparation at all.
+   */
+  check(
+    "and says in words what the colour says, part and tier",
+    await page.locator(".modal-part").evaluateAll((els) =>
+      els.map((e) => e.getAttribute("aria-label")).join(" | ")),
+    "Turbo, Competición | Escape, de fábrica | Suspensión, de fábrica | Caja, de fábrica",
+  );
+  check(
+    "and the row of text it replaced is gone",
+    await page.locator(".modal-specs .spec-row", { hasText: "Preparación" }).count(),
+    0,
+  );
+  await page.locator(".modal-x").click();
+  await page.waitForSelector("dialog.modal", { state: "detached" });
 
   /*
    * The collector's mark, on its own save.

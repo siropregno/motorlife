@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
 import type { CarSpec } from "@contracts/car";
 import type { Mods } from "@contracts/mods";
+import { levelOf, PART_IDS } from "@contracts/mods";
 import { ratingOf } from "@catalog/rating";
 import { engineWear, modEffect } from "@sim/mods";
 import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
 import { colorName, colorsOf } from "@progression/paint";
-import { modsSummary } from "@progression/mods";
-import { classTierClass } from "../lib/tiers";
-import { ICON } from "../lib/icons";
+import { LEVEL_NAME, modsSummary, PART_NAME } from "@progression/mods";
+import { classTierClass, PART_TIER } from "../lib/tiers";
+import { ICON, PART_ICON } from "../lib/icons";
 import { Glyph } from "./Glyph";
 
 /**
@@ -179,9 +180,6 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
-            {/* Only in the garage, and only once there is something to say.
-                A forecourt car has no parts and a stock car has no list. */}
-            {fitted ? <Row k="Preparación" v={fitted} /> : null}
             {sheet.kind === "garage" && wear.fraction >= 0.05 ? (
               <Row k="Motor" v={`${formatKm(mods?.wearKm ?? km)} de uso`} alt="sin rectificar" />
             ) : null}
@@ -216,6 +214,49 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
               <span className="modal-nophoto">sin foto</span>
             )}
           </div>
+
+          {/*
+            * What is bolted to this car, as four glyphs in the workshop's
+            * colours: grey is the factory part, then green, blue and pink up
+            * the ladder. It replaces the "Preparación" row, which spelled the
+            * same four facts out as "Turbo Competición · Escape Competición ·
+            * Suspensión Competición · Caja Competición" -- four lines of text
+            * to say what four coloured tiles say at a glance, and the only row
+            * in the ficha that could wrap to four lines and shove the photo
+            * down the column.
+            *
+            * ALWAYS four, never a filtered list. The row answers "how far has
+            * this car been taken", and a stock part is an answer to that --
+            * dropping the grey ones would leave a tuned car showing one tile
+            * and a stock car showing nothing, with no way to tell "nothing
+            * fitted" from "no row here".
+            *
+            * Garage only: the forecourt sells models, and a model has no parts
+            * on it. mods is undefined there, so every tile would be grey --
+            * four glyphs claiming a car is stock when there is no car yet.
+            */}
+          {sheet.kind === "garage" ? (
+            <div className="modal-parts" role="list" aria-label="Preparación">
+              {PART_IDS.map((part) => {
+                const level = levelOf(mods, part);
+                const label = level === 0 ? "de fábrica" : LEVEL_NAME[level as 1 | 2 | 3];
+                return (
+                  <span
+                    key={part}
+                    role="listitem"
+                    className={`modal-part ${PART_TIER[level]}`}
+                    // Not a button: the sheet's workshop button is how you get
+                    // to the taller. A tile that looks clickable and is not is
+                    // worse than one that never invited the click.
+                    title={`${PART_NAME[part]} · ${label}`}
+                    aria-label={`${PART_NAME[part]}, ${label}`}
+                  >
+                    <Glyph src={PART_ICON[part]} />
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
 
           {sheet.kind === "buy" ? (
             <footer className="modal-foot">

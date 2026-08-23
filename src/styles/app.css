@@ -1901,19 +1901,20 @@ p.screen-sub {
  * The ladder. Grey is the factory part and reads as "nothing done"; green,
  * blue and pink climb from there. The same three colours mean the same three
  * tiers on every part, so learning that pink is competición is learning it
- * once for the whole screen.
+ * once for the whole screen -- and for the car sheet too, which is why the
+ * four values live in tokens.css rather than here.
  */
 .workshop-tile.stock {
-  --tile: #6b6b6b;
+  --tile: var(--part-stock);
 }
 .workshop-tile.street {
-  --tile: #2eb85c;
+  --tile: var(--part-street);
 }
 .workshop-tile.sport {
-  --tile: #17a2e8;
+  --tile: var(--part-sport);
 }
 .workshop-tile.racing {
-  --tile: #e6187f;
+  --tile: var(--part-racing);
 }
 
 /* What is fitted. A ring rather than a different fill: the fill is already

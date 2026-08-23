@@ -20,7 +20,7 @@ import {
   withPart,
   withRebuild,
 } from "@progression/mods";
-import { classTierClass } from "../lib/tiers";
+import { classTierClass, PART_TIER } from "../lib/tiers";
 import { ENGINE_ICON, ICON, PART_ICON } from "../lib/icons";
 import { Glyph } from "../components/Glyph";
 
@@ -40,25 +40,6 @@ interface Props {
   onFit: (id: string, part: PartId, level: PartLevel) => void;
   onRebuild: (id: string) => void;
 }
-
-/**
- * The tier colours: stock, then the three you can buy.
- *
- * A LADDER rather than four unrelated colours. Grey is the factory part and
- * reads as "nothing done"; green, blue and pink climb from there, and the same
- * three colours mean the same three tiers on every part, so once you have
- * learnt that pink is competición you have learnt it for the whole screen.
- *
- * They are also what the row of parts uses at the top level, where each part
- * wears the colour of the tier FITTED to it -- so a glance at four tiles says
- * how far each part has been taken without reading a word.
- */
-const TIER_CLASS: Record<PartLevel, string> = {
-  0: "stock",
-  1: "street",
-  2: "sport",
-  3: "racing",
-};
 
 /**
  * One row of the ficha, with the change the part under consideration would
@@ -472,7 +453,7 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
                         <button
                           key={part}
                           type="button"
-                          className={`workshop-tile ${TIER_CLASS[level]}`}
+                          className={`workshop-tile ${PART_TIER[level]}`}
                           aria-label={`${PART_NAME[part]}${level > 0 ? `, ${LEVEL_NAME[level as 1 | 2 | 3]}` : ", de fábrica"}`}
                           title={`${PART_NAME[part]} · ${level === 0 ? "de fábrica" : LEVEL_NAME[level as 1 | 2 | 3]}`}
                           onClick={() => setOpenPart(part)}
@@ -551,7 +532,7 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild }
                          * claim and gets the dashed ring the class badge uses
                          * for the same reason.
                          */
-                        className={`workshop-tile ${TIER_CLASS[level]}${on ? " on" : ""}${
+                        className={`workshop-tile ${PART_TIER[level]}${on ? " on" : ""}${
                           picked === level && !on ? " picked" : ""
                         }`}
                         aria-label={
