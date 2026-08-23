@@ -80,16 +80,18 @@ try {
   // Icon-only buttons, so the accessible name is the ONLY name they have --
   // this check is the one that notices if a glyph ever ships without one.
   check(
-    "it offers the four things you can do with a car you own",
+    "it offers the three things you can do with a car you own",
     (await page.locator(".modal-acts .btn").evaluateAll((els) =>
       els.map((e) => e.getAttribute("aria-label")))).join(" | "),
-    "Subirse al auto | Taller | Repintar | Vender",
+    // Repintar was a fourth. Paint moved to the workshop, which the wrench
+    // already opens -- so the sheet has one door to it rather than two.
+    "Subirse al auto | Taller | Vender",
   );
 
   check(
     "each action carries its glyph",
     await page.locator(".modal-acts .btn-icon").evaluateAll((els) => els.map((e) => new URL(e.src).pathname).join(" ")),
-    "/car-key.png /wrench.png /paint-brush.png /icon-shop.png",
+    "/car-key.png /wrench.png /icon-shop.png",
   );
   check(
     "and every one of them actually loaded",
@@ -97,20 +99,52 @@ try {
     true,
   );
 
-  console.log("\nthe paint shop");
-  await page.locator('.modal-acts .btn[aria-label="Repintar"]').click();
-  await page.waitForSelector("dialog.paint-modal");
-  const pay = page.locator(".paint-pay");
+  /*
+   * The paint shop, which is a row of the workshop's strip now.
+   *
+   * It was a dialog of its own raised over this sheet -- a photo and a row of
+   * colours. The workshop already IS a big live photo of the car with a strip
+   * of controls under it, which is exactly what choosing a colour wants, so the
+   * dialog was a second, smaller version of a screen that already existed. The
+   * sheet's Repintar button went with it; the wrench is the way in.
+   */
+  console.log("\nthe paint shop, in the workshop");
   check(
-    "it is its own dialog, over the sheet",
-    await page.locator("dialog.modal:not(.paint-modal)").isVisible(),
-    true,
-  );
-  check(
-    "holding a photo and nothing about the machine",
-    await page.locator("dialog.paint-modal .spec-list").count(),
+    "the sheet no longer offers Repintar, so there is one door to paint",
+    await page.locator('.modal-acts .btn[aria-label="Repintar"]').count(),
     0,
   );
+  await page.locator(".modal-x").click();
+  await page.waitForSelector("dialog.modal", { state: "detached" });
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  check(
+    "and neither does the right-click menu, for the same reason",
+    await page.locator(".ctx-item", { hasText: "Repintar" }).count(),
+    0,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".ctx", { state: "detached" });
+
+  await card("M3 E30").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  const pay = page.locator(".workshop-pay");
+  /*
+   * The tile wears the colour the car WEARS -- the only tile in the row whose
+   * fill is a fact about this car rather than about a tier.
+   */
+  const paintTile = page.locator(".workshop-tile.paint");
+  check(
+    "the strip has a paint tile, named with the colour the car is",
+    await paintTile.getAttribute("aria-label"),
+    "Pintura, Negro",
+  );
+  await paintTile.click();
+  await page.waitForTimeout(200);
+  check("opening it names the row", await page.locator(".workshop-bar-head h3").innerText(), "PINTURA");
   check(
     "every colour is a dot, the current one marked and still clickable",
     await page.locator(".paint-dot").evaluateAll((els) =>
@@ -123,46 +157,59 @@ try {
       new Set(els.map((e) => getComputedStyle(e).backgroundColor)).size),
     4,
   );
-  // The layout the row exists for: arrow hard left, dots on the centre of the
-  // dialog, price hard right. Measured, because "centred" is the whole ask and
-  // a flex row with space-between would pass every other check here.
-  const laid = await page.evaluate(() => {
-    const box = (s) => document.querySelector(s).getBoundingClientRect();
-    const row = box(".paint-row");
-    const back = box(".paint-back");
-    const dots = box(".paint-swatches");
-    const price = box(".paint-pay");
-    const mid = (r) => r.left + r.width / 2;
-    return {
-      backIsLeftmost: back.left < dots.left && back.left - row.left < 24,
-      priceIsRightmost: price.right > dots.right && row.right - price.right < 24,
-      dotsCentred: Math.abs(mid(dots) - mid(row)) < 2,
-    };
-  });
-  check("the arrow sits at the left edge", laid.backIsLeftmost, true);
-  check("the price at the right", laid.priceIsRightmost, true);
-  check("and the dots on the centre of the dialog", laid.dotsCentred, true);
+  check("with nothing picked there is nothing to pay for", await pay.isDisabled(), true);
 
   const walletBefore = await wallet();
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
-  check("the photo previews the colour", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.webp");
+  await page.waitForTimeout(250);
+  /*
+   * THE check this move was for: the big photo on the screen you are already
+   * looking at previews the colour, rather than a smaller copy of it inside a
+   * dialog stacked over the car sheet.
+   */
+  check(
+    "the car on the ramp previews the colour",
+    await page.locator(".workshop-hero img").getAttribute("src"),
+    "/bmw-m3-e30-yellow.webp",
+  );
   check("previewing is free", await wallet(), walletBefore);
   check("the price is the label and nothing else", await pay.innerText(), "5.700 CR");
+  check("and the row names the colour being tried", await page.locator(".workshop-tier-name").innerText(), "AMARILLO");
 
   // Picking the colour it already is: allowed, but there is nothing to buy.
   await page.locator('.paint-dot[aria-label="Negro, el color actual"]').click();
-  check("the current colour is selectable", await page.locator(".paint-hero img").getAttribute("src"), "/bmw-m3-e30-black.webp");
-  check("and cannot be paid for", await pay.evaluate((e) => e.disabled), true);
+  await page.waitForTimeout(250);
+  check(
+    "the current colour is selectable",
+    await page.locator(".workshop-hero img").getAttribute("src"),
+    "/bmw-m3-e30-black.webp",
+  );
+  check("and cannot be paid for", await pay.isDisabled(), true);
   await page.locator('.paint-dot[aria-label="Amarillo"]').click();
-  check("picking a real change arms the price again", await pay.evaluate((e) => e.disabled), false);
+  await page.waitForTimeout(200);
+  check("picking a real change arms the price again", await pay.isDisabled(), false);
 
   await pay.click();
-  await page.waitForSelector("dialog.paint-modal", { state: "detached" });
+  await page.waitForTimeout(400);
   check("paying charges exactly that", await wallet(), "114.300CR");
-  check("the sheet behind it kept the new colour", await page.locator(".modal-hero img").getAttribute("src"), "/bmw-m3-e30-yellow.webp");
-  await page.locator(".modal-x").click();
-  await page.waitForSelector("dialog.modal", { state: "detached" });
-  check("so does the card behind it", await photo("M3 E30"), "/bmw-m3-e30-yellow.webp");
+  /*
+   * Paying returns you to the top level: the car IS that colour now, so the row
+   * would be sitting on a preview of what it already wears.
+   */
+  check(
+    "and drops back to the strip, with the tile wearing the new colour",
+    await page.locator(".workshop-tile.paint").getAttribute("aria-label"),
+    "Pintura, Amarillo",
+  );
+  check(
+    "the car on the ramp is that colour for real now",
+    await page.locator(".workshop-hero img").getAttribute("src"),
+    "/bmw-m3-e30-yellow.webp",
+  );
+
+  await garage();
+  await settled();
+  check("so is the card in the garage", await photo("M3 E30"), "/bmw-m3-e30-yellow.webp");
 
   await page.reload({ waitUntil: "networkidle" });
   await garage();
@@ -172,12 +219,15 @@ try {
   await card("Chevy 250").click();
   await page.waitForSelector("dialog.modal");
   check(
-    "a car that comes in one colour cannot be repainted",
+    "nothing on it is refused: every car can be driven, worked on and sold",
     await page.locator(".modal-acts .btn").evaluateAll((els) =>
       els.map((e) => `${e.getAttribute("aria-label")}${e.disabled ? "*" : ""}`).join(" | ")),
     // Taller carries no star: every car can be worked on, and the one with
-    // nothing fitted is exactly the one the workshop is for.
-    "Subirse al auto | Taller | Repintar* | Vender",
+    // nothing fitted is exactly the one the workshop is for. "A car that comes
+    // in one colour cannot be repainted" used to be checked here, on a Repintar
+    // button that no longer exists -- it is the workshop's paint tile now, and
+    // checked there.
+    "Subirse al auto | Taller | Vender",
   );
 
   console.log("\nselling");
@@ -251,20 +301,14 @@ try {
         const name = icon ? new URL(icon.src).pathname.replace(/^\//, "") : "NONE";
         return `${label.textContent}:${name}${before ? "" : "!ORDER"}`;
       }).join(" ")),
-    "Subirse al auto:car-key.png Llevar al taller:wrench.png Repintar:paint-brush.png Vender:icon-shop.png",
+    // Repintar was a fourth row, between the workshop and Vender. It opened a
+    // paint dialog; paint is a row of the workshop's strip now, so the row
+    // above it is already the way there and a second door would open the same
+    // screen.
+    "Subirse al auto:car-key.png Llevar al taller:wrench.png Vender:icon-shop.png",
   );
-  // Repintar from the menu lands on the colours rather than on the sheet you
-  // would then have to click Repintar in again.
-  await page.locator(".ctx-item", { hasText: "Repintar" }).click();
-  await page.waitForSelector("dialog.paint-modal");
-  check("the menu's Repintar opens the paint shop directly", await page.locator(".paint-dot").count(), 4);
-  check(
-    "with no spec sheet behind it, since it did not go through one",
-    await page.locator("dialog.modal:not(.paint-modal)").count(),
-    0,
-  );
-  await page.locator(".paint-back").click();
-  await page.waitForSelector("dialog.paint-modal", { state: "detached" });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector(".ctx", { state: "detached" });
 
   console.log("\nthe menu sells the same way the sheet does");
   await card("M3 E30").click({ button: "right" });
@@ -384,7 +428,10 @@ try {
    * and behind a separator, because it is the only one that does not make the
    * car better than the factory made it.
    */
-  check("four parts and the engine", await page.locator(".workshop-tile").count(), 5);
+  // Four parts, the engine, and the paint. The last two sit past the hairline
+  // because neither is a part: the engine puts back what the kilometres took,
+  // and the paint is the only thing here that does not change what the car does.
+  check("four parts, the engine and the paint", await page.locator(".workshop-tile").count(), 6);
   check(
     "every tile drew its glyph rather than 404ing to an empty square",
     await page.locator(".workshop-tile .btn-icon").evaluateAll((els) =>
@@ -664,6 +711,45 @@ try {
   );
 
   /*
+   * A car that comes in one colour.
+   *
+   * This used to be checked on the sheet's Repintar button, which is gone. The
+   * refusal did not go with it: under two colours there is nothing to change
+   * the car TO, so the tile is dead rather than opening an empty row -- and it
+   * says WHY in its title, because a greyed control with no explanation reads
+   * as a bug.
+   */
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("motorlife.save"));
+    s.owned.push({ id: "chevrolet-chevy-250", km: 317_500 });
+    localStorage.setItem("motorlife.save", JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+  await card("Chevy 250").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  check(
+    "a car that comes in one colour cannot be repainted",
+    await page.locator(".workshop-tile.paint").isDisabled(),
+    true,
+  );
+  check(
+    "and the tile says why rather than going dead quietly",
+    await page.locator(".workshop-tile.paint").getAttribute("title"),
+    "Este auto viene en un solo color",
+  );
+  // Back to the R12 for the checks below, which pin its parts and figures.
+  await garage();
+  await card("R12 TL").click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+
+  /*
    * Back in the garage, the modified car says so from across the grid.
    *
    * settled() is not optional here. A screen on its way out stays mounted for
@@ -676,7 +762,9 @@ try {
     "the garage marks the car that has parts on it, and only that one",
     await page.locator(".car-card").evaluateAll((els) =>
       els.map((e) => `${e.querySelector(".card-title-bold").textContent.split("'")[0].trim()}:${e.querySelector(".card-tuned") ? "*" : "-"}`).join(" ")),
-    "R12 TL:- M3 E30:*",
+    // The Chevy joined this save above, for the one-colour paint check: it is
+    // the only car in the catalogue that comes in a single colour.
+    "R12 TL:- M3 E30:* Chevy 250:-",
   );
   /*
    * The card reads what the car MAKES, not what the factory said.
@@ -740,6 +828,19 @@ try {
   check(
     "and the row of text it replaced is gone",
     await page.locator(".modal-specs .spec-row", { hasText: "Preparación" }).count(),
+    0,
+  );
+  /*
+   * Nor is there an engine-wear row. It read "349.400 km de uso / sin
+   * rectificar" -- a second odometer directly under the real one, wrapping to
+   * two lines to say what the workshop's engine tile already says in colour, on
+   * the screen where you can act on it. Matched on the exact key, because
+   * "Motor / tracción" is a legitimate row that shares the word.
+   */
+  check(
+    "and no engine-wear row either, which was a second odometer",
+    await page.locator(".modal-specs .spec-k").evaluateAll((els) =>
+      els.filter((e) => e.textContent.trim() === "Motor").length),
     0,
   );
   await page.locator(".modal-x").click();

@@ -3,10 +3,10 @@ import type { CarSpec } from "@contracts/car";
 import type { Mods } from "@contracts/mods";
 import { levelOf, PART_IDS } from "@contracts/mods";
 import { ratingOf } from "@catalog/rating";
-import { engineWear, modEffect } from "@sim/mods";
-import { formatCredits, repaintPriceFor, sellValueFor } from "@progression/economy";
+import { modEffect } from "@sim/mods";
+import { formatCredits, sellValueFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
-import { colorName, colorsOf } from "@progression/paint";
+import { colorName } from "@progression/paint";
 import { LEVEL_NAME, modsSummary, PART_NAME } from "@progression/mods";
 import { classTierClass, PART_TIER } from "../lib/tiers";
 import { ICON, PART_ICON } from "../lib/icons";
@@ -36,14 +36,16 @@ export type CarSheet =
       canSell: boolean;
       isCurrent: boolean;
       onDrive: () => void;
-      onSell: () => void;
       /**
-       * All three of these only ASK. Selling, painting and tuning each own a
-       * dialog of their own, raised by the caller over this one, so the sheet
-       * does not need to know what a colour costs or what a sale pays -- it
-       * needs to know that a button was pressed.
+       * Both of these only ASK. Selling owns a dialog of its own, raised by the
+       * caller over this one, and tuning is a section -- so the sheet does not
+       * need to know what a sale pays, it needs to know that a button was
+       * pressed.
+       *
+       * There is no onPaint. Repainting lives in the workshop now, behind the
+       * same wrench onTune already opens.
        */
-      onPaint: () => void;
+      onSell: () => void;
       onTune: () => void;
     };
 
@@ -123,7 +125,6 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
    * number on Wikipedia -- it says "this car makes X, and it left the factory
    * making Y", which is a different and more useful statement.
    */
-  const wear = engineWear(mods?.wearKm ?? km);
   const power = spec.kW * modEffect(mods, km).kW;
   const hp = Math.round(power * 1.35962);
   const stockHp = Math.round(spec.kW * 1.35962);
@@ -135,14 +136,6 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
     if (el && !el.open) el.showModal();
   }, []);
 
-  /*
-   * The colour picker used to be a third state of this footer, sharing the
-   * two-column frame with the spec list. It is PaintModal now: picking paint
-   * is looking at the car, and a spec list beside the photo is in the way of
-   * that. What is left here is a button that says the shop is open.
-   */
-  const palette = colorsOf(spec);
-  const repaintPrice = repaintPriceFor(spec, km);
   // the build goes with the car, so what the sheet quotes has to include it
   const sellValue = sellValueFor(spec, km, mods);
   const driveLabel =
@@ -180,9 +173,10 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
             <Row k="Motor / tracción" v={LAYOUT[spec.layout] ?? spec.layout} />
             <Row k="Año" v={String(spec.year)} />
             <Row k="Kilómetros" v={formatKm(km)} alt={cond.label} />
-            {sheet.kind === "garage" && wear.fraction >= 0.05 ? (
-              <Row k="Motor" v={`${formatKm(mods?.wearKm ?? km)} de uso`} alt="sin rectificar" />
-            ) : null}
+            {/* No engine-wear row. It said "349.400 km de uso / sin rectificar"
+                -- a second odometer directly under the real one, wrapping to two
+                lines to tell you something the workshop's engine tile already
+                says in colour, on the screen where you can act on it. */}
             {color ? <Row k="Color" v={colorName(color)} /> : null}
           </div>
         </aside>
@@ -314,17 +308,11 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
                 >
                   <Glyph src={ICON.wrench} />
                 </button>
-                {/* Under two colours there is nothing to change it TO, so the
-                    title says why rather than opening an empty picker. */}
-                <button
-                  className="btn"
-                  disabled={palette.length < 2}
-                  aria-label="Repintar"
-                  title={palette.length < 2 ? "Este auto viene en un solo color" : `Repintar · ${formatCredits(repaintPrice)} cr`}
-                  onClick={() => sheet.onPaint()}
-                >
-                  <Glyph src={ICON.paint} />
-                </button>
+                {/* No Repintar button. Paint moved to the workshop, which is
+                    where everything else you pay to change about a car already
+                    happens -- and where the photo is big and live, which is what
+                    choosing a colour actually needs. The wrench above is the way
+                    there. */}
                 {/* Asks in its own dialog rather than arming in place. The
                     sheet stays open behind the question, so the car you are
                     about to lose is still on the screen while you answer. */}

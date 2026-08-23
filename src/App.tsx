@@ -412,11 +412,9 @@ export default function App() {
         return (
           <Garage
             owned={save.owned}
-            credits={save.credits}
             currentId={carId}
             onDrive={pickCar}
             onSell={sell}
-            onRepaint={repaint}
             onTune={tune}
           />
         );
@@ -432,6 +430,7 @@ export default function App() {
             onFit={fitPart}
             onRebuild={rebuild}
             onDrive={pickCar}
+            onRepaint={repaint}
           />
         );
       case "setup":

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { levelOf, PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
@@ -6,9 +6,9 @@ import { ratingOf } from "@catalog/rating";
 import { derive } from "@sim/derive";
 import { engineWear, applyMods } from "@sim/mods";
 import { topSpeed, zeroToHundred } from "@sim/physics";
-import { formatCredits } from "@progression/economy";
+import { formatCredits, repaintPriceFor } from "@progression/economy";
 import { conditionOf, formatKm } from "@progression/mileage";
-import { imageFor } from "@progression/paint";
+import { colorName, colorSwatch, colorsOf, imageFor } from "@progression/paint";
 import { colorOfHeld, type OwnedCar } from "@progression/save";
 import {
   LADDER,
@@ -40,6 +40,13 @@ interface Props {
   openOn?: string | null;
   onFit: (id: string, part: PartId, level: PartLevel) => void;
   onRebuild: (id: string) => void;
+  /**
+   * Repaint the car on the ramp. It used to be the garage's, raised as a dialog
+   * of its own over the car sheet; the workshop is where everything else you
+   * pay to change about a car happens, and it already has the big live photo
+   * that choosing a colour needs.
+   */
+  onRepaint: (id: string, color: string) => void;
   /**
    * Get into the car on the ramp.
    *
@@ -132,14 +139,25 @@ function Figure({
  * out of your own class by your own turbo is a decision, and this screen's job
  * is to make it an informed one rather than to refuse the sale.
  */
-export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, onDrive }: Props) {
+export function Workshop({
+  owned,
+  credits,
+  currentId,
+  openOn,
+  onFit,
+  onRebuild,
+  onDrive,
+  onRepaint,
+}: Props) {
   const cars = useMemo(
     () =>
       owned.flatMap((o) => {
         const spec = CARS.find((c) => c.id === o.id);
-        return spec
-          ? [{ spec, km: o.km, mods: o.mods, image: imageFor(spec, colorOfHeld(o)) }]
-          : [];
+        // The colour travels alongside the image rather than only inside it:
+        // the paint row needs to know which dot is the one the car WEARS, which
+        // a rendered photo cannot tell it.
+        const color = colorOfHeld(o);
+        return spec ? [{ spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }] : [];
       }),
     [owned],
   );
@@ -166,11 +184,22 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
   /**
    * Which part's ladder is open. Null is the top level -- the four parts.
    *
-   * "engine" is in here as a fifth value because the rebuild belongs to the
-   * same strip: it is a thing you do to the car from the same row of tiles,
-   * even though it is not a part and has no tiers.
+   * "engine" and "paint" are in here alongside the four because they belong to
+   * the same strip: both are things you do to the car from the same row of
+   * tiles, even though neither is a part and neither has tiers. Paint arrived
+   * last, from a dialog of its own raised over the car sheet -- but choosing a
+   * colour wants a big live photo of the car, and this screen already is one.
    */
-  const [openPart, setOpenPart] = useState<PartId | "engine" | null>(null);
+  const [openPart, setOpenPart] = useState<PartId | "engine" | "paint" | null>(null);
+  /**
+   * The colour under consideration, while the paint row is open.
+   *
+   * Separate from `hover`/`picked` because a colour is not a PartLevel and
+   * cannot share their state: those two drive the class preview and the ficha's
+   * figures, and paint moves neither -- a yellow car and a black one lap the
+   * same. One click, one value, and the hero renders it.
+   */
+  const [shade, setShade] = useState<string | null>(null);
   /**
    * The tier being considered, and how it got there.
    *
@@ -198,6 +227,7 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
     setOpenPart(null);
     setHover(null);
     setPicked_(null);
+    setShade(null);
   }, [car?.spec.id]);
 
   /*
@@ -209,6 +239,10 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
   useEffect(() => {
     setPicked_(null);
     setHover(null);
+    // A colour tried in the paint row and walked away from is not a colour you
+    // asked for. Leaving it set would put the photo back on the wrong car when
+    // you returned to the top level.
+    setShade(null);
   }, [openPart]);
 
   const now = useMemo(() => (car ? ratingOf(car.spec, car.mods, car.km) : null), [car]);
@@ -231,6 +265,10 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
    */
   const wouldBe = useMemo(() => {
     if (!car || considering === null || openPart === null) return null;
+    // Paint changes nothing the ficha measures -- a yellow car and a black one
+    // lap the same -- so it never previews a figure. It is in this union for
+    // the strip, not for the physics.
+    if (openPart === "paint") return null;
     if (openPart === "engine") return withRebuild(car.mods);
     return withPart(car.mods, openPart, considering);
   }, [considering, openPart, car]);
@@ -275,15 +313,45 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
   const stockPower = Math.round(car.spec.kW * 1.35962);
 
   /**
+   * The open row, when it is one of the four PARTS.
+   *
+   * Named once rather than re-narrowing at each use. `openPart` carries two
+   * members that are not parts -- the engine and the paint -- and every line
+   * below that asks about levels and prices means "if a part is open"; spelling
+   * that as `!== "engine"` four times is how the paint row would have quietly
+   * been treated as a part the day it was added.
+   */
+  const openTier: PartId | null =
+    openPart !== null && openPart !== "engine" && openPart !== "paint" ? openPart : null;
+  /**
    * The tier being offered: what the cursor is over, else what was clicked,
    * else what is already on the car. Hover beats a pick so that running along
    * the row still previews, and the pick is what survives the cursor leaving.
    */
-  const fittedLevel = openPart && openPart !== "engine" ? levelOf(car.mods, openPart) : 0;
+  const fittedLevel = openTier ? levelOf(car.mods, openTier) : 0;
   const offered = considering ?? fittedLevel;
-  const price =
-    openPart && openPart !== "engine" ? partPrice(car.spec, car.km, openPart, offered) : 0;
-  const payable = openPart !== null && openPart !== "engine" && offered !== fittedLevel;
+  const price = openTier ? partPrice(car.spec, car.km, openTier, offered) : 0;
+  const payable = openTier !== null && offered !== fittedLevel;
+
+  /**
+   * The paint row: the colours this car comes in, what a change costs, and
+   * whether the dot you clicked is one you can actually buy.
+   *
+   * Priced off the car's value like every other thing in here -- repaintPriceFor
+   * is the garage's old function, unchanged; only the surface that calls it
+   * moved.
+   */
+  const palette = colorsOf(car.spec);
+  const paintPrice = repaintPriceFor(car.spec, car.km);
+  /** Something picked, different from what it wears, and the money for it. */
+  const paintable = shade !== null && shade !== car.color && credits >= paintPrice;
+  /*
+   * The photo shows the colour under consideration. This is the whole reason
+   * paint belongs on this screen rather than in a dialog: the car is already
+   * the biggest thing here and it is already live, so trying a colour is just
+   * looking at the car you are looking at.
+   */
+  const hero = (shade ? imageFor(car.spec, shade) : null) ?? car.image;
 
   const onRamp = car.spec.id === currentId;
 
@@ -397,8 +465,11 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
 
         <div className="workshop-main">
           <div className="workshop-hero">
-            {car.image ? (
-              <img src={car.image} alt={`${car.spec.make} ${car.spec.model}`} />
+            {hero ? (
+              <img
+                src={hero}
+                alt={`${car.spec.make} ${car.spec.model}${shade ? ` ${colorName(shade)}` : ""}`}
+              />
             ) : (
               <span className="modal-nophoto">sin foto</span>
             )}
@@ -434,13 +505,24 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
                   ? "Modificaciones"
                   : openPart === "engine"
                     ? "Motor"
-                    : PART_NAME[openPart]}
+                    : openPart === "paint"
+                      ? "Pintura"
+                      : PART_NAME[openPart]}
               </h3>
               {/* The name of what is being offered, right of the heading, so
                   the word and the price sit on the same line as the tiles. */}
-              {openPart !== null && openPart !== "engine" ? (
+              {openTier ? (
                 <span className="workshop-tier-name">
                   {offered === 0 ? "De fábrica" : LEVEL_NAME[offered as 1 | 2 | 3]}
+                </span>
+              ) : null}
+              {/* The colour being tried, named. The dots say which one to
+                  anyone looking at them; the word is what a screen reader and a
+                  colour-blind player get, and it is the same "Celeste" the car
+                  sheet prints in its Color row. */}
+              {openPart === "paint" ? (
+                <span className="workshop-tier-name">
+                  {colorName(shade ?? car.color ?? "")}
                 </span>
               ) : null}
               {openPart === "engine" ? (
@@ -491,7 +573,68 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
                     >
                       <Glyph src={ENGINE_ICON} />
                     </button>
+                    {/*
+                      * The paint, after the engine and past the same hairline.
+                      * It belongs on the far side of it for the same reason the
+                      * engine does: it is not a part, and it is the only thing
+                      * in the row that does not change what the car DOES. It
+                      * wears the colour the car wears, which makes the tile the
+                      * only one here whose fill is a fact about this car rather
+                      * than about a tier.
+                      *
+                      * Under two colours there is nothing to change it to, so
+                      * the tile says why instead of opening an empty row.
+                      */}
+                    <button
+                      type="button"
+                      className={`workshop-tile paint${palette.length < 2 ? " lone" : ""}`}
+                      style={
+                        car.color
+                          ? ({ "--tile": colorSwatch(car.color) } as CSSProperties)
+                          : undefined
+                      }
+                      disabled={palette.length < 2}
+                      aria-label={`Pintura${car.color ? `, ${colorName(car.color)}` : ""}`}
+                      title={
+                        palette.length < 2
+                          ? "Este auto viene en un solo color"
+                          : `Pintura · ${car.color ? colorName(car.color) : "—"} · ${formatCredits(paintPrice)} cr`
+                      }
+                      onClick={() => setOpenPart("paint")}
+                    >
+                      <Glyph src={ICON.paint} />
+                    </button>
                   </>
+                ) : openPart === "paint" ? (
+                  /*
+                   * The colours this car came in, as dots.
+                   *
+                   * Every dot is live, the one it wears included: clicking that
+                   * one is how you get the car back after trying another. What
+                   * it does not do is arm the price -- painting a car the colour
+                   * it already is is not a thing to charge for, which is the
+                   * same refusal repaintCar makes in the service.
+                   *
+                   * Dots rather than tiles, and the same .paint-dot the old
+                   * dialog used: a colour is the whole content of the control,
+                   * so a 68px square with a glyph on it would be a swatch
+                   * wearing a costume.
+                   */
+                  <div className="paint-swatches" role="group" aria-label="Colores">
+                    {palette.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`paint-dot${(shade ?? car.color) === c ? " on" : ""}${
+                          c === car.color ? " current" : ""
+                        }`}
+                        style={{ "--dot": colorSwatch(c) } as CSSProperties}
+                        aria-label={c === car.color ? `${colorName(c)}, el color actual` : colorName(c)}
+                        title={c === car.color ? `${colorName(c)} · el color actual` : colorName(c)}
+                        onClick={() => setShade(c)}
+                      />
+                    ))}
+                  </div>
                 ) : openPart === "engine" ? (
                   /*
                    * The engine has no tiers, so its "row" is the wear bar. It
@@ -591,7 +734,39 @@ export function Workshop({ owned, credits, currentId, openOn, onFit, onRebuild, 
                     <Glyph src={ICON.back} />
                   </button>
 
-                  {openPart === "engine" ? (
+                  {openPart === "paint" ? (
+                    /*
+                     * Same split as everywhere else on this screen: the dots
+                     * pick and preview for free, this is the only thing that
+                     * spends. The label is the number and nothing else -- the
+                     * dots are the choice, so what is left to say is the cost.
+                     */
+                    <button
+                      type="button"
+                      className={`btn workshop-pay${paintable ? " primary" : ""}`}
+                      disabled={!paintable}
+                      title={
+                        shade === null
+                          ? "Elegí un color"
+                          : shade === car.color
+                            ? "Ya es de este color"
+                            : credits < paintPrice
+                              ? `Faltan ${formatCredits(paintPrice - credits)} cr`
+                              : `Pintar de ${colorName(shade)} · ${formatCredits(paintPrice)} cr`
+                      }
+                      onClick={() => {
+                        if (shade) onRepaint(car.spec.id, shade);
+                        // Back to the top level: the car IS that colour now, so
+                        // the row would be sitting on a preview of what it
+                        // already wears.
+                        setOpenPart(null);
+                      }}
+                    >
+                      {credits < paintPrice
+                        ? `Faltan ${formatCredits(paintPrice - credits)} CR`
+                        : `${formatCredits(paintPrice)} CR`}
+                    </button>
+                  ) : openPart === "engine" ? (
                     <button
                       type="button"
                       className={`btn workshop-pay${rebuildable && credits >= rebuild ? " primary" : ""}`}

@@ -2019,6 +2019,48 @@ p.screen-sub {
   --tile: #7a5410;
 }
 
+/*
+ * The paint tile, past the same hairline as the engine and for the same reason:
+ * it is not a part, and it is the only thing in the row that does not change
+ * what the car DOES.
+ *
+ * Its fill is set inline to the colour the car WEARS -- the one tile here whose
+ * colour is a fact about this car rather than about a tier -- so it needs a
+ * default for a car with no colour recorded, and a ring to find its edge when
+ * that colour is nearly the panel it sits on.
+ */
+.workshop-tile.paint {
+  --tile: #3a3a3a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+}
+/* One colour is no choice. Dimmed rather than hidden, because "this car only
+   comes in this" is the answer to the question you clicked to ask. */
+.workshop-tile.paint.lone {
+  opacity: 0.4;
+}
+/*
+ * The dots, inside the strip.
+ *
+ * .paint-swatches centres itself, which was right in a dialog three columns
+ * wide and wrong here: this row starts at the left margin with the tiles, and a
+ * centred palette would float away from the heading above it. Scoped, so the
+ * dots keep their own rules and only their placement changes.
+ */
+.workshop-tiles .paint-swatches {
+  justify-content: flex-start;
+  /* Matching the 68px tiles' height, so the strip does not change height
+     between the parts row and the paint row. */
+  min-height: 68px;
+  align-items: center;
+  gap: 10px;
+}
+/* Bigger than the dialog's 26px: they are the whole content of this row rather
+   than a footer under a photo, and they sit beside 68px tiles in memory. */
+.workshop-tiles .paint-dot {
+  width: 34px;
+  height: 34px;
+}
+
 /* ---------- the engine's row, which has no tiers ---------- */
 .workshop-wear-wrap {
   display: flex;
