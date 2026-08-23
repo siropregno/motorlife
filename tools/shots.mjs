@@ -19,16 +19,51 @@ const wallet = () => page.locator(".wallet").innerText();
 const nav = (label) => page.locator(`.topnav-btn[aria-label="${label}"]`);
 const raceNow = () => page.getByRole("button", { name: "Correr →" });
 // The shop is a hub: Comprar -> Concesionarios -> one dealer, or -> usados.
+/**
+ * Show every card, then wait for them all to finish arriving.
+ *
+ * The cards fade in as they scroll into the list, which is right in the app
+ * and wrong in a screenshot: these shots are `fullPage`, so the image is the
+ * WHOLE list including everything below the fold -- and the cards down there
+ * have correctly never been reached, so they would be captured at opacity 0.
+ * The first version of this shot came out as a page of ghosts for exactly that
+ * reason.
+ *
+ * A screenshot has no scroll position, so "revealed as you reach it" has no
+ * meaning in one. Scrolling to the bottom to trigger them all in order would
+ * work and would also leave the page scrolled; marking them directly says what
+ * is actually wanted -- every card visible -- without moving the view.
+ *
+ * Then it waits for the transitions to finish rather than for a duration: a
+ * timeout would silently become too short the day the timing is retuned, which
+ * is how the slide's old waitForTimeout(320) calls went stale.
+ */
+const revealed = async () => {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll(".shop-item")) el.classList.add("shown");
+  });
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll(".shop-item")].every((el) =>
+        el.getAnimations().every((a) => a.playState === "finished"),
+      ),
+    null,
+    { timeout: 5000 },
+  );
+};
+
 const toDealer = async (name) => {
   await nav("Concesionaria").click();
   await page.getByRole("button", { name: /Concesionarios/ }).click();
   await page.getByRole("button", { name: new RegExp(name) }).click();
   await page.waitForSelector(".shop-item");
+  await revealed();
 };
 const toUsed = async () => {
   await nav("Concesionaria").click();
   await page.getByRole("button", { name: /Marketplace/ }).click();
   await page.waitForSelector(".shop-item");
+  await revealed();
 };
 
 await page.goto("http://localhost:5174/", { waitUntil: "networkidle" });
@@ -52,6 +87,7 @@ console.log(`houses: ${(await page.locator(".dealer-card").allInnerTexts()).map(
 await page.screenshot({ path: `${OUT}/2a-dealers.png`, fullPage: true });
 await page.getByRole("button", { name: /Fierros Don Beto/ }).click();
 await page.waitForSelector(".shop-item");
+await revealed();
 const stock = await page.locator(".shop-item .card-title-bold").allInnerTexts();
 // .shop-price was the old buy row; the price is the .shop-tag under the card
 // now, so reading both printed every listing as "undefined [14.000 cr]".

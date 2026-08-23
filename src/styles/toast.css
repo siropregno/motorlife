@@ -37,7 +37,16 @@
   text-align: left;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
   cursor: pointer;
-  animation: toast-in 0.22s ease-out;
+  /*
+   * The toast is where the arrive/leave pair came from.
+   *
+   * It was 0.22s ease-out in and 0.18s ease-in out -- two durations nobody
+   * could tell apart doing the same job in two directions. The asymmetry was
+   * right and the numbers were noise: a thing arriving decelerates into place,
+   * a thing leaving gets on with it. One duration now, the two house curves,
+   * and the rule generalised to everything else that enters or exits.
+   */
+  animation: toast-in var(--dur-move) var(--ease-out);
 }
 
 .toast:hover {
@@ -55,9 +64,18 @@
 }
 
 .toast.leaving {
-  animation: toast-out 0.18s ease-in forwards;
+  animation: toast-out var(--dur-move) var(--ease-in) forwards;
 }
 
+/*
+ * 14px rather than --rise, and on X rather than Y.
+ *
+ * --rise is the distance for something appearing IN PLACE, where the movement
+ * only has to say "this is new". A toast is not in place: it comes in from the
+ * left edge it is anchored to, so the travel is a direction as much as a
+ * distance, and it wants a little more room to read as coming FROM somewhere.
+ * The token would be a smaller number doing a different job.
+ */
 @keyframes toast-in {
   from {
     opacity: 0;

@@ -17,6 +17,7 @@ import { FilterModal } from "./FilterModal";
 import { ShopControls } from "./ShopControls";
 import { ScreenHead } from "./ScreenHead";
 import { classTierClass } from "../lib/tiers";
+import { useReveal } from "../lib/reveal";
 
 interface Props {
   /** The forecourt: one dealer's stock, or the used lot. */
@@ -87,6 +88,20 @@ export function Listing({
       ? `${cars.length} auto${cars.length === 1 ? "" : "s"}`
       : `${listed.length} de ${cars.length}`;
 
+  /*
+   * The cards arrive as you reach them.
+   *
+   * The ref goes on the scroll box rather than on the grid, because the box is
+   * what the observer roots against -- this screen scrolls inside itself and
+   * the page behind it cannot move at all, so a viewport-rooted observer would
+   * call every card visible on the first frame. See useReveal.
+   *
+   * `groups` is the dependency, not `offers`: it is the value that changes
+   * whenever the rendered tree changes, which includes sorting -- reordering
+   * the same cars replaces every node just as surely as filtering them does.
+   */
+  const body = useReveal(".shop-item", [groups]);
+
   return (
     <>
       <ScreenHead title={title} sub={sub} back={back}>
@@ -105,7 +120,7 @@ export function Listing({
         ) : null}
       </ScreenHead>
 
-      <div className="screen-body">
+      <div className="screen-body" ref={body}>
         {cars.length === 0 ? (
           <div className="panel">
             <p className="note" style={{ margin: 0 }}>

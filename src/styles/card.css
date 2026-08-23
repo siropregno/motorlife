@@ -15,7 +15,7 @@
   border: 1px solid transparent;
   padding: 0;
   text-align: left;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-tap);
 }
 
 /*

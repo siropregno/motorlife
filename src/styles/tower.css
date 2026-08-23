@@ -86,9 +86,24 @@
   right: 0;
   top: 0;
   height: var(--rh);
+  /*
+   * The one transition in the app that is deliberately NOT on the motion
+   * tokens, and it is written out so it does not read as one that was missed.
+   *
+   * Everything else animated here is chrome: a dialog opening, a card
+   * arriving, a border lighting up under the cursor. This is CONTENT. A row
+   * moving in the tower is a car overtaking another car, and it is the only
+   * place in the game where the animation IS the information -- you read the
+   * race off these rows moving. The half-second and the overshoot are what
+   * make a car visibly climb rather than teleport a place up the order, and
+   * dropping it to --dur-move would make a pass unreadable at speed.
+   *
+   * background-color takes --dur-move because that half is chrome again: it is
+   * the row lighting up as yours, not the car moving.
+   */
   transition:
     transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 0.3s;
+    background-color var(--dur-move);
 }
 
 .tower-row.you {

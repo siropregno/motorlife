@@ -23,11 +23,116 @@
     0 32px 80px rgba(0, 0, 0, 0.75),
     0 2px 0 rgba(255, 255, 255, 0.04) inset;
   overflow: hidden;
+
+  /*
+   * The open and shut of it, in CSS, with no JavaScript at all.
+   *
+   * That is worth stating plainly because the obvious way to do this is the
+   * wrong one: hold the component mounted in React for the length of the exit,
+   * unmount on a timer. Every one of these dialogs closes by calling close(),
+   * which fires onClose synchronously and unmounts it -- so the React version
+   * means a piece of state and a timer in four components, and four chances
+   * for a timer to outlive the thing it was clearing.
+   *
+   * A dialog is really a DISCRETE problem. `display` goes none -> block and
+   * `overlay` goes none -> auto, and discrete properties normally flip at the
+   * halfway point of a transition, which for an exit means the box vanishes
+   * instantly and the fade plays on nothing. `transition-behavior:
+   * allow-discrete` is what says "hold the old value for the whole duration
+   * and flip at the end". It is the reason none of the four dialogs -- five,
+   * counting the race tower, which wears .modal too -- needed a line of React.
+   *
+   * `overlay` is in the list on purpose and is the one people leave out. It is
+   * what keeps the dialog in the TOP LAYER while it leaves; without it the
+   * element drops back into the page on the first frame of the exit and the
+   * fade plays UNDERNEATH the garage. It is also not settable by anything but
+   * the browser, which is why it appears only here, in a transition list, and
+   * never in a rule that tries to give it a value.
+   *
+   * Older browsers without @starting-style ignore all of this and get today's
+   * instant open and close, which is the right thing to degrade to.
+   */
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity var(--dur-move) var(--ease-out),
+    transform var(--dur-move) var(--ease-out),
+    overlay var(--dur-move) allow-discrete,
+    display var(--dur-move) allow-discrete;
 }
 
+/* Open: the resting state, and what both ends transition towards. */
+.modal[open] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/*
+ * The state the browser starts FROM the first time the element is rendered.
+ *
+ * Without this the dialog is already at opacity 1 on its first frame -- there
+ * is no "before" for the transition to run out of, because the element did not
+ * exist a frame ago. @starting-style is that missing before.
+ *
+ * It sits AFTER the [open] rule deliberately. It is matched at the specificity
+ * of its own selector, so the ordinary cascade decides between the two; put it
+ * first and [open] wins, the starting state never applies, and the dialog
+ * opens with no animation at all while looking like it should have one.
+ */
+@starting-style {
+  .modal[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/*
+ * The backdrop fades with it, and has to say all of this again from scratch:
+ * ::backdrop is not a child of the dialog and inherits nothing from it, so
+ * neither the transition above nor the tokens reach it by descent.
+ */
 .modal::backdrop {
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  transition:
+    background-color var(--dur-move) var(--ease-out),
+    backdrop-filter var(--dur-move) var(--ease-out),
+    overlay var(--dur-move) allow-discrete,
+    display var(--dur-move) allow-discrete;
+}
+.modal[open]::backdrop {
   background: rgba(0, 0, 0, 0.74);
   backdrop-filter: blur(2px);
+}
+@starting-style {
+  .modal[open]::backdrop {
+    background: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0px);
+  }
+}
+
+/*
+ * No motion, and the dialog is still THERE.
+ *
+ * This is the highest-risk rule in the whole motion system and the reason is
+ * worth writing down: the resting state above is opacity 0 / scale(0.96), and
+ * it is the TRANSITION that carries it to [open]. Kill the transition on its
+ * own and nothing carries anything -- the dialog sits at opacity 0 forever,
+ * and the person who asked for less movement gets a game with no spec sheets,
+ * no confirmations and no settings.
+ *
+ * So the resting state is reset to fully-present as well. The request is for
+ * no movement, not for no dialog.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .modal,
+  .modal::backdrop {
+    transition: none;
+  }
+  .modal {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .modal-grid {
@@ -379,9 +484,27 @@
  * still see what you are about to sell, so the top layer only has to separate
  * the question from the sheet, not hide it.
  */
+/*
+ * It has to state BOTH ends of its own fade, not just the target.
+ *
+ * .modal::backdrop above already set a transition and a shut state, and this
+ * selector is more specific -- so overriding only the open colour here would
+ * leave the shut state at .modal's rgba(0,0,0,0) but the open state at 0.4,
+ * which happens to work, and then break the day either value moves. Writing
+ * the pair out keeps the two backdrops independent, which is what they are:
+ * one is the wash over the game, this is the wash over the sheet.
+ */
 .confirm::backdrop {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0);
   backdrop-filter: none;
+}
+.confirm[open]::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+@starting-style {
+  .confirm[open]::backdrop {
+    background: rgba(0, 0, 0, 0);
+  }
 }
 
 .confirm-body {
@@ -454,8 +577,8 @@
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
   cursor: pointer;
   transition:
-    box-shadow 0.12s,
-    transform 0.12s;
+    box-shadow var(--dur-tap),
+    transform var(--dur-tap);
 }
 /* Dark paint on a dark panel needs the ring to find its edge. */
 .paint-dot:hover:not(:disabled) {

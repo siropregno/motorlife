@@ -45,8 +45,12 @@ import { classTierClass } from "./lib/tiers";
  * finish. The two are written out in both places and the flow checks compare
  * them, so a change to one that misses the other fails rather than leaving a
  * dead screen on top of a live one.
+ *
+ * The stylesheet's half is --dur-travel in tokens.css, which is where the
+ * value is decided; this is the copy of it that JavaScript can see. Change
+ * one and you must change the other.
  */
-const SLIDE_MS = 340;
+const SLIDE_MS = 450;
 
 /** "Renault R12 TL" -- how a car is named in prose rather than on its card. */
 const nameOf = (id: string) => {

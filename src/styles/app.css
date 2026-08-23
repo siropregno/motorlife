@@ -254,23 +254,29 @@
  * speeds. That is the opposite of the earlier version, where they crossed in
  * place and wanted opposing curves.
  *
- * cubic-bezier(0.32, 0.72, 0, 1) is a strong decelerate -- most of the
- * distance is covered early, then it settles. It is what makes 100% of travel
- * in 340ms read as quick rather than as a long wipe.
+ * --ease-out is a strong decelerate -- most of the distance is covered early,
+ * then it settles. It is what makes 100% of travel in --dur-travel read as
+ * quick rather than as a long wipe.
+ *
+ * Both tokens started life here as literals, and this is where the house
+ * curve comes from: it was written for this slide, found to be right, and then
+ * promoted to tokens.css so everything that arrives anywhere shares it. See
+ * the note on --dur-travel for why a whole screen gets longer than anything
+ * else.
  */
 .screen.going[data-dir="1"] {
-  animation: screen-out-left 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: screen-out-left var(--dur-travel) var(--ease-out) both;
 }
 .screen.coming[data-dir="1"] {
-  animation: screen-in-right 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: screen-in-right var(--dur-travel) var(--ease-out) both;
 }
 
 /* Going back: the mirror. */
 .screen.going[data-dir="-1"] {
-  animation: screen-out-right 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: screen-out-right var(--dur-travel) var(--ease-out) both;
 }
 .screen.coming[data-dir="-1"] {
-  animation: screen-in-left 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  animation: screen-in-left var(--dur-travel) var(--ease-out) both;
 }
 
 /*
@@ -329,8 +335,8 @@
   text-underline-offset: 3px;
   text-decoration-color: var(--line-2);
   transition:
-    color 0.15s,
-    text-decoration-color 0.15s;
+    color var(--dur-tap),
+    text-decoration-color var(--dur-tap);
 }
 .credit a:hover {
   color: var(--purple-ink);
@@ -532,8 +538,8 @@ h2.screen-title {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--dur-tap),
+    color var(--dur-tap);
 }
 .head-back:hover {
   background: var(--panel-2);
@@ -580,8 +586,8 @@ p.screen-sub {
   background: var(--panel-2);
   color: var(--ink);
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--dur-tap),
+    border-color var(--dur-tap);
 }
 .btn:hover {
   background: var(--purple);
@@ -915,6 +921,68 @@ p.screen-sub {
   justify-items: stretch;
   width: 470px;
   max-width: 100%;
+
+  /*
+   * Cards arrive as you reach them.
+   *
+   * A TRANSITION rather than a keyframe animation, and the difference matters
+   * here: the screen slide above uses keyframes because it plays once on an
+   * element React has just created, and this is the opposite case -- the
+   * element already exists and one class is being added to it. A keyframe
+   * would replay every time a re-render touched the node, so filtering a shop
+   * would make the cards you kept flash.
+   *
+   * The resting state is the HIDDEN one, which means a card nothing ever
+   * reveals stays invisible. That is the whole risk of this effect, and it is
+   * answered in two places: useReveal marks everything shown on every path
+   * where it cannot observe, and the reduced-motion rule below is the backstop
+   * for the day the hook itself fails to run.
+   */
+  opacity: 0;
+  transform: translateY(var(--rise));
+  transition:
+    opacity var(--dur-move) var(--ease-out),
+    transform var(--dur-move) var(--ease-out);
+
+  /*
+   * Promote the card to its own layer while it is still arriving.
+   *
+   * Without this the fade is visibly rough, and the reason is what is inside
+   * the card: a photo that is far larger than the 205px it is drawn at. Fading
+   * an unpromoted element means the browser re-rasterises that photo every
+   * frame of the transition, so the cost of the animation scales with the size
+   * of the source image rather than with the size of the card.
+   *
+   * Dropped the moment it lands. will-change is a standing request for memory,
+   * and a shop of 30 cards each holding a promoted layer for the rest of the
+   * session is how you trade a rough half-second for a slow screen -- so the
+   * hint lives on the hidden state only, and .shown below takes it away.
+   */
+  will-change: opacity, transform;
+}
+
+.shop-item.shown {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/*
+ * No motion, and no chance of an empty shop.
+ *
+ * useReveal already marks every card shown under this setting, so this rule is
+ * the belt to that braces. It exists because the failure it prevents is total
+ * and silent: if the hook ever fails to run -- an effect that throws, a
+ * component that forgets the ref -- the person who asked for less movement
+ * gets a concesionaria with no cars in it and no error to explain why.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .shop-item,
+  .shop-item.shown {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 .shop-buy {
@@ -998,15 +1066,15 @@ p.screen-sub {
   border-radius: 8px;
   background: transparent;
   transition:
-    background 0.15s,
-    opacity 0.15s;
+    background var(--dur-tap),
+    opacity var(--dur-tap);
 }
 .topnav-btn img {
   display: block;
   width: 20px;
   height: 20px;
   opacity: 0.5;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-tap);
 }
 .topnav-btn:hover img {
   opacity: 0.85;
@@ -1193,8 +1261,8 @@ p.screen-sub {
   background-size: cover;
   background-position: center;
   transition:
-    border-color 0.15s,
-    transform 0.15s;
+    border-color var(--dur-tap),
+    transform var(--dur-tap);
 }
 .pick-card::before {
   content: "";
@@ -1280,7 +1348,7 @@ p.screen-sub {
   background: var(--panel);
   color: var(--ink);
   text-align: left;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-tap);
 }
 .dealer-card:hover:not(:disabled) {
   border-color: var(--purple-ink);
@@ -1452,7 +1520,7 @@ p.screen-sub {
   font-family: var(--text);
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-tap);
 }
 .select:hover {
   border-color: var(--ink-4);
@@ -1483,8 +1551,8 @@ p.screen-sub {
   font-size: 15px;
   line-height: 1;
   transition:
-    border-color 0.15s,
-    background 0.15s;
+    border-color var(--dur-tap),
+    background var(--dur-tap);
 }
 .dirbtn:hover {
   border-color: var(--ink-4);
@@ -1913,6 +1981,26 @@ p.screen-sub {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  /*
+   * The two halves of a swap are stacked, not laid side by side.
+   *
+   * Without this the row leaving is a third flex child and pushes the row
+   * arriving along the strip while it drops -- the tiles slide sideways to make
+   * room for something that is on its way out, then snap back when it goes.
+   * Same arrangement .stage uses for the two screens during a slide, and for
+   * the same reason: they occupy one place, one after the other in time rather
+   * than side by side in space.
+   */
+  position: relative;
+}
+
+/* Lifted out of the flow so it takes no width; the arriving row keeps the
+   strip's layout to itself. Pinned left because that is where the tiles start,
+   so the copy dropping away is exactly where the row it replaced was. */
+.workshop-tiles.going {
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .workshop-tiles {
@@ -1920,6 +2008,135 @@ p.screen-sub {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/*
+ * The strip changing, as ONE gesture with two halves.
+ *
+ * The strip is the busiest control in the game -- four parts, one part's
+ * ladder, the colours, the wear bar, all in the same place -- and it is the
+ * one spot where what you are looking at changes without the screen changing.
+ * A cut there leaves you re-reading the row to work out where you are.
+ *
+ * So the two halves say different things. The row you are LEAVING drops
+ * straight down and out, which reads as the old choice being put away. The row
+ * ARRIVING comes in from the left, which reads as the next thing being brought
+ * out to you. Down for done, in-from-the-left for new -- and because they run
+ * at once, the pair reads as one movement rather than as two elements that
+ * happen to be animating.
+ *
+ * Both halves are stacked in the same grid cell (see .workshop-row) so the
+ * outgoing one does not push the incoming one sideways on its way past.
+ */
+@keyframes workshop-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes workshop-row-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+}
+
+/*
+ * The gesture is SEQUENTIAL: the old row drops all the way out, and only then
+ * do the new tiles come in from the left.
+ *
+ * Overlapping them was the first cut and it was wrong in a way the screen
+ * makes obvious: the two rows are different lengths -- six tiles at the top
+ * level, four in a ladder -- so while both are on screen the leftovers of the
+ * longer one stick out past the shorter, and for a moment the strip shows an
+ * engine and a paint tile floating beside a gearbox ladder they have nothing
+ * to do with. The eye reads that as a glitch, not as a transition.
+ *
+ * So the arrival waits out the exit. --dur-out is the exit's own length, named
+ * once and used twice: as the exit's duration, and as the arrival's delay.
+ * That is what keeps the two halves in step -- retune one and the other
+ * follows, rather than being two numbers that have to be remembered together.
+ */
+.workshop-row {
+  --dur-out: calc(var(--dur-move) * 0.55);
+}
+
+.workshop-tiles.coming {
+  animation: workshop-row-in var(--dur-move) var(--ease-out) var(--dur-out) both;
+}
+
+/*
+ * The back arrow and the price fade up IN PLACE, they do not travel.
+ *
+ * They share the tiles' timing -- same delay, so they wait out the exit too --
+ * but not their movement, and the difference is the point. The tiles come in
+ * from the left because they are the thing being brought out to you, a new set
+ * of options arriving. These two are not options: they are the way back and
+ * the price of what is already in front of you, and they sit in a fixed spot
+ * at the end of the strip. Sliding them in from the left drags them across the
+ * tiles they belong beside, which reads as the row being longer than it is.
+ *
+ * So they only fade, with the faintest lift -- enough to say "these are new
+ * too" without claiming they came from somewhere.
+ */
+@keyframes workshop-acts-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.workshop-acts {
+  animation: workshop-acts-in var(--dur-move) var(--ease-out) var(--dur-out) both;
+}
+
+/*
+ * Leaving is quicker than arriving, on the accelerating curve: the old row is
+ * finished with, and the sooner it is gone the sooner the new one can start.
+ * It is the half you are waiting through, so it should not linger.
+ */
+.workshop-tiles.going {
+  animation: workshop-row-out var(--dur-out) var(--ease-in) both;
+  /* It is a picture, not a control -- it must not eat a click aimed at the row
+     arriving underneath it. */
+  pointer-events: none;
+}
+
+/*
+ * No motion, and the strip is still there.
+ *
+ * `both` above holds an element at its keyframe's `from` outside the
+ * animation's active window, so the fill has to go with the animation -- left
+ * on with nothing to run it, the row sits at opacity 0 and the workshop has no
+ * tiles to click.
+ *
+ * The leaving half is hidden outright rather than merely un-animated. With no
+ * animation it would never reach animationend, so nothing would unmount it
+ * until useSwap's fuse expires, and for that second it would sit stacked on
+ * top of the live row at full opacity -- the one outcome worse than the
+ * movement itself. The fuse still clears it; this makes the wait invisible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .workshop-tiles.coming,
+  .workshop-acts {
+    animation: none;
+  }
+  .workshop-tiles.going {
+    display: none;
+  }
 }
 
 /*

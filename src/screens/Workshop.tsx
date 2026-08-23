@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useSwap } from "../lib/swap";
 import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { levelOf, PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
@@ -130,14 +131,21 @@ function Figure({
  * The car is the biggest thing on the screen for the same reason it is in the
  * paint shop: you are deciding what to do to it, and everything that is not it
  * is in the way of that. The figures that matter while you decide -- power,
- * class -- sit in the ficha on the left and change as you hover.
+ * class -- sit in the ficha on the left and change as you choose.
  *
- * Hovering a tier previews the class the car would rate at BEFORE the money is
+ * CLICKING a tier previews the class the car would rate at BEFORE the money is
  * gone. A racing turbo on a class D car can make it a class C car, where the
  * grid is faster, and finding that out after paying is the version of this
  * feature that makes people quit. It is a preview, not a warning: being priced
  * out of your own class by your own turbo is a decision, and this screen's job
  * is to make it an informed one rather than to refuse the sale.
+ *
+ * It was hover once, and moving it to the click is what made the ficha
+ * readable: with the preview on hover, every figure on the left changed as the
+ * cursor crossed the row on its way anywhere, so the numbers you were reading
+ * flickered through four values you had not asked for. Choosing is still free
+ * -- the price button is the only thing that spends -- so you can still try all
+ * four before committing. You just have to ask.
  */
 export function Workshop({
   owned,
@@ -194,28 +202,54 @@ export function Workshop({
   /**
    * The colour under consideration, while the paint row is open.
    *
-   * Separate from `hover`/`picked` because a colour is not a PartLevel and
-   * cannot share their state: those two drive the class preview and the ficha's
+   * Separate from `picked` because a colour is not a PartLevel and cannot
+   * share its state: that one drives the class preview and the ficha's
    * figures, and paint moves neither -- a yellow car and a black one lap the
    * same. One click, one value, and the hero renders it.
    */
   const [shade, setShade] = useState<string | null>(null);
   /**
-   * The tier being considered, and how it got there.
+   * The tier you have chosen and not yet paid for.
    *
-   * `hover` is the cursor passing over a tile; `picked` is a tile actually
-   * clicked. They are separate because they mean different things and the
-   * badge has to tell them apart: a hovered tier is a question, a picked one
-   * is an answer waiting to be paid for.
+   * There used to be a `hover` beside this, and the two were carefully kept
+   * apart: a hovered tier was a question, a picked one an answer. The
+   * distinction was real and the feature was still wrong -- the whole ficha
+   * moved as the cursor crossed the row, so the figures you were trying to
+   * read flickered through four values because the pointer passed over them on
+   * its way somewhere else.
    *
-   * Folding them into one value was the first cut and it was wrong in a way
-   * that is easy to miss -- clicking a tile left `hover` set, so moving the
-   * cursor away never returned the badge to the car's real class. The screen
-   * sat there quietly claiming the car was C558 when it was C545, with nothing
-   * marking it as a preview.
+   * One value now, set by a click. Choosing is still free; only the price
+   * button spends.
    */
-  const [hover, setHover] = useState<PartLevel | null>(null);
   const [picked, setPicked_] = useState<PartLevel | null>(null);
+
+  /**
+   * The strip's two halves while it changes.
+   *
+   * `openPart` above is still the source of truth for WHERE you are -- every
+   * price, every heading and every preview reads it. This only remembers what
+   * was on screen a moment ago, so it can be drawn dropping away.
+   *
+   * Driven from `openRow` below rather than from an effect on openPart, and
+   * that is not a style choice: an effect runs AFTER the commit, so by the time
+   * it set `before` React had already painted the new row and the old one never
+   * appeared at all. The swap has to be told at the same moment the state
+   * changes, which means both go through one function.
+   */
+  const row = useSwap<PartId | "engine" | "paint" | null>(null);
+
+  /**
+   * Open a row, or close back to the top level.
+   *
+   * The only way openPart is allowed to change. Everything that used to call
+   * setOpenPart calls this instead, so the strip can never move without the
+   * outgoing half being kept for its exit -- which is exactly the kind of thing
+   * that gets forgotten at one call site out of six.
+   */
+  const openRow = (next: PartId | "engine" | "paint" | null) => {
+    row.to(next);
+    setOpenPart(next);
+  };
 
   /*
    * Changing car closes whatever ladder was open. Without this, walking from a
@@ -225,7 +259,6 @@ export function Workshop({
    */
   useEffect(() => {
     setOpenPart(null);
-    setHover(null);
     setPicked_(null);
     setShade(null);
   }, [car?.spec.id]);
@@ -238,7 +271,6 @@ export function Workshop({
    */
   useEffect(() => {
     setPicked_(null);
-    setHover(null);
     // A colour tried in the paint row and walked away from is not a colour you
     // asked for. Leaving it set would put the photo back on the wrong car when
     // you returned to the top level.
@@ -248,14 +280,14 @@ export function Workshop({
   const now = useMemo(() => (car ? ratingOf(car.spec, car.mods, car.km) : null), [car]);
 
   /**
-   * What the car would rate with the hovered tier on it.
+   * The tier the screen is currently describing, which is the one you clicked.
    *
-   * ratingOf memoises on the car, its parts and its odometer, so running a
-   * cursor along a row of four tiers costs four reference-lap solves once and
-   * nothing on every pass after. Null when the tier would not move the index,
-   * so the badge stays still rather than flickering between two equal numbers.
+   * Kept as its own name rather than using `picked` directly, because "what is
+   * being previewed" and "what is armed for purchase" are different questions
+   * that happen to have the same answer today -- they did not when a hover
+   * could preview without arming anything.
    */
-  const considering = hover ?? picked;
+  const considering = picked;
 
   /**
    * The mods the car would have with the tier under consideration on it, or
@@ -324,9 +356,9 @@ export function Workshop({
   const openTier: PartId | null =
     openPart !== null && openPart !== "engine" && openPart !== "paint" ? openPart : null;
   /**
-   * The tier being offered: what the cursor is over, else what was clicked,
-   * else what is already on the car. Hover beats a pick so that running along
-   * the row still previews, and the pick is what survives the cursor leaving.
+   * The tier being offered: what you clicked, else what is already on the car.
+   * The fallback is what makes an untouched row describe the car as it stands
+   * rather than as nothing.
    */
   const fittedLevel = openTier ? levelOf(car.mods, openTier) : 0;
   const offered = considering ?? fittedLevel;
@@ -354,6 +386,213 @@ export function Workshop({
   const hero = (shade ? imageFor(car.spec, shade) : null) ?? car.image;
 
   const onRamp = car.spec.id === currentId;
+
+  /**
+   * The contents of the strip for a given state.
+   *
+   * A function rather than the inline block it replaced, because the row is
+   * drawn TWICE while it swaps -- the one arriving and the one dropping away
+   * -- and two copies of this markup would drift the moment a tier or a
+   * colour changed on one of them. Same reasoning, and the same shape, as
+   * App.tsx renderScreen.
+   *
+   * It reads `picked` from the component rather than taking it as an argument,
+   * which is right for the arriving half and harmless for the leaving one: the
+   * outgoing row is inert, so a ring drawn on a tile nobody can reach is a
+   * detail of a picture that is already on its way out.
+   */
+  const tilesFor = (openPart: PartId | "engine" | "paint" | null) => (
+    <>
+        {openPart === null ? (
+          <>
+            {/*
+              * The four parts. Each tile wears the colour of the tier
+              * FITTED to it, so the row says how far each part has been
+              * taken before you click anything.
+              */}
+            {PART_IDS.map((part) => {
+              const level = levelOf(car.mods, part);
+              return (
+                <button
+                  key={part}
+                  type="button"
+                  className={`workshop-tile ${PART_TIER[level]}`}
+                  aria-label={`${PART_NAME[part]}${level > 0 ? `, ${LEVEL_NAME[level as 1 | 2 | 3]}` : ", de fábrica"}`}
+                  title={`${PART_NAME[part]} · ${level === 0 ? "de fábrica" : LEVEL_NAME[level as 1 | 2 | 3]}`}
+                  onClick={() => openRow(part)}
+                >
+                  <Glyph src={PART_ICON[part]} />
+                </button>
+              );
+            })}
+            {/*
+              * The engine, on the same row and deliberately last. It is
+              * the only thing here that does not make the car better
+              * than it left the factory -- it makes it stop being
+              * worse -- so it is separated by a hairline rather than
+              * pretending to be a fifth part.
+              */}
+            <span className="workshop-tile-sep" aria-hidden="true" />
+            <button
+              type="button"
+              className={`workshop-tile engine${rebuildable ? " worn" : ""}`}
+              aria-label={`Motor${rebuildable ? ", pide rectificada" : ", al día"}`}
+              title={rebuildable ? `Motor · ${formatKm(car.mods?.wearKm ?? car.km)} sin rectificar` : "Motor · al día"}
+              onClick={() => openRow("engine")}
+            >
+              <Glyph src={ENGINE_ICON} />
+            </button>
+            {/*
+              * The paint, after the engine and past the same hairline.
+              * It belongs on the far side of it for the same reason the
+              * engine does: it is not a part, and it is the only thing
+              * in the row that does not change what the car DOES. It
+              * wears the colour the car wears, which makes the tile the
+              * only one here whose fill is a fact about this car rather
+              * than about a tier.
+              *
+              * Under two colours there is nothing to change it to, so
+              * the tile says why instead of opening an empty row.
+              */}
+            <button
+              type="button"
+              className={`workshop-tile paint${palette.length < 2 ? " lone" : ""}`}
+              style={
+                car.color
+                  ? ({ "--tile": colorSwatch(car.color) } as CSSProperties)
+                  : undefined
+              }
+              disabled={palette.length < 2}
+              aria-label={`Pintura${car.color ? `, ${colorName(car.color)}` : ""}`}
+              title={
+                palette.length < 2
+                  ? "Este auto viene en un solo color"
+                  : `Pintura · ${car.color ? colorName(car.color) : "—"} · ${formatCredits(paintPrice)} cr`
+              }
+              onClick={() => openRow("paint")}
+            >
+              <Glyph src={ICON.paint} />
+            </button>
+          </>
+        ) : openPart === "paint" ? (
+          /*
+           * The colours this car came in, as dots.
+           *
+           * Every dot is live, the one it wears included: clicking that
+           * one is how you get the car back after trying another. What
+           * it does not do is arm the price -- painting a car the colour
+           * it already is is not a thing to charge for, which is the
+           * same refusal repaintCar makes in the service.
+           *
+           * Dots rather than tiles, and the same .paint-dot the old
+           * dialog used: a colour is the whole content of the control,
+           * so a 68px square with a glyph on it would be a swatch
+           * wearing a costume.
+           */
+          <div className="paint-swatches" role="group" aria-label="Colores">
+            {palette.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={`paint-dot${(shade ?? car.color) === c ? " on" : ""}${
+                  c === car.color ? " current" : ""
+                }`}
+                style={{ "--dot": colorSwatch(c) } as CSSProperties}
+                aria-label={c === car.color ? `${colorName(c)}, el color actual` : colorName(c)}
+                title={c === car.color ? `${colorName(c)} · el color actual` : colorName(c)}
+                onClick={() => setShade(c)}
+              />
+            ))}
+          </div>
+        ) : openPart === "engine" ? (
+          /*
+           * The engine has no tiers, so its "row" is the wear bar. It
+           * fills as the engine tires, left to right the way an
+           * odometer climbs -- a full bar is a worn-out engine.
+           */
+          <div className="workshop-wear-wrap">
+            <span
+              className="workshop-wear"
+              role="img"
+              aria-label={`Desgaste del motor: ${Math.round(wear.fraction * 100)}%`}
+            >
+              <i style={{ width: `${Math.round(wear.fraction * 100)}%` }} />
+            </span>
+            <span className="workshop-wear-note">
+              {rebuildable
+                ? `${formatKm(car.mods?.wearKm ?? car.km)} desde la última rectificada`
+                : "Recién hecho. No hay nada que devolverle."}
+            </span>
+          </div>
+        ) : (
+          /*
+           * One part's ladder: the same glyph four times, the colour
+           * saying which tier. Stock is a tier you can pick, because
+           * taking a part back OFF is a real thing to want -- a racing
+           * suspension you cannot remove is a car you cannot un-ruin
+           * for a circuit that punishes tyre wear.
+           */
+          ([0, ...LADDER] as PartLevel[]).map((level) => {
+            const on = fittedLevel === level;
+            const p = partPrice(car.spec, car.km, openPart, level);
+            const label = level === 0 ? "De fábrica" : LEVEL_NAME[level as 1 | 2 | 3];
+            /*
+             * A tier you cannot afford is still selectable, and that is
+             * deliberate. Greying it out hides the two things you came
+             * to find out -- what it costs and what it would do to the
+             * car -- behind the fact that you are short today. Picking
+             * it previews the class and the figures like any other, and
+             * the price button is where "Faltan X CR" is said.
+             */
+            return (
+              <button
+                key={level}
+                type="button"
+                /*
+                 * Two different rings. `on` is what the car HAS --
+                 * solid purple, the same mark the paint shop puts on
+                 * the colour a car wears. `picked` is what you have
+                 * chosen and not yet paid for, which is a different
+                 * claim and gets the dashed ring the class badge uses
+                 * for the same reason.
+                 */
+                className={`workshop-tile ${PART_TIER[level]}${on ? " on" : ""}${
+                  picked === level && !on ? " picked" : ""
+                }`}
+                aria-label={
+                  on ? `${label}, es lo que tiene puesto` : `${label}, ${formatCredits(p)} créditos`
+                }
+                title={
+                  on
+                    ? `${label} · es lo que tiene puesto`
+                    : `${label} · ${formatCredits(p)} cr`
+                }
+                /*
+                 * No hover preview. Passing the cursor over a tile brightens
+                 * it and does nothing else -- that is a CSS rule on the tile,
+                 * not state.
+                 *
+                 * It used to drive the whole ficha: the class badge and every
+                 * figure moved as the cursor crossed the row. It was a lot of
+                 * screen changing for something as incidental as the pointer
+                 * happening to pass over a tile on its way somewhere else, and
+                 * the figures on the left flickered through four values while
+                 * you were reading them.
+                 *
+                 * Clicking still previews, and previewing is still free -- the
+                 * price button is the only thing that spends money. So you can
+                 * try all four and read what each would give you; you just
+                 * have to ask, rather than being answered on the way past.
+                 */
+                onClick={() => setPicked_(level)}
+              >
+                <Glyph src={PART_ICON[openPart]} />
+              </button>
+            );
+          })
+        )}
+    </>
+  );
 
   return (
     <>
@@ -533,185 +772,36 @@ export function Workshop({
             </div>
 
             <div className="workshop-row">
-              <div className="workshop-tiles" role="group">
-                {openPart === null ? (
-                  <>
-                    {/*
-                      * The four parts. Each tile wears the colour of the tier
-                      * FITTED to it, so the row says how far each part has been
-                      * taken before you click anything.
-                      */}
-                    {PART_IDS.map((part) => {
-                      const level = levelOf(car.mods, part);
-                      return (
-                        <button
-                          key={part}
-                          type="button"
-                          className={`workshop-tile ${PART_TIER[level]}`}
-                          aria-label={`${PART_NAME[part]}${level > 0 ? `, ${LEVEL_NAME[level as 1 | 2 | 3]}` : ", de fábrica"}`}
-                          title={`${PART_NAME[part]} · ${level === 0 ? "de fábrica" : LEVEL_NAME[level as 1 | 2 | 3]}`}
-                          onClick={() => setOpenPart(part)}
-                        >
-                          <Glyph src={PART_ICON[part]} />
-                        </button>
-                      );
-                    })}
-                    {/*
-                      * The engine, on the same row and deliberately last. It is
-                      * the only thing here that does not make the car better
-                      * than it left the factory -- it makes it stop being
-                      * worse -- so it is separated by a hairline rather than
-                      * pretending to be a fifth part.
-                      */}
-                    <span className="workshop-tile-sep" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className={`workshop-tile engine${rebuildable ? " worn" : ""}`}
-                      aria-label={`Motor${rebuildable ? ", pide rectificada" : ", al día"}`}
-                      title={rebuildable ? `Motor · ${formatKm(car.mods?.wearKm ?? car.km)} sin rectificar` : "Motor · al día"}
-                      onClick={() => setOpenPart("engine")}
-                    >
-                      <Glyph src={ENGINE_ICON} />
-                    </button>
-                    {/*
-                      * The paint, after the engine and past the same hairline.
-                      * It belongs on the far side of it for the same reason the
-                      * engine does: it is not a part, and it is the only thing
-                      * in the row that does not change what the car DOES. It
-                      * wears the colour the car wears, which makes the tile the
-                      * only one here whose fill is a fact about this car rather
-                      * than about a tier.
-                      *
-                      * Under two colours there is nothing to change it to, so
-                      * the tile says why instead of opening an empty row.
-                      */}
-                    <button
-                      type="button"
-                      className={`workshop-tile paint${palette.length < 2 ? " lone" : ""}`}
-                      style={
-                        car.color
-                          ? ({ "--tile": colorSwatch(car.color) } as CSSProperties)
-                          : undefined
-                      }
-                      disabled={palette.length < 2}
-                      aria-label={`Pintura${car.color ? `, ${colorName(car.color)}` : ""}`}
-                      title={
-                        palette.length < 2
-                          ? "Este auto viene en un solo color"
-                          : `Pintura · ${car.color ? colorName(car.color) : "—"} · ${formatCredits(paintPrice)} cr`
-                      }
-                      onClick={() => setOpenPart("paint")}
-                    >
-                      <Glyph src={ICON.paint} />
-                    </button>
-                  </>
-                ) : openPart === "paint" ? (
-                  /*
-                   * The colours this car came in, as dots.
-                   *
-                   * Every dot is live, the one it wears included: clicking that
-                   * one is how you get the car back after trying another. What
-                   * it does not do is arm the price -- painting a car the colour
-                   * it already is is not a thing to charge for, which is the
-                   * same refusal repaintCar makes in the service.
-                   *
-                   * Dots rather than tiles, and the same .paint-dot the old
-                   * dialog used: a colour is the whole content of the control,
-                   * so a 68px square with a glyph on it would be a swatch
-                   * wearing a costume.
-                   */
-                  <div className="paint-swatches" role="group" aria-label="Colores">
-                    {palette.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={`paint-dot${(shade ?? car.color) === c ? " on" : ""}${
-                          c === car.color ? " current" : ""
-                        }`}
-                        style={{ "--dot": colorSwatch(c) } as CSSProperties}
-                        aria-label={c === car.color ? `${colorName(c)}, el color actual` : colorName(c)}
-                        title={c === car.color ? `${colorName(c)} · el color actual` : colorName(c)}
-                        onClick={() => setShade(c)}
-                      />
-                    ))}
-                  </div>
-                ) : openPart === "engine" ? (
-                  /*
-                   * The engine has no tiers, so its "row" is the wear bar. It
-                   * fills as the engine tires, left to right the way an
-                   * odometer climbs -- a full bar is a worn-out engine.
-                   */
-                  <div className="workshop-wear-wrap">
-                    <span
-                      className="workshop-wear"
-                      role="img"
-                      aria-label={`Desgaste del motor: ${Math.round(wear.fraction * 100)}%`}
-                    >
-                      <i style={{ width: `${Math.round(wear.fraction * 100)}%` }} />
-                    </span>
-                    <span className="workshop-wear-note">
-                      {rebuildable
-                        ? `${formatKm(car.mods?.wearKm ?? car.km)} desde la última rectificada`
-                        : "Recién hecho. No hay nada que devolverle."}
-                    </span>
-                  </div>
-                ) : (
-                  /*
-                   * One part's ladder: the same glyph four times, the colour
-                   * saying which tier. Stock is a tier you can pick, because
-                   * taking a part back OFF is a real thing to want -- a racing
-                   * suspension you cannot remove is a car you cannot un-ruin
-                   * for a circuit that punishes tyre wear.
-                   */
-                  ([0, ...LADDER] as PartLevel[]).map((level) => {
-                    const on = fittedLevel === level;
-                    const p = partPrice(car.spec, car.km, openPart, level);
-                    const label = level === 0 ? "De fábrica" : LEVEL_NAME[level as 1 | 2 | 3];
-                    /*
-                     * A tier you cannot afford is still selectable, and that is
-                     * deliberate. Greying it out hides the two things you came
-                     * to find out -- what it costs and what it would do to the
-                     * car -- behind the fact that you are short today. Picking
-                     * it previews the class and the figures like any other, and
-                     * the price button is where "Faltan X CR" is said.
-                     */
-                    return (
-                      <button
-                        key={level}
-                        type="button"
-                        /*
-                         * Two different rings. `on` is what the car HAS --
-                         * solid purple, the same mark the paint shop puts on
-                         * the colour a car wears. `picked` is what you have
-                         * chosen and not yet paid for, which is a different
-                         * claim and gets the dashed ring the class badge uses
-                         * for the same reason.
-                         */
-                        className={`workshop-tile ${PART_TIER[level]}${on ? " on" : ""}${
-                          picked === level && !on ? " picked" : ""
-                        }`}
-                        aria-label={
-                          on ? `${label}, es lo que tiene puesto` : `${label}, ${formatCredits(p)} créditos`
-                        }
-                        title={
-                          on
-                            ? `${label} · es lo que tiene puesto`
-                            : `${label} · ${formatCredits(p)} cr`
-                        }
-                        onMouseEnter={() => setHover(level)}
-                        onMouseLeave={() => setHover(null)}
-                        onFocus={() => setHover(level)}
-                        onBlur={() => setHover(null)}
-                        // Picking is free. Only the price button spends money,
-                        // which is what lets you try all four and read the
-                        // class each would give you before committing.
-                        onClick={() => setPicked_(level)}
-                      >
-                        <Glyph src={PART_ICON[openPart]} />
-                      </button>
-                    );
-                  })
-                )}
+              {/*
+                * The row that is LEAVING, kept mounted while it drops away.
+                *
+                * This is the whole cost of a gesture with two halves: something
+                * has to still be drawing the old tiles after they have stopped
+                * being the current ones. The same trade App.tsx makes for the
+                * screen slide, and it is the reason `leaving` exists there --
+                * see useSwap, which is that pattern with the timer replaced by
+                * the animation's own end event.
+                *
+                * INERT. aria-hidden, and every control inside it is unreachable
+                * because the whole subtree is `inert`: it is a picture of a row
+                * you have already left, and a tab stop or a screen reader
+                * finding a button on its way off the screen would be offering a
+                * control that is about to stop existing.
+                */}
+              {row.before ? (
+                <div
+                  className="workshop-tiles going"
+                  key={`tiles-out-${row.before.value ?? "top"}`}
+                  aria-hidden="true"
+                  inert
+                  onAnimationEnd={row.onLeft}
+                >
+                  {tilesFor(row.before.value)}
+                </div>
+              ) : null}
+
+              <div className="workshop-tiles coming" role="group" key={`tiles-${openPart ?? "top"}`}>
+                {tilesFor(openPart)}
               </div>
 
               {/*
@@ -719,16 +809,20 @@ export function Workshop({
                 * part -- at the top level there is nothing to go back to and
                 * nothing to pay for, so the strip is just the four doors.
                 */}
+              {/* Keyed on openPart rather than on a constant, so the pay
+                  button re-animates when you walk from one row straight into
+                  another -- the tiles beside it do, and a back arrow that sat
+                  still while its own row changed underneath would read as part
+                  of the furniture rather than as part of the row. */}
               {openPart !== null ? (
-                <div className="workshop-acts">
+                <div className="workshop-acts" key={`acts-${openPart}`}>
                   <button
                     type="button"
                     className="btn workshop-back"
                     aria-label="Volver"
                     title="Volver"
                     onClick={() => {
-                      setOpenPart(null);
-                      setHover(null);
+                      openRow(null);
                     }}
                   >
                     <Glyph src={ICON.back} />
@@ -759,7 +853,7 @@ export function Workshop({
                         // Back to the top level: the car IS that colour now, so
                         // the row would be sitting on a preview of what it
                         // already wears.
-                        setOpenPart(null);
+                        openRow(null);
                       }}
                     >
                       {credits < paintPrice
@@ -780,7 +874,7 @@ export function Workshop({
                       }
                       onClick={() => {
                         onRebuild(car.spec.id);
-                        setOpenPart(null);
+                        openRow(null);
                       }}
                     >
                       {!rebuildable
@@ -822,14 +916,14 @@ export function Workshop({
                        * question after fitting a part is "what else does this
                        * car need", and that question is the four tiles.
                        *
-                       * Closing the row also clears the pick and the hover, via
-                       * the effect on `openPart` -- so the dashed "chosen, not
-                       * paid for" ring goes with it rather than being left on a
-                       * tier that is now simply what the car has.
+                       * Closing the row also clears the pick, via the effect on
+                       * `openPart` -- so the dashed "chosen, not paid for" ring
+                       * goes with it rather than being left on a tier that is
+                       * now simply what the car has.
                        */
                       onClick={() => {
                         onFit(car.spec.id, openPart, offered);
-                        setOpenPart(null);
+                        openRow(null);
                       }}
                     >
                       {!payable

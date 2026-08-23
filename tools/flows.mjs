@@ -67,6 +67,23 @@ const garage = async () => {
 const settled = () =>
   page.waitForFunction(() => !document.querySelector(".stage.sliding"), null, { timeout: 5000 });
 
+/**
+ * Wait for the workshop's strip to finish changing rows.
+ *
+ * The strip swaps in two halves -- the old row drops out, then the new one
+ * comes in from the left -- and BOTH are mounted while that runs. So a bare
+ * `.workshop-tile` count catches ten tiles mid-swap: the six leaving and the
+ * four arriving. Every check below that counts or reads tiles has to wait for
+ * this first.
+ *
+ * Waits for the STATE, like settled() above: the outgoing half carries
+ * .going and unmounts itself on animationend, so its absence is the honest
+ * signal that the swap is over. A waitForTimeout here would be a number to
+ * keep in step with --dur-move, which is exactly the coupling this avoids.
+ */
+const swapped = () =>
+  page.waitForFunction(() => !document.querySelector(".workshop-tiles.going"), null, { timeout: 5000 });
+
 try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle" });
   await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), SAVE);
@@ -143,7 +160,7 @@ try {
     "Pintura, Negro",
   );
   await paintTile.click();
-  await page.waitForTimeout(200);
+  await swapped();
   check("opening it names the row", await page.locator(".workshop-bar-head h3").innerText(), "PINTURA");
   check(
     "every colour is a dot, the current one marked and still clickable",
@@ -190,7 +207,7 @@ try {
   check("picking a real change arms the price again", await pay.isDisabled(), false);
 
   await pay.click();
-  await page.waitForTimeout(400);
+  await swapped();
   check("paying charges exactly that", await wallet(), "114.300CR");
   /*
    * Paying returns you to the top level: the car IS that colour now, so the row
@@ -214,6 +231,63 @@ try {
   await page.reload({ waitUntil: "networkidle" });
   await garage();
   check("and it survives a reload, so it reached the save", await photo("M3 E30"), "/bmw-m3-e30-yellow.webp");
+
+  /*
+   * How the dialogs open and shut.
+   *
+   * All of this is CSS -- @starting-style plus allow-discrete, no React at all
+   * -- which is exactly why it needs checking here: there is no unit test that
+   * can reach it, and every failure mode is silent. A missing property does not
+   * throw, it just means the fade plays in the wrong place or not at all.
+   */
+  console.log("\nthe dialogs, opening and shutting");
+  await card("M3 E30").click();
+  await page.waitForSelector("dialog.modal[open]");
+  check(
+    "the sheet transitions the top layer, not just its opacity",
+    await page.locator("dialog.modal").evaluate((e) =>
+      getComputedStyle(e).transitionProperty.includes("overlay")),
+    true,
+  );
+  /*
+   * THE check this one is for. `overlay` is the property everyone leaves out,
+   * and leaving it out is invisible on the way in and wrong on the way out:
+   * the dialog drops out of the top layer on the first frame of its exit and
+   * the fade plays underneath the garage instead of over it.
+   */
+  check(
+    "and holds it discretely, or the exit plays behind the page",
+    await page.locator("dialog.modal").evaluate((e) =>
+      getComputedStyle(e).transitionBehavior.includes("allow-discrete")),
+    true,
+  );
+  /*
+   * SETTLES, so it has to be waited for rather than sampled.
+   *
+   * Reading the opacity the instant the dialog is [open] catches it at the
+   * start of its fade and reports 0, which is the animation working. Waiting
+   * on getAnimations() is the same trick `settled()` uses for the slide: it
+   * waits for the STATE of the transition rather than for a duration, so
+   * retuning --dur-move cannot silently make this check too early.
+   */
+  await page.waitForFunction(() =>
+    document.querySelector("dialog.modal")?.getAnimations().every((a) => a.playState === "finished"));
+  check(
+    "it settles fully opaque rather than part-way",
+    await page.locator("dialog.modal").evaluate((e) => getComputedStyle(e).opacity),
+    "1",
+  );
+
+  await page.locator(".modal-x").click();
+  /*
+   * Shut is immediate; the fade is only how it leaves the screen. Anything
+   * reading whether a dialog is up has to read [open] rather than the
+   * element's presence -- which is the reason the sell check further down
+   * changed form.
+   */
+  check("pressing close shuts it at once", await page.locator("dialog.modal[open]").count(), 0);
+  await page.waitForSelector("dialog.modal", { state: "detached" });
+  check("and it really does leave the DOM afterwards", await page.locator("dialog.modal").count(), 0);
 
   console.log("\nwhat the sheet refuses");
   await card("Chevy 250").click();
@@ -264,13 +338,75 @@ try {
   await page.waitForSelector("dialog.confirm", { state: "detached" });
   check("yes sells", await wallet(), "121.600CR");
   check("and the car is gone", await page.locator(".car-card").count(), 2);
-  check("and the sheet behind it closed with the car", await page.locator("dialog.modal").count(), 0);
+  /*
+   * [open], not a plain count of the element.
+   *
+   * Selling closes BOTH dialogs at once -- the question, and the sheet behind
+   * it that was describing a car which no longer exists -- and the two now
+   * fade out rather than vanishing. So for --dur-move after the confirm has
+   * detached, the sheet is still in the DOM finishing its exit, and a count of
+   * `dialog.modal` catches it on the way out.
+   *
+   * [open] is the honest question anyway: close() removes the attribute
+   * synchronously, so it is the actual shut/not-shut state, and the fade is
+   * only how the box leaves the screen afterwards. The old form passed only
+   * because closing used to be instantaneous.
+   */
+  check("and the sheet behind it closed with the car", await page.locator("dialog.modal[open]").count(), 0);
 
   console.log("\nthe shop sheet, which shares the component");
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
   await page.getByRole("button", { name: /Concesionarios/ }).click();
   await page.getByRole("button", { name: /Pacheco/ }).click();
   await page.waitForSelector(".shop-item");
+
+  /*
+   * The cards arriving as you go down the list.
+   *
+   * Rooted on the screen's own scroll box, which is the part that can silently
+   * be wrong: nothing here scrolls the viewport, so an observer left to
+   * default would call every card visible on the first frame and reveal the
+   * whole shop at once. That failure looks exactly like a working feature,
+   * which is why the second half of this checks that a card BELOW the fold is
+   * still hidden -- without it the pair would pass on a no-op.
+   */
+  console.log("\nthe cards, arriving as you reach them");
+  /*
+   * The class lands on the first tick; the fade it starts takes --dur-move.
+   * Both halves are worth checking and they are different claims, so the wait
+   * between them is on the transition finishing rather than on a timer.
+   */
+  await page.waitForFunction(() =>
+    document.querySelector(".shop-item")?.classList.contains("shown"));
+  await page.waitForFunction(() =>
+    document.querySelector(".shop-item")?.getAnimations().every((a) => a.playState === "finished"));
+  check(
+    "the cards you can already see are revealed straight away",
+    await page.locator(".shop-item").first().evaluate((e) => getComputedStyle(e).opacity),
+    "1",
+  );
+
+  const reveal = await page.evaluate(async () => {
+    const box = document.querySelector(".screen.coming .screen-body");
+    const items = [...document.querySelectorAll(".shop-item")];
+    const last = items[items.length - 1];
+    // A list that fits on screen has nothing to reveal on the way down, and
+    // saying so is better than asserting something untrue about it.
+    if (!box || box.scrollHeight <= box.clientHeight + 40) return { overflows: false };
+    const before = last.classList.contains("shown");
+    box.scrollTo(0, box.scrollHeight);
+    await new Promise((r) => setTimeout(r, 500));
+    return { overflows: true, before, after: last.classList.contains("shown") };
+  });
+
+  if (reveal.overflows) {
+    check("the last card is not revealed before you reach it", reveal.before, false);
+    check("and scrolling the list is what reveals it", reveal.after, true);
+  } else {
+    console.log("  (this dealer fits on screen; nothing to scroll to)");
+  }
+  // Back to the top, so the sheet checks below open the card they expect.
+  await page.evaluate(() => document.querySelector(".screen.coming .screen-body")?.scrollTo(0, 0));
   await card("Chevy 250").click();
   await page.waitForSelector("dialog.modal");
   check("it still shows a price", await page.locator(".modal-price").innerText(), "12.200 cr");
@@ -458,7 +594,7 @@ try {
    * visible without opening anything.
    */
   await page.locator('.workshop-tile[aria-label^="Turbo"]').click();
-  await page.waitForTimeout(150);
+  await swapped();
   check(
     "opening a part names it",
     await page.locator(".workshop-bar-head h3").innerText(),
@@ -485,13 +621,23 @@ try {
   const figure = (name) =>
     page.locator(".workshop-specs .spec-row", { hasText: name }).locator(".spec-v");
   const restingPower = await figure("Potencia").innerText();
-  await page.locator(".workshop-tile").last().hover();
+  /*
+   * CLICKING, not hovering.
+   *
+   * The preview used to run on hover, and it was moved to the click because
+   * the ficha was unreadable: every figure on the left changed as the cursor
+   * crossed the row on its way anywhere else, so the numbers flickered through
+   * four values nobody had asked for. Choosing is still free -- the price
+   * button below is the only thing that spends -- so all four tiers can still
+   * be tried before committing.
+   */
+  await page.locator(".workshop-tile").last().click();
   await page.waitForFunction(
     (was) => document.querySelector(".workshop-specs .spec-v")?.textContent !== was,
     restingPower,
   );
   check(
-    "hovering a tier shows the power you would end up with",
+    "picking a tier shows the power you would end up with",
     (await figure("Potencia").innerText()) !== restingPower,
     true,
   );
@@ -542,13 +688,13 @@ try {
 
   /*
    * Clicking a tile PICKS; only the price button pays. That split is what lets
-   * you try all four tiers and read the consequence of each one for free.
+   * you try all four tiers and read the consequence of each one for free, and
+   * it is the whole reason the preview could move off hover without taking the
+   * "try before you buy" away.
    */
-  await page.locator(".workshop-tile").last().click();
-  await page.waitForTimeout(150);
   check("picking a tier is still free", await wallet(), "900.000CR");
   check(
-    "and the pick survives the cursor leaving, marked as not yet paid for",
+    "and the pick is marked as chosen but not yet paid for",
     await page.locator(".workshop-tile.picked").count(),
     1,
   );
@@ -563,6 +709,9 @@ try {
 
   await page.locator(".workshop-pay").click();
   await page.waitForFunction(() => document.querySelectorAll(".workshop-tile.picked").length === 0);
+  // Paying closes the row, so the strip is mid-swap here: the tiers dropping
+  // away and the four parts arriving are both mounted until it settles.
+  await swapped();
   check("the price button is what spends the money", (await wallet()) !== "900.000CR", true);
   /*
    * Paying closes the ladder, the same way paying for paint and for a
@@ -679,7 +828,7 @@ try {
   await page.waitForSelector(".workshop-stage");
   await settled();
   await page.locator('.workshop-tile[aria-label^="Turbo"]').click();
-  await page.waitForTimeout(150);
+  await swapped();
   check(
     "with almost no money, every tier is still enabled",
     await page.locator(".workshop-tile").evaluateAll((els) => els.filter((e) => e.disabled).length),
@@ -714,7 +863,7 @@ try {
    * back what the kilometres took rather than add anything.
    */
   await page.locator('.workshop-tile[aria-label^="Motor"]').click();
-  await page.waitForTimeout(150);
+  await swapped();
   check("the engine opens on its own", await page.locator(".workshop-bar-head h3").innerText(), "MOTOR");
   check(
     "a car with 214.000 km is offered a rebuild, with a price on it",
@@ -727,7 +876,7 @@ try {
     true,
   );
   await page.locator(".workshop-pay").click();
-  await page.waitForTimeout(300);
+  await swapped();
   check(
     "rebuilding it leaves nothing to rebuild",
     await page.locator('.workshop-tile[aria-label^="Motor"]').evaluate((e) =>
@@ -1283,7 +1432,7 @@ try {
   check("going right, the old screen leaves to the left", fwd.going?.name, "screen-out-left");
   check("and the new one comes in from the right", fwd.coming?.name, "screen-in-right");
   check("both for the same length of time", fwd.going?.ms === fwd.coming?.ms, true);
-  check("which matches SLIDE_MS in App.tsx", fwd.coming?.ms, 340);
+  check("which matches SLIDE_MS in App.tsx", fwd.coming?.ms, 450);
   check("with both screens on the stage while it runs", await page.locator(".screen").count(), 2);
 
   // Coming BACK is the mirror. A slide that went the same way in both
@@ -1754,6 +1903,44 @@ try {
       return getComputedStyle(go).display === "none" ? "not covering" : "COVERING";
     }),
     "not covering",
+  );
+
+  /*
+   * The same question of the three surfaces that gained motion with the tokens.
+   *
+   * Every one of them rests at opacity 0 and is carried to visible by a
+   * transition or an animation, so every one of them fails the same total,
+   * silent way if the reduced-motion rule only cancels the movement without
+   * putting the resting state back: a shop with no cars, a taller with no
+   * tiles, a sheet that is not there. Checking each explicitly, because "the
+   * animation is gone" is not the same claim as "the content is on screen".
+   */
+  await calm.getByRole("button", { name: /Concesionarios/ }).click();
+  await calm.getByRole("button", { name: /Pacheco/ }).click();
+  await calm.waitForSelector(".shop-item");
+  check(
+    "every card is fully there, not just the ones that would have scrolled into view",
+    await calm.locator(".shop-item").evaluateAll((els) =>
+      els.every((e) => getComputedStyle(e).opacity === "1")),
+    true,
+  );
+
+  await calm.locator(".shop-item .car-card").first().click();
+  await calm.waitForSelector("dialog.modal[open]");
+  check(
+    "the sheet is there rather than faded to nothing",
+    await calm.locator("dialog.modal").evaluate((e) => getComputedStyle(e).opacity),
+    "1",
+  );
+  await calm.locator(".modal-x").click();
+  await calm.waitForSelector("dialog.modal", { state: "detached" });
+
+  await calm.locator('.topnav-btn[aria-label="Taller"]').click();
+  await calm.waitForSelector(".workshop-stage");
+  check(
+    "and the workshop strip still has tiles to click",
+    await calm.locator(".workshop-tiles").evaluate((e) => getComputedStyle(e).opacity),
+    "1",
   );
   await calm.close();
 } finally {

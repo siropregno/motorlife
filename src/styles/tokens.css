@@ -51,6 +51,68 @@
 }
 
 /*
+ * Motion.
+ *
+ * These exist because the app had EIGHT durations and five easings before
+ * them -- 0.12s, 0.15s, 0.18s, 0.22s, 0.3s, 340ms, 0.5s -- each picked in
+ * isolation on the day it was written. A card border settled in 0.15s, a
+ * paint dot in 0.12s, a toast arrived in 0.22s and left in 0.18s. Nobody could
+ * name the difference between any two of them, which is what an inconsistent
+ * system is: not motion that is wrong, motion that is unaccountable.
+ *
+ * So each duration is named for the KIND OF THING it describes rather than
+ * for how it feels. That is the whole point -- the next person reaching for
+ * one has a rule to apply instead of a taste to exercise, and "which of these
+ * is my thing" is a question with an answer.
+ */
+:root {
+  /* Feedback under the cursor: hover, press, focus, a swatch taking its ring.
+     Short enough to feel like a response to the pointer rather than an event
+     of its own -- this is the one that must never feel like waiting, because
+     it happens on the way to doing something else. */
+  --dur-tap: 180ms;
+
+  /* A thing entering or leaving its place: a dialog, a card, a row of tiles.
+     Long enough to read as travel rather than as a flicker. */
+  --dur-move: 400ms;
+
+  /* A whole screen crossing the frame. The longest, and it has to be: this is
+     a full screen-width of travel, and anything quicker over that distance
+     reads as a wipe rather than as a page turning. */
+  --dur-travel: 450ms;
+
+  /*
+   * Arriving decelerates, leaving accelerates. That pairing is the identity --
+   * a thing coming towards you settles into place, a thing going away gets on
+   * with it -- and it is why there are two curves rather than one shared ease.
+   *
+   * --ease-out is not a new value. It is the curve the screen slide already
+   * used, promoted from a literal repeated four times into the house
+   * decelerate that everything arriving now shares.
+   */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.9, 0.3);
+
+  /*
+   * How far a thing travels while it arrives.
+   *
+   * Small on purpose. This is the distance for something appearing IN PLACE --
+   * a card, a row of tiles -- where the movement's job is to say "this is new"
+   * and then get out of the way. Anything that genuinely crosses the screen
+   * states its own distance instead; the slide travels 100%, which is a fact
+   * about the frame rather than a value from here.
+   */
+  --rise: 8px;
+}
+
+/*
+ * The one thing NOT stated here: hovers use plain `ease`, not either curve
+ * above. A hover reverses under the cursor -- on, off, on again -- and an
+ * asymmetric curve makes the return trip feel unlike the outbound one. The
+ * two curves are for things that arrive once and leave once.
+ */
+
+/*
  * The tier ladder, defined once. Rarity uses it on the card's edge bar; the
  * class index uses it on the letter. Same ladder, two different questions --
  * how rare the car is, and how fast it is. A common car can be class A.
