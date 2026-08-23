@@ -809,15 +809,27 @@ export function Workshop({
                             : `${formatCredits(price)} cr`
                       }
                       /*
-                       * Clear the pick after paying. It is on the car now, so
-                       * the tile it belongs to takes the solid `on` ring and
-                       * the dashed "chosen, not paid for" one would be a
-                       * second mark saying something no longer true.
+                       * Back to Modificaciones once it is paid for, the same
+                       * way paying for paint and for a rectificada already
+                       * leave their rows.
+                       *
+                       * Staying in the ladder was the odd one out, and it left
+                       * the screen making a claim that had stopped being
+                       * interesting: the tier you bought takes the solid `on`
+                       * ring and every other tile in the row is now a DIFFERENT
+                       * turbo you could put on the same car -- which is not
+                       * what anyone is deciding a second after buying one. The
+                       * question after fitting a part is "what else does this
+                       * car need", and that question is the four tiles.
+                       *
+                       * Closing the row also clears the pick and the hover, via
+                       * the effect on `openPart` -- so the dashed "chosen, not
+                       * paid for" ring goes with it rather than being left on a
+                       * tier that is now simply what the car has.
                        */
                       onClick={() => {
                         onFit(car.spec.id, openPart, offered);
-                        setPicked_(null);
-                        setHover(null);
+                        setOpenPart(null);
                       }}
                     >
                       {!payable

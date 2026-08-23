@@ -564,10 +564,34 @@ try {
   await page.locator(".workshop-pay").click();
   await page.waitForFunction(() => document.querySelectorAll(".workshop-tile.picked").length === 0);
   check("the price button is what spends the money", (await wallet()) !== "900.000CR", true);
+  /*
+   * Paying closes the ladder, the same way paying for paint and for a
+   * rectificada already did. The question after fitting a turbo is "what else
+   * does this car need", and that question is the four tiles -- not three other
+   * turbos you could have bought instead of the one you just did.
+   */
   check(
-    "the tier is now the one on the car",
-    await page.locator(".workshop-tile.on").evaluate((e) => e.classList.contains("racing")),
+    "paying takes you back to Modificaciones",
+    await page.locator(".workshop-bar-head h3").innerText(),
+    "MODIFICACIONES",
+  );
+  check(
+    "so the strip is the four parts, the engine and the paint again",
+    await page.locator(".workshop-tile").count(),
+    6,
+  );
+  // And no ring is left behind claiming a choice that has been made and paid.
+  check("with nothing left marked as chosen", await page.locator(".workshop-tile.picked").count(), 0);
+  check(
+    "the part you bought wears its tier on the top-level tile",
+    await page.locator('.workshop-tile[aria-label^="Turbo"]').evaluate((e) =>
+      e.classList.contains("racing")),
     true,
+  );
+  check(
+    "which says in words what it now has",
+    await page.locator('.workshop-tile[aria-label^="Turbo"]').getAttribute("aria-label"),
+    "Turbo, Competición",
   );
   check(
     "and the power the preview promised is the power you got",
