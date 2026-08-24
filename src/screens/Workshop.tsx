@@ -30,24 +30,28 @@ interface Props {
   owned: OwnedCar[];
   credits: number;
   /**
-   * The car you are in. The workshop opens on it when you arrive by pressing
-   * the tab, because it is the one you are about to race.
+   * The car you are in, by UID. The workshop opens on it when you arrive by
+   * pressing the tab, because it is the one you are about to race.
+   *
+   * A uid rather than a model id because this screen SPENDS: with two of a
+   * model in the garage, a ramp that resolved by model would happily charge you
+   * for a racing turbo and bolt it to the other one.
    */
-  currentId: string;
+  currentUid: string;
   /**
    * A car named on the way in -- "Llevar al taller" on a card in the garage.
-   * Null when you simply pressed the tab.
+   * Null when you simply pressed the tab. A uid, like currentUid.
    */
   openOn?: string | null;
-  onFit: (id: string, part: PartId, level: PartLevel) => void;
-  onRebuild: (id: string) => void;
+  onFit: (uid: string, part: PartId, level: PartLevel) => void;
+  onRebuild: (uid: string) => void;
   /**
    * Repaint the car on the ramp. It used to be the garage's, raised as a dialog
    * of its own over the car sheet; the workshop is where everything else you
    * pay to change about a car happens, and it already has the big live photo
    * that choosing a colour needs.
    */
-  onRepaint: (id: string, color: string) => void;
+  onRepaint: (uid: string, color: string) => void;
   /**
    * Get into the car on the ramp.
    *
@@ -56,7 +60,7 @@ interface Props {
    * garage to get in. Same handler the garage and its menu use, so there is one
    * answer to "which car am I in" and the topbar sees this one too.
    */
-  onDrive: (id: string) => void;
+  onDrive: (uid: string) => void;
 }
 
 /**
@@ -150,7 +154,7 @@ function Figure({
 export function Workshop({
   owned,
   credits,
-  currentId,
+  currentUid,
   openOn,
   onFit,
   onRebuild,
@@ -165,7 +169,9 @@ export function Workshop({
         // the paint row needs to know which dot is the one the car WEARS, which
         // a rendered photo cannot tell it.
         const color = colorOfHeld(o);
-        return spec ? [{ spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }] : [];
+        return spec
+          ? [{ uid: o.uid, spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }]
+          : [];
       }),
     [owned],
   );
@@ -183,11 +189,9 @@ export function Workshop({
    * driven elsewhere changes what this resolves to on the next render instead
    * of leaving a dead id on the ramp.
    */
-  const wanted = openOn ?? currentId;
+  const wanted = openOn ?? currentUid;
   const car =
-    cars.find((c) => c.spec.id === wanted) ??
-    cars.find((c) => c.spec.id === currentId) ??
-    cars[0];
+    cars.find((c) => c.uid === wanted) ?? cars.find((c) => c.uid === currentUid) ?? cars[0];
 
   /**
    * Which part's ladder is open. Null is the top level -- the four parts.
@@ -261,7 +265,10 @@ export function Workshop({
     setOpenPart(null);
     setPicked_(null);
     setShade(null);
-  }, [car?.spec.id]);
+    // Keyed on the UID, so walking from one Falcon to the other one closes the
+    // row too. On the model id the two would look like the same car and the
+    // strip would stay open on a ladder describing the one you just left.
+  }, [car?.uid]);
 
   /*
    * Opening a different part starts with nothing chosen. Without this, walking
@@ -385,7 +392,7 @@ export function Workshop({
    */
   const hero = (shade ? imageFor(car.spec, shade) : null) ?? car.image;
 
-  const onRamp = car.spec.id === currentId;
+  const onRamp = car.uid === currentUid;
 
   /**
    * The contents of the strip for a given state.
@@ -626,7 +633,7 @@ export function Workshop({
           className={`btn workshop-drive${onRamp ? "" : " primary"}`}
           disabled={onRamp}
           title={onRamp ? "Ya estás en este auto" : `Subirse al ${car.spec.model}`}
-          onClick={() => onDrive(car.spec.id)}
+          onClick={() => onDrive(car.uid)}
         >
           <Glyph src={ICON.drive} />
           {onRamp ? "Estás en este" : "Subirse"}
@@ -849,7 +856,7 @@ export function Workshop({
                               : `Pintar de ${colorName(shade)} · ${formatCredits(paintPrice)} cr`
                       }
                       onClick={() => {
-                        if (shade) onRepaint(car.spec.id, shade);
+                        if (shade) onRepaint(car.uid, shade);
                         // Back to the top level: the car IS that colour now, so
                         // the row would be sitting on a preview of what it
                         // already wears.
@@ -873,7 +880,7 @@ export function Workshop({
                             : `Rectificar · ${formatCredits(rebuild)} cr`
                       }
                       onClick={() => {
-                        onRebuild(car.spec.id);
+                        onRebuild(car.uid);
                         openRow(null);
                       }}
                     >
@@ -922,7 +929,7 @@ export function Workshop({
                        * now simply what the car has.
                        */
                       onClick={() => {
-                        onFit(car.spec.id, openPart, offered);
+                        onFit(car.uid, openPart, offered);
                         openRow(null);
                       }}
                     >

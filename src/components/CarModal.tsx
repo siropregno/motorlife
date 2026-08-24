@@ -26,7 +26,17 @@ export type CarSheet =
       kind: "buy";
       price: number;
       credits: number;
-      owned: boolean;
+      /**
+       * How many of this MODEL are already in your garage.
+       *
+       * It was a boolean, and it disabled the button: owning a car meant nobody
+       * would sell you another one. That rule existed because the garage was
+       * keyed by model and physically could not hold two. It can now, and a
+       * second unit is a thing to want -- one built for a circuit, one left
+       * stock -- so the count is a NOTE rather than a wall. Zero says nothing at
+       * all; the only thing that still stops the sale is the price.
+       */
+      owned: number;
       /** km travels with the sale: the odometer you bought is the one you own. */
       onBuy?: (id: string, price: number, km: number) => void;
     }
@@ -311,23 +321,38 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
           {sheet.kind === "buy" ? (
             <footer className="modal-foot">
               <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
+              {/*
+                * "Ya tenés uno" where the dead "En tu garaje" button used to be.
+                *
+                * Same fact, told instead of enforced. It is worth telling: two
+                * of a model look identical on a card, so somebody who forgot
+                * they own one would otherwise find out in the garage. It sits
+                * beside the price rather than on the button, because it is
+                * information about the car and not a reason you cannot have it.
+                */}
+              {sheet.owned > 0 ? (
+                <span className="modal-owned">
+                  {sheet.owned === 1 ? "Ya tenés uno" : `Ya tenés ${sheet.owned}`}
+                </span>
+              ) : null}
               <span className="modal-price">{formatCredits(sheet.price)} cr</span>
-              {sheet.owned ? (
-                <button className="btn" disabled>
-                  En tu garaje
-                </button>
-              ) : (
-                <button
-                  className={`btn${sheet.credits >= sheet.price ? " primary" : ""}`}
-                  disabled={sheet.credits < sheet.price || !sheet.onBuy}
-                  onClick={() => {
-                    sheet.onBuy?.(spec.id, sheet.price, km);
-                    close();
-                  }}
-                >
-                  Comprar
-                </button>
-              )}
+              <button
+                className={`btn${sheet.credits >= sheet.price ? " primary" : ""}`}
+                disabled={sheet.credits < sheet.price || !sheet.onBuy}
+                title={
+                  sheet.credits < sheet.price
+                    ? `Faltan ${formatCredits(sheet.price - sheet.credits)} cr`
+                    : sheet.owned > 0
+                      ? "Comprar otra unidad"
+                      : "Comprar"
+                }
+                onClick={() => {
+                  sheet.onBuy?.(spec.id, sheet.price, km);
+                  close();
+                }}
+              >
+                {sheet.owned > 0 ? "Comprar otro" : "Comprar"}
+              </button>
             </footer>
           ) : (
             <footer className="modal-foot">

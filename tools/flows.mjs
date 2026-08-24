@@ -190,7 +190,23 @@ try {
     "/bmw-m3-e30-yellow.webp",
   );
   check("previewing is free", await wallet(), walletBefore);
-  check("the price is the label and nothing else", await pay.innerText(), "5.700 CR");
+  /*
+   * The claim is the SHAPE of the label -- a number and the unit, nothing else
+   * -- not the number itself.
+   *
+   * It was pinned to "5.700 CR" and had drifted to 18.900 without anyone
+   * noticing, which is exactly what a pinned figure does when it is a fact
+   * about a formula three files away: repaintPriceFor is 4% of the car's value
+   * at its odometer, and every move of the price table or the km curve lands
+   * here as a failure about paint. What paint is actually responsible for is
+   * quoting a price and then charging it, and that pair is checked below.
+   *
+   * The value belongs to economy.test.ts, which pins the RULE (a fraction of
+   * the car, never under the floor, always far under what selling costs you)
+   * rather than one car's number.
+   */
+  const paintPrice = (await pay.innerText()).trim();
+  check("the price is the label and nothing else", /^[\d.]+ CR$/.test(paintPrice), true);
   check("and the row names the colour being tried", await page.locator(".workshop-tier-name").innerText(), "AMARILLO");
 
   // Picking the colour it already is: allowed, but there is nothing to buy.
@@ -208,7 +224,15 @@ try {
 
   await pay.click();
   await swapped();
-  check("paying charges exactly that", await wallet(), "114.300CR");
+  // The wallet is read against the QUOTE, which is the thing paint owes you:
+  // whatever it said on the button is what it takes, to the credit.
+  const afterPaint =
+    Number(walletBefore.replace(/[^\d]/g, "")) - Number(paintPrice.replace(/[^\d]/g, ""));
+  check(
+    "paying charges exactly that",
+    Number((await wallet()).replace(/[^\d]/g, "")),
+    afterPaint,
+  );
   /*
    * Paying returns you to the top level: the car IS that colour now, so the row
    * would be sitting on a preview of what it already wears.
@@ -308,10 +332,16 @@ try {
   await page.locator('.modal-acts .btn[aria-label="Vender"]').click();
   await page.waitForSelector("dialog.confirm");
   check("it asks, in words, naming the car", await page.locator(".confirm-q").innerText(), "¿Vender tu Chevrolet Chevy 250?");
+  /*
+   * The detail leads with the ODOMETER now, and that is not decoration: with
+   * two of a model in the garage the name in the question above cannot say
+   * which one is about to go, and the km is the one figure that always differs
+   * between two units and is already printed on both their cards.
+   */
   check(
-    "and says what you get and that it is final",
+    "and says which one, what you get, and that it is final",
     await page.locator(".confirm-detail").innerText(),
-    "Te pagan 7.300 cr. No se puede deshacer.",
+    "El de 317.500 km. Te pagan 7.300 cr. No se puede deshacer.",
   );
   check(
     "with the way out focused, so a stray Enter does not sell",
@@ -324,7 +354,12 @@ try {
       els.map((e) => e.getAttribute("aria-label") ?? e.textContent.trim()).join(" | ")),
     "Volver | Vender",
   );
-  check("nothing sold while the question is up", await wallet(), "114.300CR");
+  // Both of these read against the wallet as it stands rather than a pinned
+  // total, for the reason the paint price above does: a figure carried down
+  // from three sections earlier is a fact about every price in the game, and it
+  // fails here for reasons that have nothing to do with selling.
+  const beforeSale = Number((await wallet()).replace(/[^\d]/g, ""));
+  check("nothing sold while the question is up", beforeSale, afterPaint);
   // The sheet is still there behind it: you can see the car you are answering about.
   check("the car is still on screen behind the question", await page.locator("dialog.modal:not(.confirm)").isVisible(), true);
 
@@ -336,7 +371,9 @@ try {
   await page.waitForSelector("dialog.confirm");
   await page.locator(".confirm-acts .btn.danger").click();
   await page.waitForSelector("dialog.confirm", { state: "detached" });
-  check("yes sells", await wallet(), "121.600CR");
+  // 7.300 is the figure the question quoted two checks up, so this is the same
+  // pair the paint row is held to: it pays what it said it would pay.
+  check("yes sells, for exactly what it quoted", Number((await wallet()).replace(/[^\d]/g, "")), beforeSale + 7_300);
   check("and the car is gone", await page.locator(".car-card").count(), 2);
   /*
    * [open], not a plain count of the element.
@@ -407,9 +444,31 @@ try {
   }
   // Back to the top, so the sheet checks below open the card they expect.
   await page.evaluate(() => document.querySelector(".screen.coming .screen-body")?.scrollTo(0, 0));
+  /*
+   * The price is READ off the card rather than pinned to a number.
+   *
+   * A concesionaria's floor turns over every DEALER_PERIOD races now, so which
+   * example of the Chevy is on it -- and therefore what it costs -- is a fact
+   * about the rotation the seeded save happens to land in. Hardcoding "12.200"
+   * here made this check quietly a check about market.ts's salt, and it would
+   * have to be re-pinned every time the clock or the period moved.
+   *
+   * What belongs HERE is the wiring: the sheet quotes what the card quoted, and
+   * the wallet drops by exactly that. What the number should be is pinned in
+   * market.test.ts, where it can be reasoned about.
+   */
+  const listed = Number(
+    (await page.locator(".shop-item", { hasText: "Chevy 250" }).locator(".shop-tag").innerText())
+      .replace(/[^\d]/g, ""),
+  );
+  const beforeBuy = Number((await wallet()).replace(/[^\d]/g, ""));
   await card("Chevy 250").click();
   await page.waitForSelector("dialog.modal");
-  check("it still shows a price", await page.locator(".modal-price").innerText(), "12.200 cr");
+  check(
+    "it still shows a price, and it is the one the card showed",
+    await page.locator(".modal-price").innerText(),
+    `${listed.toLocaleString("es-AR")} cr`,
+  );
   /*
    * And the SAME part strip the garage sheet has: four parts plus the motor.
    *
@@ -428,7 +487,11 @@ try {
   );
   await page.locator(".modal-foot .btn").last().click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
-  check("and still buys", await wallet(), "109.400CR");
+  check(
+    "and still buys, taking exactly what it quoted",
+    Number((await wallet()).replace(/[^\d]/g, "")),
+    beforeBuy - listed,
+  );
 
   console.log("\nthe right-click menu");
   await garage();
@@ -899,9 +962,17 @@ try {
    * says WHY in its title, because a greyed control with no explanation reads
    * as a bug.
    */
+  /*
+   * Pushed straight into the stored save, so it has to be a WELL FORMED car:
+   * every unit carries a uid now and the counter has to move past it. A car
+   * without one fails isSave, falls through migrate, and comes back as a brand
+   * new game -- which would look from here like every check below suddenly
+   * testing the starting garage.
+   */
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("motorlife.save"));
-    s.owned.push({ id: "chevrolet-chevy-250", km: 317_500 });
+    s.owned.push({ uid: String(s.nextUid), id: "chevrolet-chevy-250", km: 317_500 });
+    s.nextUid += 1;
     localStorage.setItem("motorlife.save", JSON.stringify(s));
   });
   await page.reload({ waitUntil: "networkidle" });
@@ -1230,7 +1301,17 @@ try {
     .locator("button").click();
   // .last(), not .first(): toasts stack oldest-first and one from an earlier
   // section can still be on screen for another three seconds.
-  check("refreshing says so", await page.locator(".toast").last().innerText(), "Marketplace rotado");
+  /*
+   * The seed is racesRun 4, so this press takes the clock to 5 -- which is
+   * exactly DEALER_PERIOD, and therefore the press that ALSO turns over the
+   * four forecourts. The toast says so, because otherwise the one press that
+   * changed every shop in the game looks identical to the four that did not.
+   */
+  check(
+    "refreshing says so, and names the forecourts when it moved them too",
+    await page.locator(".toast").last().innerText(),
+    "Marketplace y concesionarias rotados",
+  );
   check("it moves the nudge by one", await savedNudge(), 1);
   // The whole reason the nudge is its own field. racesRun is a stat the player
   // is shown; rotating a shop must not claim they drove.
@@ -1239,6 +1320,23 @@ try {
   // good turns up.
   check("it asks nothing first", await page.locator("dialog.confirm").count(), 0);
   check("and leaves ajustes open, so you can press it again", await page.locator("dialog.settings-modal").isVisible(), true);
+
+  /*
+   * Press it again, from inside an era rather than at its edge.
+   *
+   * This is the pair that proves the two shops run on ONE clock at TWO rates:
+   * the press above crossed a DEALER_PERIOD boundary and moved both, this one
+   * lands mid-era and moves only the lot. If the forecourts ever started
+   * turning over every race, this check is what says so.
+   */
+  await page.locator(".settings-dev .settings-row", { hasText: "Refrescar marketplace" })
+    .locator("button").click();
+  check(
+    "a press inside an era rotates the lot and leaves the forecourts alone",
+    await page.locator(".toast").last().innerText(),
+    "Marketplace rotado",
+  );
+  check("and it moved the nudge again", await savedNudge(), 2);
 
   const purse = await wallet();
   await page.locator(".settings-dev .settings-row", { hasText: "Sumar plata" })
@@ -1664,6 +1762,178 @@ try {
   );
   check("with the cars in it", (await page.locator(".car-card").count()) > 0, true);
   check("and the money still there", await wallet(), paidWallet);
+
+  /*
+   * Two of the same model.
+   *
+   * The services prove the RULES -- buying a second one is allowed, and every
+   * move names a car by uid so it lands on the one you meant. None of that
+   * proves the screens agree: a garage keyed by model id renders two cards with
+   * the same React key, a right-click menu resolves to whichever came first,
+   * and the workshop bolts a turbo to the wrong Chevy. This drives it.
+   *
+   * Its own save, seeded at v5 -- the last shape written before uids existed --
+   * so the migration is part of what is being checked. Every existing player
+   * arrives here, and a garage that came up unnamed would fail at the first
+   * right click rather than at load.
+   */
+  console.log("\ndos unidades del mismo modelo");
+  await page.evaluate((s) => localStorage.setItem("motorlife.save", JSON.stringify(s)), {
+    version: 5,
+    credits: 3_000_000,
+    racesRun: 2,
+    lotNudge: 0,
+    owned: [
+      { id: "renault-12-tl", km: 214_000, color: "light-blue" },
+      { id: "bmw-m3-e30", km: 293_800, color: "black" },
+    ],
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await garage();
+
+  check(
+    "a save from before uids comes up with every car named, and a counter past them",
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("motorlife.save"));
+      return `v${s.version} uids ${s.owned.map((o) => o.uid).join(",")} next ${s.nextUid}`;
+    }),
+    "v6 uids 1,2 next 3",
+  );
+
+  // Deportivos Panamericana carries the M3, and the M3 is the useful car to
+  // duplicate here: four colours and a rarity that makes the two units
+  // obviously different objects on screen.
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await settled();
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: /Panamericana/ }).click();
+  await page.waitForSelector(".shop-item");
+
+  const forSaleKm = (
+    await page.locator(".shop-item", { hasText: "M3 E30" }).locator(".card-km").innerText()
+  ).trim();
+  check(
+    "the forecourt still lists a car that is already in your garage",
+    forSaleKm.length > 0,
+    true,
+  );
+  /*
+   * The two have to be tellable apart on screen, or nothing below means
+   * anything -- every "the other one" check would be picking between two
+   * identical cards. The odometer is what always differs between two units and
+   * it is already printed on both.
+   */
+  check("and it is a different example of it", forSaleKm !== "293.800 km", true);
+
+  await card("M3 E30").click();
+  await page.waitForSelector("dialog.modal");
+  check(
+    "the sheet says you already have one",
+    await page.locator(".modal-owned").innerText(),
+    "YA TENÉS UNO",
+  );
+  check(
+    "and offers another rather than going dead",
+    await page.locator(".modal-foot .btn").last().innerText(),
+    "COMPRAR OTRO",
+  );
+  check(
+    "which you can actually press",
+    await page.locator(".modal-foot .btn").last().isDisabled(),
+    false,
+  );
+
+  await page.locator(".modal-foot .btn").last().click();
+  await page.waitForSelector("dialog.modal", { state: "detached" });
+  check(
+    "and the toast counts them, since a second one looks identical on its card",
+    /ahora tenés 2/.test((await page.locator(".toast").last().innerText()).replace(/\s+/g, " ")),
+    true,
+  );
+
+  await garage();
+  const m3s = page.locator(".car-card", { hasText: "M3 E30" });
+  check("the garage holds two of them", await m3s.count(), 2);
+  check(
+    "each with its own odometer",
+    (await m3s.locator(".card-km").allInnerTexts()).map((t) => t.trim()).sort().join(" / "),
+    [forSaleKm, "293.800 km"].sort().join(" / "),
+  );
+  check(
+    "and the header counts cars and models separately",
+    /3 autos · 2 de \d+ modelos/.test(await page.locator(".screen.coming .screen-sub").innerText()),
+    true,
+  );
+
+  /*
+   * The one that would have been silently wrong: fit a part to ONE of them.
+   *
+   * By model id the workshop's map matched both, so paying for one racing turbo
+   * fitted two -- and the class cap you bought a second stock car to stay under
+   * moved on the car you were protecting.
+   */
+  const fresher = page.locator(".car-card", { hasText: forSaleKm });
+  await fresher.click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Llevar al taller" }).click();
+  await page.waitForSelector(".workshop-stage");
+  await settled();
+  check(
+    "the taller opens on the unit you named, not on its twin",
+    (await page.locator(".screen.workshop .screen-sub").innerText()).includes(forSaleKm),
+    true,
+  );
+
+  await page.locator('.workshop-tile[aria-label^="Turbo"]').click();
+  await swapped();
+  await page.locator(".workshop-tile").last().click();
+  await page.waitForTimeout(200);
+  await page.locator(".workshop-pay").click();
+  await swapped();
+
+  await garage();
+  check(
+    "exactly one of the two wears the wrench afterwards",
+    await m3s.evaluateAll((els) => els.filter((e) => e.querySelector(".card-tuned")).length),
+    1,
+  );
+  check(
+    "and it is the one that went on the ramp",
+    await page
+      .locator(".car-card", { hasText: forSaleKm })
+      .evaluate((e) => !!e.querySelector(".card-tuned")),
+    true,
+  );
+
+  /*
+   * And selling one sells ONE. By model id the filter dropped every M3 in the
+   * garage and paid for a single car, which is the worst of the failures this
+   * change closes: you would lose the car you built and be paid for the tired
+   * one.
+   */
+  await fresher.click({ button: "right" });
+  await page.waitForSelector(".ctx");
+  await page.locator(".ctx-item", { hasText: "Vender" }).click();
+  await page.waitForSelector("dialog.confirm");
+  check(
+    "the question names WHICH one, since the model name cannot",
+    (await page.locator(".confirm-detail").innerText()).includes(forSaleKm),
+    true,
+  );
+  await page.locator(".confirm-acts .btn.danger").click();
+  await page.waitForSelector("dialog.confirm", { state: "detached" });
+  await page.waitForTimeout(300);
+  check("selling one of a pair leaves the other one", await m3s.count(), 1);
+  check(
+    "and it is the one you kept, untouched",
+    (await m3s.locator(".card-km").innerText()).trim(),
+    "293.800 km",
+  );
+  check(
+    "with nothing bolted to it",
+    await m3s.evaluate((e) => !!e.querySelector(".card-tuned")),
+    false,
+  );
 
   /*
    * The frame, and what scrolls inside it.

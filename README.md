@@ -143,6 +143,46 @@ metre, which proves the tracing is repeatable but not that it is accurate; the
 diagram geometry measured 4% over from the other side, so the published figure
 is the one to trust.
 
+## A car in the garage is a unit, not a model
+
+`owned` is a list of objects, each with a `uid` of its own. You can hold two
+Falcons, and they are two cars: two odometers, two colours, two sets of parts.
+Every move -- sell, paint, fit, rectify -- names one by uid, never by model id.
+
+That distinction is the whole feature and it is load-bearing rather than
+cosmetic. Keyed by model, `owned.find(o => o.id === id)` answers *the first
+Falcon* to a question about either of them, and nothing throws: you pay for a
+turbo and it lands on the wrong car, you sell one and both leave, you paint one
+and the garage changes colour. `services/progression/units.test.ts` walks that
+errand end to end, and `tools/flows.mjs` drives the same thing through the real
+screens, because the failure was never inside one function -- it was in what the
+whole chain agreed a car was.
+
+The uid is minted from a counter in the save (`nextUid`) rather than randomly,
+so `buyCar` stays a pure function of the save, and counted up rather than
+derived from the garage, so a name is never recycled onto a different car.
+
+## Buying, and the two clocks
+
+Racing is the only clock the game has, and both shops read it -- at different
+rates, which is what makes them different shops.
+
+- **The Marketplace** takes `racesRun + lotNudge` whole and turns over every
+  race. Six cars, mostly tired sedans, one lottery slot. You cannot plan for it.
+- **Concesionarios** take the same clock divided by `DEALER_PERIOD` (5). What
+  rotates is the **unit**, not the roster: the same dealer carries the same
+  models forever at list price, and every five races it has a different example
+  of each -- other kilometres, another colour, a price that moved with them.
+
+So the forecourt keeps the promise that makes it a forecourt (the car you are
+saving for is still there next week) while still being worth checking back on
+(this rotation's example might be the clean one). Neither hides what you already
+own, because two of a model are two cars.
+
+The dev refresh in Ajustes adds to `lotNudge` rather than to `racesRun`, so it
+moves both shops by exactly one race's worth without claiming you drove. Five
+presses rotate the forecourts, and the toast says so on the press that does it.
+
 ## Gate tests
 
 Run on every commit, free, under three seconds. They assert the things that
@@ -157,3 +197,13 @@ would otherwise fail silently:
 - The calibration scalar cannot reach lateral grip.
 - The best aero setting differs between a power circuit and a twisty one.
 - No lap time is ever NaN or infinite on any car/track/setup pairing.
+- Two of one model are two cars: selling, painting, fitting a part or rebuilding
+  an engine touches the unit named and never its twin.
+- Every save ever written migrates to the current shape, and every car in it
+  comes out with a name of its own -- including a hand-edited save whose uids
+  collide, which is repaired rather than thrown away.
+- A uid is never recycled onto a different car, however many are bought and sold.
+- No listing anywhere, on any dealer rotation, costs less than the trade pays
+  for that same car -- which is what stops buy-sell-repeat from printing money.
+- A second unit prices exactly like the first, so duplicates are a thing to want
+  and never a thing to farm.

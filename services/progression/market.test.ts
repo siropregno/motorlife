@@ -4,15 +4,18 @@ import { CARS } from "@catalog/cars";
 import { buyCar, priceOf, sellValueFor, SELL_RATE } from "./economy";
 import { priceWithKm } from "./mileage";
 import { modCount, modsValue } from "./mods";
-import { SAVE_VERSION, modsOwned, type Save } from "./save";
+import { SAVE_VERSION, modsOf, type Save } from "./save";
 import {
   DEALERS,
+  DEALER_PERIOD,
   LOT_SIZE,
   MODDED_CHANCE,
   MODDED_MAX_LEVEL,
   MODDED_MAX_PARTS,
   USED_RATE,
   dealerById,
+  dealerEra,
+  racesToRotation,
   stockOf,
   usedLot,
 } from "./market";
@@ -54,13 +57,94 @@ describe("dealers", () => {
     expect(stockOf(beto).map((o) => o.spec.id)).not.toContain("ferrari-f40");
   });
 
-  it("hides what you already own", () => {
-    const d = dealerById("pacheco")!;
-    const all = stockOf(d);
-    const one = all[0]!.spec;
-    const after = stockOf(d, [one.id]);
-    expect(after).toHaveLength(all.length - 1);
-    expect(after.map((o) => o.spec.id)).not.toContain(one.id);
+  /**
+   * A dealer no longer hides what you own, and that is deliberate.
+   *
+   * It used to take your garage and subtract it, which was the shop enforcing
+   * something the GARAGE could not do: hold two of a model. It can now, and a
+   * second unit is a thing to want, so the forecourt carries the same list
+   * whatever is in your garage. The roster is a fact about the dealer.
+   */
+  it("carries the same models whatever is in your garage", () => {
+    for (const d of DEALERS) {
+      const listed = stockOf(d).map((o) => o.spec.id);
+      expect(listed).toEqual(CARS.filter((c) => d.carries(c)).map((c) => c.id));
+    }
+  });
+});
+
+/**
+ * The forecourts turning over.
+ *
+ * The concesionaria's promise is "the car you want is here at a price you can
+ * plan for", and rotation must not break it -- so what changes is the UNIT, not
+ * the roster. Same models forever, a different example of each every
+ * DEALER_PERIOD races.
+ */
+describe("the dealer rotation", () => {
+  const pacheco = dealerById("pacheco")!;
+
+  it("counts eras off the game's one clock, at a slower rate than the lot", () => {
+    expect(DEALER_PERIOD).toBeGreaterThan(1);
+    expect(dealerEra(0)).toBe(0);
+    expect(dealerEra(DEALER_PERIOD - 1)).toBe(0);
+    expect(dealerEra(DEALER_PERIOD)).toBe(1);
+    expect(dealerEra(DEALER_PERIOD * 3 + 2)).toBe(3);
+  });
+
+  it("counts down to the change, and never says zero races left", () => {
+    for (let clock = 0; clock < DEALER_PERIOD * 4; clock++) {
+      const left = racesToRotation(clock);
+      expect(left).toBeGreaterThan(0);
+      expect(left).toBeLessThanOrEqual(DEALER_PERIOD);
+      // the honest promise: racing that many times lands you in the next era
+      expect(dealerEra(clock + left)).toBe(dealerEra(clock) + 1);
+      expect(dealerEra(clock + left - 1)).toBe(dealerEra(clock));
+    }
+  });
+
+  it("is the same floor every time you look, within one era", () => {
+    const a = stockOf(pacheco, 3);
+    const b = stockOf(pacheco, 3);
+    expect(a.map((o) => `${o.spec.id}|${o.km}|${o.color}|${o.price}`)).toEqual(
+      b.map((o) => `${o.spec.id}|${o.km}|${o.color}|${o.price}`),
+    );
+  });
+
+  it("keeps the same cars but changes which ones, era to era", () => {
+    const before = stockOf(pacheco, 0);
+    const after = stockOf(pacheco, 1);
+    // the roster is the promise: the car you were saving for is still here
+    expect(after.map((o) => o.spec.id)).toEqual(before.map((o) => o.spec.id));
+    // and the units are not the same units
+    const moved = before.filter((o, i) => o.km !== after[i]!.km).length;
+    expect(moved).toBeGreaterThan(before.length / 2);
+  });
+
+  it("turns over on every dealer at once, not one at a time", () => {
+    for (const d of DEALERS) {
+      const before = stockOf(d, 7).map((o) => o.km).join("|");
+      const after = stockOf(d, 8).map((o) => o.km).join("|");
+      expect(after, `${d.id} did not turn over`).not.toBe(before);
+    }
+  });
+
+  /*
+   * The prices have to stay honest across every rotation, not only at era 0.
+   * A dealer listing below what the trade pays for the same object is the money
+   * printer USED_RATE exists to close, and a new odometer every five races is a
+   * new chance to land on one.
+   */
+  it("never lists below what selling that same car pays back, in any era", () => {
+    for (let era = 0; era < 12; era++) {
+      for (const d of DEALERS) {
+        for (const o of stockOf(d, era)) {
+          expect(o.price, `${o.spec.id} at ${d.id} era ${era} is an arbitrage`).toBeGreaterThan(
+            sellValueFor(o.spec, o.km),
+          );
+        }
+      }
+    }
   });
 });
 
@@ -156,10 +240,17 @@ describe("the used lot", () => {
     }
   });
 
-  it("never lists a car you own", () => {
-    const owned = CARS.slice(0, 5).map((c) => c.id);
-    for (let seed = 0; seed < 20; seed++) {
-      for (const o of usedLot(seed, owned)) expect(owned).not.toContain(o.spec.id);
+  /*
+   * It used to skip anything in your garage. It does not any more, for the
+   * reason stockOf does not: a private sale is the most natural place in the
+   * game to find a SECOND one of something, with its own kilometres and
+   * somebody else's turbo on it. The side effect is the assertion below -- the
+   * lot stays six deep late in the game rather than thinning as you buy the
+   * catalogue, which is what the old "still fills a lot" test was worrying at.
+   */
+  it("draws from the whole catalogue, however much of it you own", () => {
+    for (let seed = 0; seed < 40; seed++) {
+      expect(usedLot(seed)).toHaveLength(LOT_SIZE);
     }
   });
 
@@ -176,15 +267,6 @@ describe("the used lot", () => {
     expect(withTreasure).toBeLessThan(N * 0.5);
   });
 
-  it("still fills a lot when the cheap half of the catalogue is owned", () => {
-    // late game: everything common is in your garage already
-    const owned = CARS.filter((c) => c.rarity === "common" || c.rarity === "uncommon").map(
-      (c) => c.id,
-    );
-    const lot = usedLot(3, owned);
-    expect(lot.length).toBeGreaterThan(0);
-    for (const o of lot) expect(owned).not.toContain(o.spec.id);
-  });
 });
 
 /**
@@ -295,12 +377,13 @@ describe("modified listings", () => {
       version: SAVE_VERSION,
       credits: 5_000_000,
       owned: [],
+      nextUid: 1,
       racesRun: 0,
       lotNudge: 0,
     };
     const after = buyCar(save, o.spec.id, o.price, o.km, o.color, o.mods);
     expect(after).not.toBe(save);
-    expect(modsOwned(after, o.spec.id)).toEqual(o.mods);
+    expect(modsOf(after, after.owned[0]!.uid)).toEqual(o.mods);
     expect(after.credits).toBe(save.credits - o.price);
   });
 
@@ -311,6 +394,7 @@ describe("modified listings", () => {
       version: SAVE_VERSION,
       credits: 5_000_000,
       owned: [],
+      nextUid: 1,
       racesRun: 0,
       lotNudge: 0,
     };

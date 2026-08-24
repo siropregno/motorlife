@@ -17,7 +17,7 @@ import {
   REPAINT_FLOOR,
 } from "./economy";
 import type { Save } from "./save";
-import { ownedIds, colorOwned, colorOfHeld } from "./save";
+import { ownedIds, colorOf, colorOfHeld, countOwned, heldOf } from "./save";
 import { colorsOf, imageFor, PHOTO_EXT } from "./paint";
 import { priceWithKm } from "./mileage";
 import {
@@ -184,9 +184,10 @@ describe("save", () => {
         credits: 0,
         racesRun: 0,
         lotNudge: 0,
-        owned: [{ id: car.id, km: 1_000 }], // no `color`, the pre-paint shape
+        nextUid: 2,
+        owned: [{ uid: "1", id: car.id, km: 1_000 }], // no `color`, the pre-paint shape
       };
-      const color = colorOwned(save, car.id);
+      const color = colorOf(save, "1");
       expect(color, `${car.id} resolves to no colour`).toBeDefined();
       expect(colorsOf(car), `${car.id} got a colour it does not come in`).toContain(color);
       // the point of all of it: the card shows a photo instead of a hole
@@ -203,14 +204,15 @@ describe("save", () => {
       credits: 0,
       racesRun: 0,
       lotNudge: 0,
-      owned: [{ id: "bmw-m3-e30", km: 1_000, color: "white" }],
+      nextUid: 2,
+      owned: [{ uid: "1", id: "bmw-m3-e30", km: 1_000, color: "white" }],
     };
-    expect(colorOwned(save, "bmw-m3-e30")).toBe("white");
+    expect(colorOf(save, "1")).toBe("white");
     expect(colorOfHeld(save.owned[0]!)).toBe("white");
   });
 
   it("has no colour for a car that is not in the garage", () => {
-    expect(colorOwned(STARTING_SAVE, "ferrari-f40")).toBeUndefined();
+    expect(colorOf(STARTING_SAVE, "nobody")).toBeUndefined();
   });
 
   it("starts you with one car and something to spend", () => {
@@ -226,13 +228,26 @@ describe("save", () => {
 
 // ---------------------------------------------------------------------------
 
-/** A car in the garage with an ordinary odometer on it for these tests. */
-const held = (id: string) => ({ id, km: 100_000 });
+/**
+ * A car in the garage with an ordinary odometer on it for these tests.
+ *
+ * The uid is deliberately NOT the model id, and it is worth saying why. Naming
+ * the unit after its model would have let every test below keep calling
+ * `sellCar(s, "ford-f100")` unchanged -- and pass identically against the old
+ * model-keyed economy, which is the one thing this file now has to be able to
+ * tell apart. A uid that spells out the model proves nothing about a function
+ * that looks the model up.
+ */
+const held = (id: string, uid: string) => ({ uid, id, km: 100_000 });
+
+const R12 = "u1";
+const F100 = "u2";
 
 const save = (over: Partial<Save> = {}): Save => ({
   version: SAVE_VERSION,
   credits: 100_000,
-  owned: [held("renault-12-tl"), held("ford-f100")],
+  nextUid: 3,
+  owned: [held("renault-12-tl", R12), held("ford-f100", F100)],
   racesRun: 0,
   lotNudge: 0,
   ...over,
@@ -250,59 +265,94 @@ describe("selling", () => {
   it("buy then sell strictly loses credits", () => {
     // The exploit this rules out: park a car in the dealership between events
     // and pull it back out whenever a class cap suits you, at no cost.
+    //
+    // It now covers the R12 too, which it used to skip: buying a car you own is
+    // allowed, so the round trip on a SECOND unit has to lose money the same
+    // way the first one did. That is the whole safety argument for duplicates
+    // -- both sides price (spec, km, mods), so a second copy is not a discount.
+    /*
+     * The wallet has to cover the DEAREST car in the catalogue at this
+     * odometer, and it did not: at 2.000.000 the F40 (2.606.900 at 100.000 km)
+     * was refused for lack of money, so its "round trip" was two no-ops and the
+     * loop quietly stopped testing the one car most worth testing. The
+     * `not.toBe(start)` above is what makes that impossible to miss again --
+     * a refused purchase now fails here rather than at the final assertion.
+     */
     for (const car of CARS) {
-      const start = save({ credits: 2_000_000, owned: [held("renault-12-tl")] });
+      const start = save({ credits: 20_000_000, owned: [held("renault-12-tl", R12)] });
       const km = 100_000;
       const bought = buyCar(start, car.id, priceWithKm(priceOf(car), car, km), km);
-      if (car.id === "renault-12-tl") {
-        expect(bought).toBe(start); // already owned, nothing happens
-        continue;
-      }
-      const back = sellCar(bought, car.id);
+      expect(bought, `${car.id} was not sold`).not.toBe(start);
+      const back = sellCar(bought, bought.owned.at(-1)!.uid);
       expect(back.owned).toEqual(start.owned);
       expect(back.credits).toBeLessThan(start.credits);
     }
   });
 
   it("refuses to sell your last car", () => {
-    const s = save({ owned: [held("renault-12-tl")] });
-    expect(sellCar(s, "renault-12-tl")).toBe(s);
+    const s = save({ owned: [held("renault-12-tl", R12)] });
+    expect(sellCar(s, R12)).toBe(s);
   });
 
   it("refuses to sell a car you do not own", () => {
     const s = save();
-    expect(sellCar(s, "bmw-m5-e60")).toBe(s);
+    expect(sellCar(s, "u9")).toBe(s);
+    // and a MODEL id is not a car: it names what, never which
+    expect(sellCar(s, "ford-f100")).toBe(s);
   });
 
   it("refuses to sell a car that is not in the catalogue", () => {
-    const s = save({ owned: [held("renault-12-tl"), held("ghost-car")] });
-    expect(sellCar(s, "ghost-car")).toBe(s);
+    const s = save({ owned: [held("renault-12-tl", R12), held("ghost-car", "u3")] });
+    expect(sellCar(s, "u3")).toBe(s);
   });
 
   it("pays out and drops the car", () => {
     const s = save();
-    const after = sellCar(s, "ford-f100");
-    expect(after.owned).toEqual([held("renault-12-tl")]);
+    const after = sellCar(s, F100);
+    expect(after.owned).toEqual([held("renault-12-tl", R12)]);
     expect(after.credits).toBe(s.credits + sellValueFor(byId("ford-f100"), 100_000));
-    expect(s.owned).toEqual([held("renault-12-tl"), held("ford-f100")]); // input untouched
+    // input untouched
+    expect(s.owned).toEqual([held("renault-12-tl", R12), held("ford-f100", F100)]);
   });
 
-  it("leaves the sold car buyable again", () => {
-    // the dealership lists the catalogue minus what you own, so this is the
-    // whole condition now that stock no longer rotates
-    const s = sellCar(save(), "ford-f100");
-    const forSale = CARS.filter((c) => !ownedIds(s).includes(c.id)).map((c) => c.id);
-    expect(forSale).toContain("ford-f100");
+  /**
+   * Selling ONE of two identical cars.
+   *
+   * The failure this pins is the reason sellCar takes a uid at all. By model id
+   * it filtered `o.id !== carId`, which removes every Falcon in the garage and
+   * pays for one -- so a player with two would lose both and be paid half. It
+   * could not happen while the garage refused to hold a pair, which is why it
+   * had to be fixed in the same change that lets it.
+   */
+  it("sells the unit you named, not every car of that model", () => {
+    const s = save({
+      credits: 0,
+      nextUid: 3,
+      owned: [
+        { uid: "a", id: "ford-f100", km: 40_000 },
+        { uid: "b", id: "ford-f100", km: 300_000 },
+      ],
+    });
+    const after = sellCar(s, "b");
+    expect(after.owned).toHaveLength(1);
+    expect(after.owned[0]!.uid).toBe("a");
+    expect(after.owned[0]!.km).toBe(40_000);
+    // paid for the one that left, at ITS odometer, not at the other one's
+    expect(after.credits).toBe(sellValueFor(byId("ford-f100"), 300_000));
   });
 });
 
 describe("repainting", () => {
   /** The M3 comes in four, which is enough to have a "some other colour". */
   const m3 = byId("bmw-m3-e30");
+  const M3 = "u3";
   const other = (not: string) => colorsOf(m3).find((c) => c !== not)!;
   const garage = (color?: string, over: Partial<Save> = {}) =>
     save({
-      owned: [held("renault-12-tl"), color === undefined ? held(m3.id) : { ...held(m3.id), color }],
+      owned: [
+        held("renault-12-tl", R12),
+        color === undefined ? held(m3.id, M3) : { ...held(m3.id, M3), color },
+      ],
       ...over,
     });
 
@@ -322,17 +372,40 @@ describe("repainting", () => {
   it("changes the colour and charges for it", () => {
     const s = garage("black");
     const to = other("black");
-    const after = repaintCar(s, m3.id, to);
-    expect(after.owned.find((o) => o.id === m3.id)!.color).toBe(to);
+    const after = repaintCar(s, M3, to);
+    expect(heldOf(after, M3)!.color).toBe(to);
     expect(after.credits).toBe(s.credits - repaintPriceFor(m3, 100_000));
-    expect(s.owned.find((o) => o.id === m3.id)!.color).toBe("black"); // input untouched
+    expect(heldOf(s, M3)!.color).toBe("black"); // input untouched
   });
 
   it("leaves the odometer and the rest of the garage alone", () => {
     const s = garage("black");
-    const after = repaintCar(s, m3.id, other("black"));
-    expect(after.owned.find((o) => o.id === m3.id)!.km).toBe(100_000);
-    expect(after.owned.find((o) => o.id === "renault-12-tl")).toEqual(held("renault-12-tl"));
+    const after = repaintCar(s, M3, other("black"));
+    expect(heldOf(after, M3)!.km).toBe(100_000);
+    expect(heldOf(after, R12)).toEqual(held("renault-12-tl", R12));
+  });
+
+  /**
+   * Painting ONE of two identical cars.
+   *
+   * Same failure as selling the pair, one screen over: by model id the map
+   * matched both and painted the garage. Two of a model with two colours is
+   * most of the reason anyone wants a second unit in the first place.
+   */
+  it("paints the unit you named, not every car of that model", () => {
+    const s = save({
+      nextUid: 3,
+      owned: [
+        { uid: "a", id: m3.id, km: 100_000, color: "black" },
+        { uid: "b", id: m3.id, km: 100_000, color: "black" },
+      ],
+    });
+    const to = other("black");
+    const after = repaintCar(s, "b", to);
+    expect(heldOf(after, "a")!.color).toBe("black");
+    expect(heldOf(after, "b")!.color).toBe(to);
+    // and it charged once
+    expect(after.credits).toBe(s.credits - repaintPriceFor(m3, 100_000));
   });
 
   /*
@@ -344,18 +417,18 @@ describe("repainting", () => {
   it("does not move what the car is worth", () => {
     const s = garage("black");
     const before = sellValueFor(m3, 100_000);
-    const after = repaintCar(s, m3.id, other("black"));
-    expect(sellValueFor(m3, after.owned.find((o) => o.id === m3.id)!.km)).toBe(before);
+    const after = repaintCar(s, M3, other("black"));
+    expect(sellValueFor(m3, heldOf(after, M3)!.km)).toBe(before);
   });
 
   it("refuses a colour the car does not come in", () => {
     const s = garage("black");
-    expect(repaintCar(s, m3.id, "chartreuse")).toBe(s);
+    expect(repaintCar(s, M3, "chartreuse")).toBe(s);
   });
 
   it("refuses to charge for the colour it already is", () => {
     const s = garage("black");
-    expect(repaintCar(s, m3.id, "black")).toBe(s);
+    expect(repaintCar(s, M3, "black")).toBe(s);
   });
 
   /*
@@ -365,30 +438,30 @@ describe("repainting", () => {
    */
   it("refuses the colour a colourless car is already showing", () => {
     const s = garage(undefined);
-    const showing = colorOfHeld(s.owned.find((o) => o.id === m3.id)!)!;
+    const showing = colorOfHeld(heldOf(s, M3)!)!;
     expect(showing).toBeDefined();
-    expect(repaintCar(s, m3.id, showing)).toBe(s);
+    expect(repaintCar(s, M3, showing)).toBe(s);
     // but any other colour still works, and stores a real value this time
     const to = other(showing);
-    expect(repaintCar(s, m3.id, to).owned.find((o) => o.id === m3.id)!.color).toBe(to);
+    expect(heldOf(repaintCar(s, M3, to), M3)!.color).toBe(to);
   });
 
   it("refuses when you are short", () => {
     const s = garage("black", { credits: 10 });
-    expect(repaintCar(s, m3.id, other("black"))).toBe(s);
+    expect(repaintCar(s, M3, other("black"))).toBe(s);
   });
 
   it("refuses a car you do not own, or one that is not in the catalogue", () => {
     const s = garage("black");
-    expect(repaintCar(s, "ferrari-f40", "red")).toBe(s);
-    const ghost = save({ owned: [held("ghost-car")] });
-    expect(repaintCar(ghost, "ghost-car", "red")).toBe(ghost);
+    expect(repaintCar(s, "u9", "red")).toBe(s);
+    const ghost = save({ owned: [held("ghost-car", "u3")] });
+    expect(repaintCar(ghost, "u3", "red")).toBe(ghost);
   });
 
   it("refuses a car that comes in no colours at all", () => {
     const plain = CARS.find((c) => colorsOf(c).length === 0)!;
-    const s = save({ owned: [held("renault-12-tl"), held(plain.id)] });
-    expect(repaintCar(s, plain.id, "red")).toBe(s);
+    const s = save({ owned: [held("renault-12-tl", R12), held(plain.id, "u3")] });
+    expect(repaintCar(s, "u3", "red")).toBe(s);
   });
 });
 
@@ -396,11 +469,6 @@ describe("buying", () => {
   it("refuses when you are short", () => {
     const s = save({ credits: 10 });
     expect(buyCar(s, "bmw-m5-e60", priceOf(m5), 0)).toBe(s);
-  });
-
-  it("refuses a car you already own", () => {
-    const s = save();
-    expect(buyCar(s, "ford-f100", 1, 0)).toBe(s);
   });
 
   it("refuses a car that is not in the catalogue", () => {
@@ -415,6 +483,58 @@ describe("buying", () => {
     expect(after.credits).toBe(s.credits - price);
     expect(ownedIds(after)).toContain("bmw-m5-e60");
     // and the odometer it was sold with came along
-    expect(after.owned.at(-1)).toEqual({ id: "bmw-m5-e60", km: 42_000 });
+    expect(after.owned.at(-1)).toEqual({ uid: "3", id: "bmw-m5-e60", km: 42_000 });
+  });
+
+  /**
+   * The feature: a second one of something you already have.
+   *
+   * There used to be a refusal here -- "refuses a car you already own" -- and
+   * it was not an economic rule, it was the garage admitting it could not hold
+   * a pair. It can now, so the shop sells one.
+   */
+  it("sells you a second one of a car you already have", () => {
+    const s = save({ credits: 500_000 });
+    const price = 12_000;
+    const after = buyCar(s, "ford-f100", price, 40_000, "red");
+    expect(after).not.toBe(s);
+    expect(countOwned(after, "ford-f100")).toBe(2);
+    expect(after.credits).toBe(s.credits - price);
+  });
+
+  it("and the second one is a car of its own, not an echo of the first", () => {
+    const s = save({ credits: 500_000 });
+    const after = buyCar(s, "ford-f100", 12_000, 40_000, "red");
+    const [first, second] = after.owned.filter((o) => o.id === "ford-f100");
+    expect(first!.uid).not.toBe(second!.uid);
+    // the one that was already there kept its own odometer and its own paint
+    expect(first!.uid).toBe(F100);
+    expect(first!.km).toBe(100_000);
+    expect(first!.color).toBeUndefined();
+    expect(second!.km).toBe(40_000);
+    expect(second!.color).toBe("red");
+  });
+
+  it("names every car it hands over, and never twice", () => {
+    let s = save({ credits: 5_000_000 });
+    for (let i = 0; i < 8; i++) s = buyCar(s, "ford-f100", 100, 40_000);
+    expect(s.owned).toHaveLength(10);
+    expect(new Set(s.owned.map((o) => o.uid)).size).toBe(10);
+    // and the counter is past all of them, so the next one is safe too
+    expect(s.owned.every((o) => o.uid === R12 || o.uid === F100 || Number(o.uid) < s.nextUid))
+      .toBe(true);
+  });
+
+  /*
+   * Selling one of a pair and buying again must not recreate the uid that just
+   * left. Anything still holding it -- the car you are sitting in, the car on
+   * the workshop ramp -- would silently be pointed at a different car.
+   */
+  it("does not hand a new car the name of one that was just sold", () => {
+    const bought = buyCar(save({ credits: 500_000 }), "ford-f100", 12_000, 40_000);
+    const gone = bought.owned.at(-1)!.uid;
+    const sold = sellCar(bought, gone);
+    const again = buyCar(sold, "ford-f100", 12_000, 40_000);
+    expect(again.owned.at(-1)!.uid).not.toBe(gone);
   });
 });

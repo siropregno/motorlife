@@ -23,6 +23,14 @@ interface Props {
   /** The forecourt: one dealer's stock, or the used lot. */
   offers: Offer[];
   credits: number;
+  /**
+   * The model ids in your garage, repeats and all.
+   *
+   * It used to be the list the forecourt filtered ITSELF against, back when
+   * owning a car meant nobody would sell you another. It is only shown now:
+   * the sheet counts how many of this model you already have and says so, and
+   * the Comprar button stays live either way.
+   */
   owned: string[];
   onBuy: (carId: string, price: number, km: number, color?: string, mods?: Mods) => void;
   /** Filters and sort. Off for a six-car lot, where they are furniture. */
@@ -209,7 +217,7 @@ export function Listing({
             kind: "buy",
             price: open.price,
             credits,
-            owned: owned.includes(open.spec.id),
+            owned: owned.filter((id) => id === open.spec.id).length,
             // The parts travel with the sale, the same way the odometer and
             // the colour already do: what you paid for is what lands in the
             // garage.

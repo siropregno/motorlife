@@ -6,6 +6,8 @@ import { modCount } from "@progression/mods";
 import {
   DEALERS,
   dealerById,
+  dealerEra,
+  racesToRotation,
   stockOf,
   usedLot,
   USED_RATE,
@@ -25,9 +27,11 @@ type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } 
  * Where you buy a car. Two doors, and the difference between them is the
  * point:
  *
- *   Concesionarios are STABLE. A dealer carries what it carries, at the
- *   catalogue price, forever. If you want the F40 you know exactly where it
- *   is and exactly what it costs, and the only question is money.
+ *   Concesionarios are STABLE, at the level that matters: a dealer carries the
+ *   same MODELS forever, at the catalogue price. If you want the F40 you know
+ *   exactly where it is, and the only question is money. What changes, every
+ *   DEALER_PERIOD races, is which EXAMPLE of each it has on the floor -- a
+ *   different odometer, a different colour, a price that moved with them.
  *
  *   The Marketplace ROTATES and is cheaper. It turns over every race,
  *   it is mostly tired sedans, and roughly three lots in ten have something
@@ -37,6 +41,9 @@ type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } 
  * without the other -- a shop with only the stable half is a menu, and a shop
  * with only the rotating half means the car you want may never turn up.
  *
+ * Neither hides what you already own any more. Two of a model are two cars now,
+ * so "you have one" stopped being a reason not to sell you another.
+ *
  * The view lives here rather than in the app's Screen union so the nav keeps
  * the shop tab lit the whole way down, and so backing out of a dealer is a
  * local move rather than a route.
@@ -45,18 +52,22 @@ export function Shop({ save, onBuy }: Props) {
   const [view, setView] = useState<View>({ at: "choose" });
 
   /*
-   * Keyed to races run: the lot turns over when you race, which is the only
-   * clock this game has. Frozen per rotation, so filtering never reshuffles it.
+   * The one clock the game has: races run, plus the dev nudge in Ajustes.
    *
-   * Plus the nudge, which is the dev refresh in Ajustes. It is ADDED to the
-   * clock rather than replacing it so both still move the lot by exactly one
-   * rotation each -- a refreshed shop is a shop you could have raced your way
-   * to, and racing after a refresh still advances rather than jumping back.
+   * The nudge is ADDED rather than replacing it so both move the shop by
+   * exactly one rotation each -- a refreshed shop is a shop you could have
+   * raced your way to, and racing after a refresh still advances rather than
+   * jumping back.
+   *
+   * Two things read it at two rates: the lot takes it whole and turns over
+   * every race; the forecourts take it divided by DEALER_PERIOD.
    */
-  const lot = useMemo(
-    () => usedLot(save.racesRun + save.lotNudge, ownedIds(save)),
-    [save.racesRun, save.lotNudge, save.owned],
-  );
+  const clock = save.racesRun + save.lotNudge;
+  const era = dealerEra(clock);
+  const untilRotation = racesToRotation(clock);
+
+  // Frozen per rotation, so filtering never reshuffles it.
+  const lot = useMemo(() => usedLot(clock), [clock]);
 
   if (view.at === "choose") {
     /*
@@ -92,8 +103,13 @@ export function Shop({ save, onBuy }: Props) {
           <div className="pick-grid run">
             <button className="pick-card pick-dealers" onClick={() => setView({ at: "dealers" })}>
               <span className="pick-name">Concesionarios</span>
+              {/* "siempre el mismo stock" stopped being true when the floors
+                  started turning over. What is still true, and is the thing
+                  that makes a concesionaria a concesionaria, is that the model
+                  list never moves: the units do. */}
               <span className="pick-note">
-                {DEALERS.length} casas · precio de lista · siempre el mismo stock
+                {DEALERS.length} casas · precio de lista · renuevan cada {untilRotation} carrera
+                {untilRotation === 1 ? "" : "s"}
               </span>
             </button>
 
@@ -115,7 +131,9 @@ export function Shop({ save, onBuy }: Props) {
       <>
         <ScreenHead
           title="Concesionarios"
-          sub="Precio de lista. Lo que ves hoy es lo que hay siempre."
+          sub={`Precio de lista. Los mismos autos siempre; otras unidades en ${untilRotation} carrera${
+            untilRotation === 1 ? "" : "s"
+          }.`}
           back={{ label: "Comprar", onBack: () => setView({ at: "choose" }) }}
         />
 
@@ -124,21 +142,25 @@ export function Shop({ save, onBuy }: Props) {
         <div className="screen-body">
           <div className="dealer-grid run">
             {DEALERS.map((d) => {
-              const stock = stockOf(d, ownedIds(save));
+              /*
+               * No "Sin stock: ya tenés todo lo suyo" any more, and no disabled
+               * card. A dealer's floor no longer shrinks as you buy it, because
+               * it no longer hides what you own -- so the empty state it used to
+               * reach is a state it cannot reach.
+               */
+              const stock = stockOf(d, era);
               const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
               return (
                 <button
                   key={d.id}
                   className="dealer-card"
-                  disabled={stock.length === 0}
                   onClick={() => setView({ at: "dealer", id: d.id })}
                 >
                   <span className="dealer-name">{d.name}</span>
                   <span className="dealer-tagline">{d.tagline}</span>
                   <span className="dealer-meta">
-                    {stock.length === 0
-                      ? "Sin stock: ya tenés todo lo suyo"
-                      : `${stock.length} auto${stock.length === 1 ? "" : "s"} · desde ${formatCredits(cheapest)} cr`}
+                    {stock.length} auto{stock.length === 1 ? "" : "s"} · desde{" "}
+                    {formatCredits(cheapest)} cr
                   </span>
                 </button>
               );
@@ -154,14 +176,14 @@ export function Shop({ save, onBuy }: Props) {
     if (!dealer) return <p>Concesionaria no encontrada.</p>;
     return (
       <Listing
-        offers={stockOf(dealer, ownedIds(save))}
+        offers={stockOf(dealer, era)}
         credits={save.credits}
         owned={ownedIds(save)}
         onBuy={onBuy}
         title={dealer.name}
         sub={dealer.tagline}
         back={{ label: "Concesionarios", onBack: () => setView({ at: "dealers" }) }}
-        empty="Ya tenés todo lo que vende esta casa."
+        empty="Esta casa no tiene nada en el catálogo."
       />
     );
   }

@@ -167,19 +167,65 @@ export function dealerById(id: string): Dealer | undefined {
 }
 
 /**
- * What a dealer has on the floor: everything it carries that you do not own.
+ * How many races a concesionaria's floor stands before the cars on it are
+ * replaced with different ones.
  *
- * No mods on any of it, today. A concesionaria sells what the factory built,
- * and that is a fact about these four dealers rather than a rule about
- * forecourts -- `offer` takes mods from any caller, the sheet draws the
- * preparación row off the CAR rather than off which screen you are on, and
- * `buyCar` carries whatever a listing has into the save. So a dealer that
- * stocks a modified car is a change to this function and nothing else.
+ * The Marketplace turns over every race, and a dealer that did the same would
+ * be a second Marketplace with worse prices. Five is chosen so the two clocks
+ * read as different KINDS of thing rather than as two speeds: the lot is what
+ * you check after every race, and the forecourt is what has changed next time
+ * you think to look. It is also long enough that you can leave, go and earn the
+ * money, and come back to the same car -- which is the promise a concesionaria
+ * makes and the lot does not.
  */
-export function stockOf(dealer: Dealer, owned: string[] = []): Offer[] {
-  return CARS.filter((c) => !owned.includes(c.id) && dealer.carries(c)).map((c) =>
-    // salted with the dealer, so its cars keep their odometers between visits
-    offer(c, dealer.id),
+export const DEALER_PERIOD = 5;
+
+/**
+ * Which floor a dealer is showing, from the game's one clock.
+ *
+ * Same clock the lot uses -- racesRun + lotNudge -- divided down. That is what
+ * keeps the dev refresh honest: it advances both, so five presses move the
+ * forecourts exactly as far as five races would, and nothing you can reach
+ * with the button is a state the game could not reach on its own.
+ */
+export const dealerEra = (clock: number): number => Math.floor(clock / DEALER_PERIOD);
+
+/** Races left before the forecourts change hands. Never 0: it counts down to 1. */
+export const racesToRotation = (clock: number): number =>
+  DEALER_PERIOD - (((clock % DEALER_PERIOD) + DEALER_PERIOD) % DEALER_PERIOD);
+
+/**
+ * What a dealer has on the floor this era: every car it carries, as a
+ * particular example of that car.
+ *
+ * Two things changed here at once, and they are the same change seen from two
+ * sides. It no longer hides what you own, because a second unit of a car is a
+ * real thing to want -- one built for a circuit that rewards it, one left stock
+ * -- and a shop that refuses to sell you one was only ever enforcing the old
+ * garage's inability to hold it. And the stock ROTATES, because once the model
+ * list never shrinks, a forecourt that never changed would be a vending machine
+ * you visit once.
+ *
+ * What rotates is the UNIT, not the roster. The same dealer carries the same
+ * cars forever, which is the promise its tagline makes and the reason you can
+ * plan for one; what changes every DEALER_PERIOD races is which example of each
+ * it has -- this era's Falcon has 210.000 km and is white, next era's has
+ * 90.000 and is red, and it costs accordingly. So checking back is worth
+ * something (a better example of the car you want) without the car you want
+ * ever disappearing on you.
+ *
+ * No mods on any of it. A concesionaria sells what the factory built, and that
+ * is a fact about these four dealers rather than a rule about forecourts --
+ * `offer` takes mods from any caller, the sheet draws the preparación row off
+ * the CAR rather than off which screen you are on, and `buyCar` carries
+ * whatever a listing has into the save. So a dealer that stocks a modified car
+ * is a change to this function and nothing else.
+ */
+export function stockOf(dealer: Dealer, era = 0): Offer[] {
+  return CARS.filter((c) => dealer.carries(c)).map((c) =>
+    // salted with the dealer AND the era, so its cars keep their odometers for
+    // as long as that floor stands and get new ones when it turns over
+    offer(c, `${dealer.id}|${era}`),
   );
 }
 
@@ -215,10 +261,17 @@ const JUNK: Rarity[] = ["common", "uncommon"];
  * rendered -- the screen can re-run this on every keystroke in the filter box
  * without the stock shuffling under the cursor. Feed it save.racesRun and the
  * lot turns over when you race, which is the only clock this game has.
+ *
+ * It used to take your garage and skip anything in it. It does not any more,
+ * for the reason stockOf does not: two of a model are two cars now, and a
+ * private sale is the most natural place in the game to find the second one --
+ * somebody else's, with its own kilometres and somebody else's turbo on it. The
+ * side effect is that the lot stays six deep late in the game instead of
+ * thinning out as you buy the catalogue.
  */
-export function usedLot(seed: number, owned: string[] = []): Offer[] {
+export function usedLot(seed: number): Offer[] {
   const rng = mulberry32(seed);
-  const available = CARS.filter((c) => !owned.includes(c.id));
+  const available = CARS;
   const junk = available.filter((c) => JUNK.includes(c.rarity));
   const treasure = available.filter((c) => !JUNK.includes(c.rarity));
 

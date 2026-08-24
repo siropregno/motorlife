@@ -6,7 +6,8 @@ import { LOT_SIZE, usedLot } from "./market";
 const save = (over: Partial<Save> = {}): Save => ({
   version: SAVE_VERSION,
   credits: 10_000,
-  owned: [{ id: "renault-12-tl", km: 200_000 }],
+  owned: [{ uid: "1", id: "renault-12-tl", km: 200_000 }],
+  nextUid: 2,
   racesRun: 7,
   lotNudge: 0,
   ...over,

@@ -26,19 +26,30 @@ import {
   priceOf,
   SELL_RATE,
 } from "./economy";
-import { migrate, SAVE_VERSION, type Save, modsOwned } from "./save";
+import { heldOf, migrate, SAVE_VERSION, type Save, modsOf } from "./save";
 import { priceWithKm } from "./mileage";
 
 const byId = (id: string) => CARS.find((c) => c.id === id) as CarSpec;
 const r12 = byId("renault-12-tl");
 const f40 = byId("ferrari-f40");
 
+/**
+ * The two cars these tests work on, by uid.
+ *
+ * Deliberately not named after their models: a uid that spells out the model
+ * would let every call below pass against a workshop that still looked cars up
+ * by model, which is the thing this file now has to be able to tell apart.
+ */
+const R12 = "u1";
+const FALCON = "u2";
+
 const saveWith = (mods?: Mods, credits = 5_000_000): Save => ({
   version: SAVE_VERSION,
   credits,
+  nextUid: 3,
   owned: [
-    { id: "renault-12-tl", km: 200_000, ...(mods ? { mods } : {}) },
-    { id: "ford-falcon-sprint", km: 100_000 },
+    { uid: R12, id: "renault-12-tl", km: 200_000, ...(mods ? { mods } : {}) },
+    { uid: FALCON, id: "ford-falcon-sprint", km: 100_000 },
   ],
   racesRun: 0,
   lotNudge: 0,
@@ -107,44 +118,89 @@ describe("what a part costs", () => {
 describe("installing a part", () => {
   it("takes the money and fits the part", () => {
     const s = saveWith();
-    const next = installPart(s, "renault-12-tl", "turbo", 2);
+    const next = installPart(s, R12, "turbo", 2);
     expect(next).not.toBe(s);
-    expect(modsOwned(next, "renault-12-tl")?.turbo).toBe(2);
+    expect(modsOf(next, R12)?.turbo).toBe(2);
     expect(next.credits).toBe(s.credits - partPrice(r12, 200_000, "turbo", 2));
   });
 
   it("leaves the other car alone", () => {
-    const next = installPart(saveWith(), "renault-12-tl", "turbo", 2);
-    expect(modsOwned(next, "ford-falcon-sprint")).toBeUndefined();
+    const next = installPart(saveWith(), R12, "turbo", 2);
+    expect(modsOf(next, FALCON)).toBeUndefined();
   });
 
   it("refuses a car you do not own", () => {
     const s = saveWith();
-    expect(installPart(s, "ferrari-f40", "turbo", 1)).toBe(s);
+    expect(installPart(s, "u9", "turbo", 1)).toBe(s);
   });
 
   it("refuses when you cannot pay", () => {
     const s = saveWith(undefined, 10);
-    expect(installPart(s, "renault-12-tl", "turbo", 3)).toBe(s);
+    expect(installPart(s, R12, "turbo", 3)).toBe(s);
   });
 
   it("refuses to charge for the level already fitted", () => {
     const s = saveWith({ turbo: 2 });
-    expect(installPart(s, "renault-12-tl", "turbo", 2)).toBe(s);
+    expect(installPart(s, R12, "turbo", 2)).toBe(s);
   });
 
   it("allows going back down a tier, and charges for it", () => {
     // taking the racing turbo off and putting a street one on is work
     const s = saveWith({ turbo: 3 });
-    const next = installPart(s, "renault-12-tl", "turbo", 1);
-    expect(modsOwned(next, "renault-12-tl")?.turbo).toBe(1);
+    const next = installPart(s, R12, "turbo", 1);
+    expect(modsOf(next, R12)?.turbo).toBe(1);
     expect(next.credits).toBeLessThan(s.credits);
   });
 
   it("keeps the parts already on the car", () => {
     const s = saveWith({ suspension: 2 });
-    const next = installPart(s, "renault-12-tl", "turbo", 1);
-    expect(modsOwned(next, "renault-12-tl")).toEqual({ suspension: 2, turbo: 1 });
+    const next = installPart(s, R12, "turbo", 1);
+    expect(modsOf(next, R12)).toEqual({ suspension: 2, turbo: 1 });
+  });
+
+  /**
+   * Two of the same model on the ramp.
+   *
+   * The point of owning a pair: one built for a circuit that rewards power, one
+   * left stock for a class you would otherwise price yourself out of. That only
+   * works if the workshop fits the part to the car you brought in -- by model
+   * id the map matched both, so paying for one racing turbo fitted two, and the
+   * class cap you were protecting moved on the car you were protecting it for.
+   */
+  it("fits the part to the unit on the ramp, not to its twin", () => {
+    const twins: Save = {
+      version: SAVE_VERSION,
+      credits: 5_000_000,
+      nextUid: 3,
+      owned: [
+        { uid: "a", id: "renault-12-tl", km: 200_000 },
+        { uid: "b", id: "renault-12-tl", km: 40_000 },
+      ],
+      racesRun: 0,
+      lotNudge: 0,
+    };
+    const next = installPart(twins, "b", "turbo", 3);
+    expect(modsOf(next, "b")?.turbo).toBe(3);
+    expect(modsOf(next, "a")).toBeUndefined();
+    // charged once, at the ramp car's own odometer
+    expect(next.credits).toBe(twins.credits - partPrice(r12, 40_000, "turbo", 3));
+  });
+
+  it("and rebuilds the engine of that one only", () => {
+    const twins: Save = {
+      version: SAVE_VERSION,
+      credits: 5_000_000,
+      nextUid: 3,
+      owned: [
+        { uid: "a", id: "renault-12-tl", km: 200_000 },
+        { uid: "b", id: "renault-12-tl", km: 200_000 },
+      ],
+      racesRun: 0,
+      lotNudge: 0,
+    };
+    const next = rebuildEngine(twins, "b");
+    expect(modsOf(next, "b")?.wearKm).toBe(0);
+    expect(modsOf(next, "a")).toBeUndefined();
   });
 });
 
@@ -155,7 +211,7 @@ describe("the engine rebuild", () => {
 
   it("is refused on an engine that has just been rebuilt", () => {
     const s = saveWith({ wearKm: 0 });
-    expect(rebuildEngine(s, "renault-12-tl")).toBe(s);
+    expect(rebuildEngine(s, R12)).toBe(s);
     expect(needsRebuild(200_000, { wearKm: 0 })).toBe(false);
   });
 
@@ -166,16 +222,16 @@ describe("the engine rebuild", () => {
      * low-km example, repeat.
      */
     const s = saveWith();
-    const next = rebuildEngine(s, "renault-12-tl");
-    expect(modsOwned(next, "renault-12-tl")?.wearKm).toBe(0);
-    expect(next.owned.find((o) => o.id === "renault-12-tl")?.km).toBe(200_000);
+    const next = rebuildEngine(s, R12);
+    expect(modsOf(next, R12)?.wearKm).toBe(0);
+    expect(heldOf(next, R12)?.km).toBe(200_000);
   });
 
   it("does not change what the car is worth", () => {
     const s = saveWith();
-    const before = sellValueFor(r12, 200_000, modsOwned(s, "renault-12-tl"));
-    const next = rebuildEngine(s, "renault-12-tl");
-    const after = sellValueFor(r12, 200_000, modsOwned(next, "renault-12-tl"));
+    const before = sellValueFor(r12, 200_000, modsOf(s, R12));
+    const next = rebuildEngine(s, R12);
+    const after = sellValueFor(r12, 200_000, modsOf(next, R12));
     expect(after).toBe(before);
   });
 
@@ -191,14 +247,14 @@ describe("the engine rebuild", () => {
 
   it("keeps the parts on the car", () => {
     const s = saveWith({ turbo: 3, suspension: 1 });
-    const next = rebuildEngine(s, "renault-12-tl");
-    expect(modsOwned(next, "renault-12-tl")?.turbo).toBe(3);
-    expect(modsOwned(next, "renault-12-tl")?.suspension).toBe(1);
+    const next = rebuildEngine(s, R12);
+    expect(modsOf(next, R12)?.turbo).toBe(3);
+    expect(modsOf(next, R12)?.suspension).toBe(1);
   });
 
   it("refuses when you cannot pay", () => {
     const s = saveWith(undefined, 10);
-    expect(rebuildEngine(s, "renault-12-tl")).toBe(s);
+    expect(rebuildEngine(s, R12)).toBe(s);
   });
 
   it("gives back power a tired car had lost", () => {

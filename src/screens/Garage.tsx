@@ -4,6 +4,7 @@ import { colorOfHeld, type OwnedCar } from "@progression/save";
 import { imageFor } from "@progression/paint";
 
 import { formatCredits, sellValueFor } from "@progression/economy";
+import { formatKm } from "@progression/mileage";
 import { modCount } from "@progression/mods";
 import { CarCard } from "../components/CarCard";
 import { CarModal } from "../components/CarModal";
@@ -11,36 +12,56 @@ import { Confirm } from "../components/Confirm";
 import { ContextMenu, type MenuItem } from "../components/ContextMenu";
 import { ICON } from "../lib/icons";
 
+/**
+ * Everything here names a car by UID, never by model id.
+ *
+ * The garage is the one screen that can hold two of the same car, so it is the
+ * screen where the difference bites: with model ids, right-clicking the second
+ * Falcon opened a menu about the first one, "Vender" sold the wrong one, and
+ * the sheet showed the wrong odometer. A uid is the only thing on a card that
+ * tells two of them apart.
+ */
 interface Props {
   owned: OwnedCar[];
-  /** The car you are currently in. Only "Subirse al auto" changes it. */
-  currentId: string;
-  onDrive: (id: string) => void;
-  onSell: (id: string) => void;
+  /** The car you are currently in, by uid. Only "Subirse al auto" changes it. */
+  currentUid: string;
+  onDrive: (uid: string) => void;
+  onSell: (uid: string) => void;
   /**
    * Take this car to the workshop. The garage does not fit parts itself, and it
    * does not paint them either -- the workshop is a section of its own and owns
    * both -- so this navigates rather than acting, which is why it is the only
    * handler here that does not change the save.
    */
-  onTune: (id: string) => void;
+  onTune: (uid: string) => void;
 }
 
 interface MenuAt {
   x: number;
   y: number;
-  id: string;
+  uid: string;
 }
 
-export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
+export function Garage({ owned, currentUid, onDrive, onSell, onTune }: Props) {
   const cars = useMemo(
     () => owned.flatMap((o) => {
       const spec = CARS.find((c) => c.id === o.id);
       const color = colorOfHeld(o);
-      return spec ? [{ spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }] : [];
+      return spec
+        ? [{ uid: o.uid, spec, km: o.km, mods: o.mods, color, image: imageFor(spec, color) }]
+        : [];
     }),
     [owned],
   );
+  /**
+   * How many distinct models are in there, for the header.
+   *
+   * "7 de 26 autos" stopped being true the day the garage could hold two of
+   * one: seven cards can be five models. So the line says both -- the cars you
+   * have, and how much of the catalogue that covers -- rather than quietly
+   * printing a collection figure that counts the same Falcon twice.
+   */
+  const models = useMemo(() => new Set(cars.map((c) => c.spec.id)).size, [cars]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   /*
    * The OPEN CAR IS AN ID, not the car object. Repainting changes the car
@@ -49,7 +70,7 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
    * re-resolved against `cars` on every render, so the sheet sees the change
    * it just made -- which is the point of paying to look at it.
    */
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openUid, setOpenUid] = useState<string | null>(null);
   /**
    * The car being sold, while its dialog is up. Held HERE rather than inside
    * either surface that can raise it, because both can: the sheet's button and
@@ -60,19 +81,19 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
    * now, so the garage no longer owns a paint dialog at all.
    */
   const [selling, setSelling] = useState<string | null>(null);
-  const sellingCar = selling ? cars.find((c) => c.spec.id === selling) : undefined;
-  const open = openId ? cars.find((c) => c.spec.id === openId) : undefined;
+  const sellingCar = selling ? cars.find((c) => c.uid === selling) : undefined;
+  const open = openUid ? cars.find((c) => c.uid === openUid) : undefined;
 
   const close = useCallback(() => setMenu(null), []);
 
   const items = useMemo<MenuItem[]>(() => {
-    const spec = menu ? carById(menu.id) : null;
-    const held = menu ? owned.find((o) => o.id === menu.id) : undefined;
+    const held = menu ? owned.find((o) => o.uid === menu.uid) : undefined;
+    const spec = held ? carById(held.id) : null;
     const km = held?.km ?? 0;
-    if (!spec) return [];
-    const current = spec.id === currentId;
+    if (!spec || !held) return [];
+    const current = held.uid === currentUid;
     const last = owned.length <= 1;
-    const fitted = modCount(held?.mods);
+    const fitted = modCount(held.mods);
     return [
       /*
        * No "Ver ficha" row. It was here for one commit, and once every action
@@ -86,7 +107,7 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
         // With no highlight on the card, this is what tells you which car you
         // are in without looking up at the topbar.
         disabled: current,
-        onPick: () => onDrive(spec.id),
+        onPick: () => onDrive(held.uid),
       },
       {
         /*
@@ -102,7 +123,7 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
         label: "Llevar al taller",
         icon: ICON.wrench,
         hint: fitted === 0 ? "de fábrica" : `${fitted} de 4`,
-        onPick: () => onTune(spec.id),
+        onPick: () => onTune(held.uid),
       },
       /*
        * No Repintar row. Paint is in the workshop now, behind "Llevar al
@@ -116,21 +137,21 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
         // The hint doubles as the reason when the item is dead. A greyed row
         // with no explanation reads as a bug.
         // the parts go with the car, so the quote has to count them
-        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km, held?.mods))} cr`,
+        hint: last ? "tu único auto" : `${formatCredits(sellValueFor(spec, km, held.mods))} cr`,
         danger: true,
         disabled: last,
-        onPick: () => setSelling(spec.id),
+        onPick: () => setSelling(held.uid),
       },
     ];
-  }, [menu, currentId, owned, onDrive, onTune]);
+  }, [menu, currentUid, owned, onDrive, onTune]);
 
   return (
     <>
       <div className="screen-head">
         <h2 className="screen-title">Garaje</h2>
         <p className="screen-sub">
-          {cars.length} de {CARS.length} autos. Clic en un auto para su ficha, clic derecho para sus
-          opciones.
+          {cars.length} auto{cars.length === 1 ? "" : "s"} · {models} de {CARS.length} modelos. Clic
+          en un auto para su ficha, clic derecho para sus opciones.
         </p>
       </div>
 
@@ -156,15 +177,26 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
         */}
       <div className="screen-body">
         <div className="card-grid run">
-          {cars.map(({ spec: c, km, mods, image }) => (
+          {/*
+            * Keyed on the UID, and the handlers close over it rather than
+            * taking the id CarCard reports.
+            *
+            * The card knows what MODEL it is drawing and nothing more, which is
+            * right -- it is the same component the shop uses, where a listing
+            * really is a model. Two cards for the same model would share a
+            * React key and open the same sheet; the uid is the garage's own
+            * answer to which card was clicked, so it is the garage that
+            * supplies it.
+            */}
+          {cars.map(({ uid, spec: c, km, mods, image }) => (
             <CarCard
-              key={c.id}
+              key={uid}
               spec={c}
               km={km}
               mods={mods}
               image={image}
-              onOpen={setOpenId}
-              onContextMenu={(e, id) => {
+              onOpen={() => setOpenUid(uid)}
+              onContextMenu={(e) => {
                 e.preventDefault();
                 // The Menu key and Shift+F10 fire contextmenu with zeroed
                 // coordinates. Fall back to the card itself so the menu opens
@@ -174,7 +206,7 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
                 setMenu({
                   x: kbd ? r.left + 24 : e.clientX,
                   y: kbd ? r.bottom - 12 : e.clientY,
-                  id,
+                  uid,
                 });
               }}
             />
@@ -196,19 +228,25 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
           sheet={{
             kind: "garage",
             canSell: owned.length > 1,
-            isCurrent: open.spec.id === currentId,
-            onDrive: () => onDrive(open.spec.id),
-            onSell: () => setSelling(open.spec.id),
-            onTune: () => onTune(open.spec.id),
+            isCurrent: open.uid === currentUid,
+            onDrive: () => onDrive(open.uid),
+            onSell: () => setSelling(open.uid),
+            onTune: () => onTune(open.uid),
           }}
-          onClose={() => setOpenId(null)}
+          onClose={() => setOpenUid(null)}
         />
       ) : null}
 
       {sellingCar ? (
         <Confirm
           question={`¿Vender tu ${sellingCar.spec.make} ${sellingCar.spec.model}?`}
-          detail={`Te pagan ${formatCredits(
+          /*
+           * The odometer is in the question, not decoration: with two of a
+           * model in the garage the name alone does not say which one is about
+           * to go, and the km is the one figure that always differs between
+           * two units and is already on both their cards.
+           */
+          detail={`El de ${formatKm(sellingCar.km)}. Te pagan ${formatCredits(
             sellValueFor(sellingCar.spec, sellingCar.km, sellingCar.mods),
           )} cr${
             modCount(sellingCar.mods) > 0 ? ", con las piezas puestas" : ""
@@ -216,9 +254,9 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
           yes="Vender"
           danger
           onYes={() => {
-            onSell(sellingCar.spec.id);
+            onSell(sellingCar.uid);
             // The sheet is showing a car that is about to leave the garage.
-            setOpenId(null);
+            setOpenUid(null);
           }}
           onClose={() => setSelling(null)}
         />

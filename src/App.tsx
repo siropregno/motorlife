@@ -8,10 +8,11 @@ import {
   loadSave,
   writeSave,
   resetSave,
-  colorOwned,
-  kmOwned,
-  modsOwned,
-  ownsCar,
+  colorOfHeld,
+  countOwned,
+  heldOf,
+  modsOfHeld,
+  ownsUid,
   type Save,
 } from "@progression/save";
 import {
@@ -24,6 +25,7 @@ import {
   sellCar,
 } from "@progression/economy";
 import { DEV_CREDITS, grantCredits, refreshMarket } from "@progression/dev";
+import { dealerEra } from "@progression/market";
 import { LEVEL_NAME, modCount, PART_NAME } from "@progression/mods";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
@@ -62,10 +64,24 @@ export default function App() {
   const toast = useToast();
   const [save, setSave] = useState<Save>(() => loadSave());
   const [screen, setScreen] = useState<Screen>("garage");
-  const [carId, setCarId] = useState(() => loadSave().owned[0]?.id ?? CARS[0]!.id);
+  /**
+   * The car you are in, by UID rather than by model.
+   *
+   * The garage can hold two of anything now, and "I am in the Falcon" stopped
+   * being an answer the moment there were two of them: the topbar, the setup
+   * screen and the workshop would all have picked whichever one came first in
+   * the list, which is not the one you clicked.
+   *
+   * The three initialisers below read `save` rather than calling loadSave()
+   * again. There used to be three loads on the first render, which was merely
+   * wasteful then and would be a correctness bug now -- loadSave can RENAME a
+   * car (see repair), so three loads is three chances to hold a uid that the
+   * save in state does not have.
+   */
+  const [carUid, setCarUid] = useState(() => save.owned[0]?.uid ?? "");
   const [trackId, setTrackId] = useState(TRACKS[0]!.id);
   const [build, setBuild] = useState<Build>(() => ({
-    carId: loadSave().owned[0]?.id ?? CARS[0]!.id,
+    carId: save.owned[0]?.id ?? CARS[0]!.id,
     compound: "medium",
     setup: { aero: 0, gearing: 0, springs: 0, brakeBias: 0 },
   }));
@@ -213,7 +229,15 @@ export default function App() {
   useEffect(() => writeSave(save), [save]);
 
   const track = trackById(trackId) ?? TRACKS[0]!;
-  const car = carById(carId);
+  /**
+   * The car you are in: the UNIT out of the garage, then the model behind it.
+   *
+   * Resolved on every render rather than held, so it cannot go stale -- selling
+   * it, painting it or fitting a part to it changes what this reads on the next
+   * render instead of leaving a copy of the old car in state.
+   */
+  const mine = heldOf(save, carUid);
+  const car = mine ? carById(mine.id) : undefined;
   /*
    * The class you race in is the class of the car AS IT STANDS -- parts,
    * odometer and all -- not of the model in the catalogue. That is the whole
@@ -221,8 +245,8 @@ export default function App() {
    * and you have a class C car, and the grid you meet has to agree with the
    * badge in the topbar.
    */
-  const myKm = kmOwned(save, carId) ?? 0;
-  const myMods = modsOwned(save, carId);
+  const myKm = mine?.km ?? 0;
+  const myMods = mine ? modsOfHeld(mine) : undefined;
   const rating = car ? ratingOf(car, myMods, myKm) : null;
 
   /**
@@ -247,10 +271,19 @@ export default function App() {
     [build, myMods, myKm],
   );
 
-  const pickCar = (id: string) => {
-    setCarId(id);
-    setBuild((b) => ({ ...b, carId: id }));
-    const name = nameOf(id);
+  /**
+   * Get into a car, by uid.
+   *
+   * The build keeps the MODEL id, because that is what the simulation races --
+   * a uid names which of your Falcons you are in, and the physics does not care
+   * which. Both are set here so they can never disagree about the pair.
+   */
+  const pickCar = (uid: string) => {
+    const held = heldOf(save, uid);
+    if (!held) return;
+    setCarUid(uid);
+    setBuild((b) => ({ ...b, carId: held.id }));
+    const name = nameOf(held.id);
     if (name) toast(`Te subiste a tu ${name}`, "good");
   };
 
@@ -270,24 +303,34 @@ export default function App() {
     // worth saying: the price already told you what it cost.
     const fitted = modCount(mods);
     const extra = fitted > 0 ? `, con ${fitted} pieza${fitted === 1 ? "" : "s"} puesta${fitted === 1 ? "" : "s"}` : "";
-    if (name) toast(`Compraste un ${name} por ${formatCredits(price)} cr${extra}`, "good");
+    /*
+     * How many you have now, said out loud when it is more than one.
+     *
+     * A second unit of a car you already own looks exactly like the first one
+     * on its card, so without this the only evidence that the purchase did
+     * anything is a card that was already there and a wallet that shrank. The
+     * count is the confirmation.
+     */
+    const have = countOwned(next, id);
+    const copies = have > 1 ? ` · ahora tenés ${have}` : "";
+    if (name) toast(`Compraste un ${name} por ${formatCredits(price)} cr${extra}${copies}`, "good");
   };
 
-  const sell = (id: string) => {
-    const name = nameOf(id);
-    const next = sellCar(save, id);
+  const sell = (uid: string) => {
+    const name = nameOf(heldOf(save, uid)?.id ?? "");
+    const next = sellCar(save, uid);
     if (next === save) return;
     setSave(next);
     const paid = next.credits - save.credits;
     if (name) toast(`Vendiste tu ${name} por ${formatCredits(paid)} cr`, "bad");
   };
 
-  const repaint = (id: string, color: string) => {
-    const next = repaintCar(save, id, color);
+  const repaint = (uid: string, color: string) => {
+    const next = repaintCar(save, uid, color);
     if (next === save) return;
     setSave(next);
     const paid = save.credits - next.credits;
-    const name = nameOf(id);
+    const name = nameOf(heldOf(save, uid)?.id ?? "");
     if (name) toast(`Pintaste tu ${name} de ${colorName(color).toLowerCase()} por ${formatCredits(paid)} cr`, "good");
   };
 
@@ -299,9 +342,9 @@ export default function App() {
    * ramp on the way into the section -- doing it the other way round would set
    * the car and then immediately throw it away.
    */
-  const tune = (id: string) => {
+  const tune = (uid: string) => {
     go("workshop");
-    setRamp(id);
+    setRamp(uid);
   };
 
   /**
@@ -313,15 +356,24 @@ export default function App() {
    * that is the consequence the player is actually buying and it is the one
    * thing the price tag cannot tell them.
    */
-  const fitPart = (id: string, part: PartId, level: PartLevel) => {
-    const next = installPart(save, id, part, level);
+  const fitPart = (uid: string, part: PartId, level: PartLevel) => {
+    const next = installPart(save, uid, part, level);
     if (next === save) return;
-    const before = car ? ratingOf(car, modsOwned(save, id), kmOwned(save, id) ?? 0) : null;
+    /*
+     * Both ratings are read off the CAR THE PART WENT ON, not off the car you
+     * happen to be sitting in. `car` was the wrong one to compare against even
+     * before duplicates existed -- "Llevar al taller" can name any car in the
+     * garage -- and with two of a model it would have been the wrong one twice
+     * over.
+     */
+    const was = heldOf(save, uid);
+    const now = heldOf(next, uid);
+    const spec = now ? carById(now.id) : undefined;
+    const before = spec && was ? ratingOf(spec, was.mods, was.km) : null;
     setSave(next);
     const paid = save.credits - next.credits;
-    const name = nameOf(id);
-    const spec = carById(id);
-    const after = spec ? ratingOf(spec, modsOwned(next, id), kmOwned(next, id) ?? 0) : null;
+    const name = nameOf(now?.id ?? "");
+    const after = spec && now ? ratingOf(spec, now.mods, now.km) : null;
     const what =
       level === 0
         ? `Le sacaste el ${PART_NAME[part].toLowerCase()}`
@@ -331,12 +383,12 @@ export default function App() {
     if (name) toast(`${what} a tu ${name} por ${formatCredits(paid)} cr${klass}`, "good");
   };
 
-  const rebuild = (id: string) => {
-    const next = rebuildEngine(save, id);
+  const rebuild = (uid: string) => {
+    const next = rebuildEngine(save, uid);
     if (next === save) return;
     setSave(next);
     const paid = save.credits - next.credits;
-    const name = nameOf(id);
+    const name = nameOf(heldOf(save, uid)?.id ?? "");
     if (name) toast(`Rectificaste el motor de tu ${name} por ${formatCredits(paid)} cr`, "good");
   };
 
@@ -356,11 +408,11 @@ export default function App() {
    */
   const reset = useCallback(() => {
     const fresh = resetSave();
-    const first = fresh.owned[0]?.id ?? CARS[0]!.id;
+    const first = fresh.owned[0];
     setSave(fresh);
-    setCarId(first);
+    setCarUid(first?.uid ?? "");
     setBuild({
-      carId: first,
+      carId: first?.id ?? CARS[0]!.id,
       compound: "medium",
       setup: { aero: 0, gearing: 0, springs: 0, brakeBias: 0 },
     });
@@ -385,9 +437,19 @@ export default function App() {
    * the second press four clicks. The reset closes because it is terminal;
    * these are not.
    */
+  /*
+   * One press is one race's worth of clock, and the clock now drives two
+   * things at two rates: the lot turns over every press, the concesionarias
+   * every DEALER_PERIOD of them. The toast says when the slower one moved,
+   * because otherwise the fifth press looks exactly like the other four while
+   * being the one that changed every forecourt in the game.
+   */
   const devRefreshMarket = () => {
-    setSave(refreshMarket(save));
-    toast("Marketplace rotado", "info");
+    const next = refreshMarket(save);
+    setSave(next);
+    const rotated =
+      dealerEra(next.racesRun + next.lotNudge) !== dealerEra(save.racesRun + save.lotNudge);
+    toast(rotated ? "Marketplace y concesionarias rotados" : "Marketplace rotado", "info");
   };
 
   const devGrantCredits = () => {
@@ -407,14 +469,14 @@ export default function App() {
    * is exactly the silent swap that clicking a card used to do.
    */
   useEffect(() => {
-    if (ownsCar(save, carId)) return;
-    const next = save.owned[0]?.id;
+    if (ownsUid(save, carUid)) return;
+    const next = save.owned[0];
     if (!next) return;
-    setCarId(next);
-    setBuild((b) => ({ ...b, carId: next }));
-    const name = nameOf(next);
+    setCarUid(next.uid);
+    setBuild((b) => ({ ...b, carId: next.id }));
+    const name = nameOf(next.id);
     if (name) toast(`Te subiste a tu ${name}`, "info");
-  }, [save.owned, carId, toast]);
+  }, [save.owned, carUid, toast]);
 
   /**
    * Called once when a race reaches the flag. The purse belongs to the event,
@@ -444,7 +506,7 @@ export default function App() {
         return (
           <Garage
             owned={save.owned}
-            currentId={carId}
+            currentUid={carUid}
             onDrive={pickCar}
             onSell={sell}
             onTune={tune}
@@ -457,7 +519,7 @@ export default function App() {
           <Workshop
             owned={save.owned}
             credits={save.credits}
-            currentId={carId}
+            currentUid={carUid}
             openOn={ramp}
             onFit={fitPart}
             onRebuild={rebuild}
@@ -468,10 +530,10 @@ export default function App() {
       case "setup":
         return (
           <SetupScreen
-            carId={carId}
+            carId={mine?.id ?? CARS[0]!.id}
             km={myKm}
             mods={myMods}
-            image={car ? imageFor(car, colorOwned(save, carId)) : undefined}
+            image={car && mine ? imageFor(car, colorOfHeld(mine)) : undefined}
             build={raceBuild}
             onBuild={setBuild}
             track={track}
@@ -596,7 +658,7 @@ export default function App() {
         */}
       {racing ? (
         <Race
-          carId={carId}
+          carId={mine?.id ?? CARS[0]!.id}
           build={raceBuild}
           track={track}
           racesRun={save.racesRun}

@@ -3,7 +3,7 @@ import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { classCap, type ClassLetter } from "@sim/rating";
 import { CARS, carById } from "@catalog/cars";
 import { ratingOf } from "@catalog/rating";
-import { colorOfHeld, ownsCar, type Save } from "./save";
+import { colorOfHeld, heldOf, mintUid, type Save } from "./save";
 import { colorsOf } from "./paint";
 import { priceWithKm } from "./mileage";
 import { priceOf } from "./pricing";
@@ -81,11 +81,26 @@ export function buyCar(
   color?: string,
   mods?: Mods,
 ): Save {
-  if (ownsCar(save, carId)) return save;
+  /*
+   * There is no "you already own one" refusal, and its absence is the feature.
+   *
+   * It was here from the first version, back when the garage was keyed by model
+   * and a second unit would have overwritten the first. That is no longer what
+   * the garage is: every car has a uid, so a second Falcon is a second object
+   * with its own odometer, its own paint and its own parts -- which is exactly
+   * the car somebody wants when they already have one set up for a circuit and
+   * need a stock one for another.
+   *
+   * Nothing about the money changes. Every listing is priced from (spec, km,
+   * mods) and sells back from the same three, so the second one loses the same
+   * spread on a round trip as the first: duplicates are a thing to want, never
+   * a thing to farm.
+   */
   if (!carById(carId)) return save;
   if (save.credits < price) return save;
+  const uid = mintUid(save);
   // the odometer travels with the car; see sellValueFor for why it must
-  const held = color === undefined ? { id: carId, km } : { id: carId, km, color };
+  const held = color === undefined ? { uid, id: carId, km } : { uid, id: carId, km, color };
   /*
    * And so do the parts. A Marketplace car can come with a turbo already on it,
    * and the listing CHARGED for it -- see market.offer -- so dropping the mods
@@ -99,6 +114,7 @@ export function buyCar(
   return {
     ...save,
     credits: save.credits - price,
+    nextUid: Number(uid) + 1,
     owned: [...save.owned, mods === undefined ? held : { ...held, mods }],
   };
 }
@@ -136,10 +152,10 @@ export function repaintPriceFor(spec: CarSpec, km: number): number {
  * throwing under a handler. Repainting a car the colour it already is is one
  * of those: it is a no-op that would otherwise charge for nothing.
  */
-export function repaintCar(save: Save, carId: string, color: string): Save {
-  const held = save.owned.find((o) => o.id === carId);
+export function repaintCar(save: Save, uid: string, color: string): Save {
+  const held = heldOf(save, uid);
   if (!held) return save;
-  const spec = carById(carId);
+  const spec = carById(held.id);
   if (!spec) return save;
   if (!colorsOf(spec).includes(color)) return save;
   // colorOfHeld, not held.color: a car bought before its paint existed has a
@@ -150,25 +166,32 @@ export function repaintCar(save: Save, carId: string, color: string): Save {
   return {
     ...save,
     credits: save.credits - price,
-    owned: save.owned.map((o) => (o.id === carId ? { ...o, color } : o)),
+    owned: save.owned.map((o) => (o.uid === uid ? { ...o, color } : o)),
   };
 }
 
-export function sellCar(save: Save, carId: string): Save {
+/**
+ * Sell ONE car, named by uid.
+ *
+ * The uid is what makes this safe now that the garage can hold two of a model.
+ * By id it filtered out every Falcon you had and paid for one -- a bug that
+ * only appears once duplicates exist, which is why it never showed up before.
+ */
+export function sellCar(save: Save, uid: string): Save {
   // Your last car is not for sale. Without it you own nothing to enter, and
   // no amount of credits buys you back in below the cheapest car in the
   // catalogue -- the save would be a dead end you could not spend your way
   // out of.
   if (save.owned.length <= 1) return save;
-  const held = save.owned.find((o) => o.id === carId);
+  const held = heldOf(save, uid);
   if (!held) return save;
-  const spec = carById(carId);
+  const spec = carById(held.id);
   if (!spec) return save;
   // the build goes with the car, and is paid for at its own rate
   return {
     ...save,
     credits: save.credits + sellValueFor(spec, held.km, held.mods),
-    owned: save.owned.filter((o) => o.id !== carId),
+    owned: save.owned.filter((o) => o.uid !== uid),
   };
 }
 
@@ -187,13 +210,13 @@ export function sellCar(save: Save, carId: string): Save {
  */
 export function installPart(
   save: Save,
-  carId: string,
+  uid: string,
   part: PartId,
   level: PartLevel,
 ): Save {
-  const held = save.owned.find((o) => o.id === carId);
+  const held = heldOf(save, uid);
   if (!held) return save;
-  const spec = carById(carId);
+  const spec = carById(held.id);
   if (!spec) return save;
   if (!canFit(held.mods, part, level)) return save;
   const price = partPrice(spec, held.km, part, level);
@@ -202,7 +225,7 @@ export function installPart(
     ...save,
     credits: save.credits - price,
     owned: save.owned.map((o) =>
-      o.id === carId ? { ...o, mods: withPart(o.mods, part, level) } : o,
+      o.uid === uid ? { ...o, mods: withPart(o.mods, part, level) } : o,
     ),
   };
 }
@@ -216,10 +239,10 @@ export function installPart(
  *
  * That split is the entire reason `wearKm` is a separate number from `km`.
  */
-export function rebuildEngine(save: Save, carId: string): Save {
-  const held = save.owned.find((o) => o.id === carId);
+export function rebuildEngine(save: Save, uid: string): Save {
+  const held = heldOf(save, uid);
   if (!held) return save;
-  const spec = carById(carId);
+  const spec = carById(held.id);
   if (!spec) return save;
   // nothing worth paying to put back
   if (!needsRebuild(held.km, held.mods)) return save;
@@ -228,7 +251,7 @@ export function rebuildEngine(save: Save, carId: string): Save {
   return {
     ...save,
     credits: save.credits - price,
-    owned: save.owned.map((o) => (o.id === carId ? { ...o, mods: withRebuild(o.mods) } : o)),
+    owned: save.owned.map((o) => (o.uid === uid ? { ...o, mods: withRebuild(o.mods) } : o)),
   };
 }
 
