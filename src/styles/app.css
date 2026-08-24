@@ -1380,11 +1380,23 @@ p.screen-sub {
   color: var(--ink-3);
 }
 
-/* The one thing the used lot can say that the dealers never can. */
-.pick-flag {
-  position: absolute;
-  top: 18px;
-  right: 18px;
+/*
+ * "There is something here right now." One look, two placements.
+ *
+ * It used to be the one thing the used lot could say and the dealers never
+ * could, because a forecourt's stock never changed. It does now: an `exclusive`
+ * or a `unique` is only on the floor some rotations, so a house can have news
+ * the same way the lot can, and it should say it in the same words -- a player
+ * learns the badge once, on the shop's front door, and then recognises it.
+ *
+ * They are listed together and placed apart. .pick-flag hangs in the corner of
+ * a big art card, which has room for it; .dealer-card is a compact row where a
+ * corner badge would land on top of the house's name, so its flag sits in the
+ * column with everything else. Two copies of the pill would drift the first
+ * time either one moved.
+ */
+.pick-flag,
+.dealer-flag {
   padding: 4px 9px;
   border-radius: 7px;
   background: var(--purple);
@@ -1393,6 +1405,17 @@ p.screen-sub {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.pick-flag {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+}
+
+.dealer-flag {
+  margin-top: 6px;
+  align-self: flex-start;
 }
 
 /* ---------- the dealer list ---------- */

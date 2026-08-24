@@ -7,6 +7,7 @@ import {
   DEALERS,
   dealerById,
   dealerEra,
+  isShowpiece,
   racesToRotation,
   stockOf,
   usedLot,
@@ -150,6 +151,16 @@ export function Shop({ save, onBuy }: Props) {
                */
               const stock = stockOf(d, era);
               const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
+              /*
+               * A showpiece on the floor this era, flagged the same way the
+               * Marketplace flags a good lot -- and for the same reason. An
+               * `exclusive` or a `unique` is only here some of the time, and a
+               * feature you have to walk into four houses to discover is a
+               * feature most players never find out exists. The flag is what
+               * turns "the floor rotates" from a fact about the code into a
+               * reason to press this card.
+               */
+              const showpiece = stock.some((o) => isShowpiece(o.spec));
               return (
                 <button
                   key={d.id}
@@ -159,9 +170,15 @@ export function Shop({ save, onBuy }: Props) {
                   <span className="dealer-name">{d.name}</span>
                   <span className="dealer-tagline">{d.tagline}</span>
                   <span className="dealer-meta">
-                    {stock.length} auto{stock.length === 1 ? "" : "s"} · desde{" "}
-                    {formatCredits(cheapest)} cr
+                    {/* A house with an empty floor cannot happen with today's
+                        catalogue -- Recoleta always has its vrare -- but "0
+                        autos · desde 0 cr" is a bad sentence to leave one
+                        keystroke away, so it says the true thing instead. */}
+                    {stock.length === 0
+                      ? "Nada en el piso esta rotación"
+                      : `${stock.length} auto${stock.length === 1 ? "" : "s"} · desde ${formatCredits(cheapest)} cr`}
                   </span>
+                  {showpiece ? <span className="dealer-flag">Hay algo bueno</span> : null}
                 </button>
               );
             })}

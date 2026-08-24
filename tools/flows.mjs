@@ -394,6 +394,33 @@ try {
   console.log("\nthe shop sheet, which shares the component");
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
   await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.waitForSelector(".dealer-card");
+
+  /*
+   * A house says when it has something from the top of the catalogue in.
+   *
+   * An `exclusive` or a `unique` is on a forecourt only some rotations, and a
+   * feature you have to walk into four houses to notice is one most players
+   * never find. So it wears the same purple flag the Marketplace door wears,
+   * with the same words -- one badge, learned once.
+   *
+   * The seeded save is racesRun 4, which is era 0, and at era 0 the NSX is the
+   * one on Recoleta's floor. That is deterministic rather than lucky, and if
+   * SHOWPIECE_CHANCE ever moves this check is how you find out that rotation 0
+   * changed -- which is worth being told.
+   */
+  const recoleta = page.locator(".dealer-card", { hasText: "Exclusivos Recoleta" });
+  check(
+    "a house flags it when something from the top of the catalogue is in",
+    await recoleta.locator(".dealer-flag").innerText(),
+    "HAY ALGO BUENO",
+  );
+  check(
+    "and no house is dead, whatever the rotation left on its floor",
+    await page.locator(".dealer-card").evaluateAll((els) => els.filter((e) => e.disabled).length),
+    0,
+  );
+
   await page.getByRole("button", { name: /Pacheco/ }).click();
   await page.waitForSelector(".shop-item");
 
@@ -1785,7 +1812,7 @@ try {
     lotNudge: 0,
     owned: [
       { id: "renault-12-tl", km: 214_000, color: "light-blue" },
-      { id: "bmw-m3-e30", km: 293_800, color: "black" },
+      { id: "ford-falcon-sprint", km: 293_800, color: "blue" },
     ],
   });
   await page.reload({ waitUntil: "networkidle" });
@@ -1800,17 +1827,23 @@ try {
     "v6 uids 1,2 next 3",
   );
 
-  // Deportivos Panamericana carries the M3, and the M3 is the useful car to
-  // duplicate here: four colours and a rarity that makes the two units
-  // obviously different objects on screen.
+  /*
+   * A Falcon Sprint at Pacheco, and the choice of car matters.
+   *
+   * This was an Falcon Sprint for one draft and it hung: the M3 is `exclusive`, which
+   * makes it a SHOWPIECE -- on the roster forever, on the floor only some
+   * rotations -- and the seeded clock lands on a rotation where nobody has one.
+   * A flow about duplicates has no business also depending on a scarcity roll,
+   * so it uses an `uncommon` car, which every house that carries it always has.
+   */
   await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
   await settled();
   await page.getByRole("button", { name: /Concesionarios/ }).click();
-  await page.getByRole("button", { name: /Panamericana/ }).click();
+  await page.getByRole("button", { name: /Pacheco/ }).click();
   await page.waitForSelector(".shop-item");
 
   const forSaleKm = (
-    await page.locator(".shop-item", { hasText: "M3 E30" }).locator(".card-km").innerText()
+    await page.locator(".shop-item", { hasText: "Falcon Sprint" }).locator(".card-km").innerText()
   ).trim();
   check(
     "the forecourt still lists a car that is already in your garage",
@@ -1825,7 +1858,7 @@ try {
    */
   check("and it is a different example of it", forSaleKm !== "293.800 km", true);
 
-  await card("M3 E30").click();
+  await card("Falcon Sprint").click();
   await page.waitForSelector("dialog.modal");
   check(
     "the sheet says you already have one",
@@ -1852,7 +1885,7 @@ try {
   );
 
   await garage();
-  const m3s = page.locator(".car-card", { hasText: "M3 E30" });
+  const m3s = page.locator(".car-card", { hasText: "Falcon Sprint" });
   check("the garage holds two of them", await m3s.count(), 2);
   check(
     "each with its own odometer",

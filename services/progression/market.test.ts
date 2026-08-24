@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { RARITIES } from "@contracts/car";
 import { levelOf, PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
+import { ratingOf } from "@catalog/rating";
 import { buyCar, priceOf, sellValueFor, SELL_RATE } from "./economy";
 import { priceWithKm } from "./mileage";
 import { modCount, modsValue } from "./mods";
@@ -12,9 +14,14 @@ import {
   MODDED_CHANCE,
   MODDED_MAX_LEVEL,
   MODDED_MAX_PARTS,
+  ORDINARY,
+  SCARCE,
+  SHOWPIECE_CHANCE,
   USED_RATE,
   dealerById,
   dealerEra,
+  isShowpiece,
+  onFloor,
   racesToRotation,
   stockOf,
   usedLot,
@@ -33,28 +40,206 @@ describe("dealers", () => {
     expect(dealerById("nothing-here")).toBeUndefined();
   });
 
-  it("puts every car on at least one forecourt", () => {
-    // the point of predicates over hand-written rosters: a new car cannot end
-    // up for sale nowhere
+  /**
+   * There is deliberately NO rule that every car is on some forecourt.
+   *
+   * There was one, and it was the wrong shape: it made "you can walk into a
+   * shop and buy this" a property of every car in the catalogue, which forecloses
+   * the thing a collection game most wants to be able to say -- that some car is
+   * hard to come by. A car nobody stocks, that you have to wait for the
+   * Marketplace to turn up, is a feature; a rule that forbids it is a rule
+   * against ever having one.
+   *
+   * What has to stay true is weaker and is the thing actually worth protecting:
+   * every car can be got hold of SOMEHOW. A car that no forecourt carries and
+   * that the lot cannot draw is not rare, it is missing.
+   */
+  it("can sell you every car in the catalogue, one way or another", () => {
+    const reachable = new Set<string>();
+    for (const d of DEALERS) for (const o of stockOf(d)) reachable.add(o.spec.id);
+    for (let seed = 0; seed < 400; seed++) {
+      for (const o of usedLot(seed)) reachable.add(o.spec.id);
+    }
     for (const car of CARS) {
-      const where = DEALERS.filter((d) => d.carries(car)).map((d) => d.id);
-      expect(where.length, `${car.id} is at no dealer`).toBeGreaterThan(0);
+      expect(reachable.has(car.id), `${car.id} cannot be bought anywhere`).toBe(true);
     }
   });
 
-  it("gives each dealer something to sell, and the right something", () => {
-    for (const d of DEALERS) expect(stockOf(d).length).toBeGreaterThan(0);
+  /**
+   * And this is what makes a forecourt gap SAFE to open.
+   *
+   * The rule above allows a car that no dealer carries, on the understanding
+   * that the lot can still find it. That understanding is only worth anything
+   * if the lot really does reach every tier -- the scarcest included, which is
+   * the one a gap would be opened on. If `unique` ever stopped turning up
+   * second-hand, taking the F40 off Recoleta's floor would quietly make it
+   * unobtainable rather than rare.
+   */
+  it("puts every tier within reach of the used lot, scarcest included", () => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 400; seed++) {
+      for (const o of usedLot(seed)) seen.add(o.spec.rarity);
+    }
+    for (const r of RARITIES) {
+      const exists = CARS.some((c) => c.rarity === r);
+      if (!exists) continue;
+      expect(seen.has(r), `no ${r} car ever turns up second-hand`).toBe(true);
+    }
+  });
 
+  it("gives each dealer something to sell, in every rotation", () => {
+    // across eras, not just era 0: a showpiece comes and goes, and a house
+    // whose floor could empty out would render "0 autos · desde 0 cr"
+    for (let era = 0; era < 60; era++) {
+      for (const d of DEALERS) {
+        expect(stockOf(d, era).length, `${d.id} is empty in era ${era}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("sells the right something", () => {
     const exclusivos = dealerById("exclusivos")!;
-    expect(stockOf(exclusivos).map((o) => o.spec.id)).toContain("ferrari-f40");
-    for (const { spec: c } of stockOf(exclusivos)) {
-      expect(c.cls === "supercar" || priceOf(c) >= 150_000).toBe(true);
+    // the F40 is on the ROSTER always; whether it is on the floor is a roll,
+    // so this asks the predicate rather than one era's stock
+    expect(CARS.filter((c) => exclusivos.carries(c)).map((c) => c.id)).toContain("ferrari-f40");
+    for (let era = 0; era < 20; era++) {
+      for (const { spec: c } of stockOf(exclusivos, era)) {
+        expect(c.cls === "supercar" || SCARCE.includes(c.rarity), c.id).toBe(true);
+      }
     }
 
     const beto = dealerById("donbeto")!;
-    for (const { spec: c } of stockOf(beto)) expect(priceOf(c)).toBeLessThanOrEqual(35_000);
+    for (const { spec: c } of stockOf(beto)) expect(ORDINARY, c.id).toContain(c.rarity);
     // and Don Beto is not quietly selling an F40
     expect(stockOf(beto).map((o) => o.spec.id)).not.toContain("ferrari-f40");
+  });
+
+  /**
+   * The two corrections that moved these cuts off `priceOf`, as tests.
+   *
+   * Both were the same bug: priceOf is mostly rarity with a nudge from the
+   * class index, so cutting on price meant a car's LAP TIME could push it off a
+   * forecourt. A slow vrare is still a hard car to find and a quick uncommon is
+   * still an ordinary car, and neither shop should care how they go.
+   *
+   * The awkward cases are built by taking the catalogue's fastest and slowest
+   * cars and RELABELLING them -- real physics, one field changed. Inventing a
+   * spec instead does not work and is worth knowing why: `derive` refuses a car
+   * whose power and top speed disagree, so a made-up 300 kW / 900 kg body with
+   * someone else's top speed throws on import rather than reaching the dealer.
+   * Changing only the tier is also the honest experiment: it isolates the one
+   * variable, and what is being asked is whether the predicate reads it.
+   */
+  const byIndex = [...CARS].sort((a, b) => ratingOf(a).index - ratingOf(b).index);
+  const slowest = byIndex[0]!;
+  const quickest = byIndex.at(-1)!;
+
+  it("keeps a slow vrare on the exclusive floor, because scarce is not fast", () => {
+    const slow = { ...slowest, id: "slow-vrare", rarity: "vrare" as const };
+    expect(dealerById("exclusivos")!.carries(slow)).toBe(true);
+    // and it is genuinely slow enough that the old price floor would have
+    // dropped it: this is the case that used to fall off the forecourt
+    expect(priceOf(slow)).toBeLessThan(150_000);
+  });
+
+  it("keeps a quick uncommon in the cheap yard, because ordinary is not slow", () => {
+    const quick = { ...quickest, id: "quick-uncommon", rarity: "uncommon" as const };
+    expect(dealerById("donbeto")!.carries(quick)).toBe(true);
+    // and quick enough that the old price ceiling would have dropped it
+    expect(priceOf(quick)).toBeGreaterThan(35_000);
+  });
+});
+
+/**
+ * The showpiece: a car a forecourt deals in but only sometimes HAS.
+ *
+ * This is what finally makes rarity do something other than move a price. An
+ * `exclusive` or a `unique` is on the roster forever and on the floor some
+ * rotations, so walking into Recoleta is a question with an answer that
+ * changes -- rather than a menu where the F40 has been sitting since the day
+ * you started.
+ */
+describe("what is actually on the floor", () => {
+  const f40 = CARS.find((c) => c.id === "ferrari-f40")!;
+  const eras = (spec: typeof f40, n = 400) =>
+    Array.from({ length: n }, (_, era) => onFloor(spec, era));
+
+  it("leaves an ordinary car on the floor every single rotation", () => {
+    for (const c of CARS.filter((x) => !isShowpiece(x))) {
+      expect(eras(c, 60).every(Boolean), `${c.id} went missing`).toBe(true);
+    }
+  });
+
+  it("brings a showpiece and takes it away again", () => {
+    for (const c of CARS.filter(isShowpiece)) {
+      const on = eras(c);
+      expect(on.some(Boolean), `${c.id} is never in stock`).toBe(true);
+      expect(on.some((x) => !x), `${c.id} is always in stock`).toBe(true);
+    }
+  });
+
+  it("at roughly the rate its tier claims", () => {
+    for (const c of CARS.filter(isShowpiece)) {
+      const rate = eras(c).filter(Boolean).length / 400;
+      const want = SHOWPIECE_CHANCE[c.rarity]!;
+      // a real sample around the roll, not a mean pinned to three decimals
+      expect(rate, `${c.id} at ${rate}`).toBeGreaterThan(want * 0.6);
+      expect(rate, `${c.id} at ${rate}`).toBeLessThan(want * 1.4);
+    }
+  });
+
+  it("makes the top of the catalogue scarcer than the tier below it", () => {
+    // the ladder has to point the right way, or the roll is decoration
+    expect(SHOWPIECE_CHANCE.unique!).toBeLessThan(SHOWPIECE_CHANCE.exclusive!);
+  });
+
+  it("gives the same answer every time you look, within one rotation", () => {
+    for (let era = 0; era < 40; era++) {
+      expect(onFloor(f40, era)).toBe(onFloor(f40, era));
+      const a = stockOf(dealerById("exclusivos")!, era).map((o) => o.spec.id);
+      const b = stockOf(dealerById("exclusivos")!, era).map((o) => o.spec.id);
+      expect(a).toEqual(b);
+    }
+  });
+
+  /**
+   * Every house that deals in a car agrees about whether there is one around.
+   *
+   * The roll is salted with the car and the era and deliberately NOT with the
+   * dealer. Rolling per dealer would put the M3 E30 on Panamericana's floor and
+   * not on Recoleta's in the same rotation, which reads as a bug rather than as
+   * scarcity -- and would halve the effect, since a car carried by two houses
+   * would get two chances to appear.
+   */
+  it("is one answer per car, not one per house", () => {
+    const shared = CARS.filter(
+      (c) => isShowpiece(c) && DEALERS.filter((d) => d.carries(c)).length > 1,
+    );
+    expect(shared.length, "no showpiece is carried by two houses").toBeGreaterThan(0);
+    for (const c of shared) {
+      for (let era = 0; era < 40; era++) {
+        const houses = DEALERS.filter((d) => d.carries(c));
+        const listed = houses.map((d) => stockOf(d, era).some((o) => o.spec.id === c.id));
+        expect(new Set(listed).size, `${c.id} disagrees in era ${era}`).toBe(1);
+      }
+    }
+  });
+
+  /**
+   * And the safety net under all of it.
+   *
+   * A car that is off the forecourt this rotation is scarce; a car with no way
+   * to be bought at all is missing. The Marketplace draws from the whole
+   * catalogue and does not care about eras, so it is the floor under the roll.
+   */
+  it("never leaves a showpiece unbuyable, because the lot does not roll", () => {
+    const viaLot = new Set<string>();
+    for (let seed = 0; seed < 400; seed++) {
+      for (const o of usedLot(seed)) viaLot.add(o.spec.id);
+    }
+    for (const c of CARS.filter(isShowpiece)) {
+      expect(viaLot.has(c.id), `${c.id} is only ever on a forecourt roll`).toBe(true);
+    }
   });
 
   /**
@@ -64,11 +249,20 @@ describe("dealers", () => {
    * something the GARAGE could not do: hold two of a model. It can now, and a
    * second unit is a thing to want, so the forecourt carries the same list
    * whatever is in your garage. The roster is a fact about the dealer.
+   *
+   * Stated as an EQUALITY against roster-minus-the-floor-roll rather than as
+   * "it does not read your garage", because that is the stronger claim and the
+   * one that stays honest: there are exactly two things that decide what is on
+   * a forecourt, and neither of them is you.
    */
-  it("carries the same models whatever is in your garage", () => {
-    for (const d of DEALERS) {
-      const listed = stockOf(d).map((o) => o.spec.id);
-      expect(listed).toEqual(CARS.filter((c) => d.carries(c)).map((c) => c.id));
+  it("lists the roster minus the floor roll, and nothing else", () => {
+    for (let era = 0; era < 20; era++) {
+      for (const d of DEALERS) {
+        const listed = stockOf(d, era).map((o) => o.spec.id);
+        expect(listed).toEqual(
+          CARS.filter((c) => d.carries(c) && onFloor(c, era)).map((c) => c.id),
+        );
+      }
     }
   });
 });

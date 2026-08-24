@@ -179,6 +179,35 @@ saving for is still there next week) while still being worth checking back on
 (this rotation's example might be the clean one). Neither hides what you already
 own, because two of a model are two cars.
 
+Which house deals in what is decided by **tier and segment, never by price**.
+Pacheco takes saloons and muscle, Panamericana takes sports; Recoleta takes the
+scarce tiers plus supercars, Don Beto takes the ordinary ones. Those last two
+were price cuts once and it was the wrong question asked sideways -- `priceOf`
+is mostly rarity with a nudge from the class index, so a *slow* `vrare` cotized
+under Recoleta's floor and fell off the forecourt for being slow. A hard car to
+find is a hard car to find whatever it laps.
+
+### Showpieces
+
+One thing does not keep the forecourt's promise, on purpose. An `exclusive` or a
+`unique` is on the roster forever and on the **floor** only some rotations --
+40% and 20%, in `SHOWPIECE_CHANCE`. A car that is permanently in stock is not a
+unique car, and this is the only place in the game where scarcity does something
+other than move a price tag.
+
+The roll is per **car and era**, deliberately not per dealer: two houses can
+deal in the same car, and rolling per house would put an M3 on Panamericana's
+floor and not on Recoleta's in the same rotation, which reads as a bug rather
+than as scarcity. "Is there one around this month" is a fact about the car.
+
+There is deliberately **no** rule that every car sits on some forecourt. There
+was one, and it made "you can walk in and buy this" a property of every car in
+the catalogue, which forecloses the thing a collection game most wants to be
+able to say. What has to stay true is weaker and is the part worth protecting:
+every car can be got hold of *somehow*. The Marketplace draws from the whole
+catalogue and does not roll, so it is the floor under all of it -- a car off the
+forecourt this rotation is scarce, not missing.
+
 The dev refresh in Ajustes adds to `lotNudge` rather than to `racesRun`, so it
 moves both shops by exactly one race's worth without claiming you drove. Five
 presses rotate the forecourts, and the toast says so on the press that does it.
@@ -207,3 +236,11 @@ would otherwise fail silently:
   for that same car -- which is what stops buy-sell-repeat from printing money.
 - A second unit prices exactly like the first, so duplicates are a thing to want
   and never a thing to farm.
+- Every car can be bought *somewhere* -- forecourt or Marketplace. Not that
+  every car is on a forecourt: that rule was removed on purpose, so a car is
+  allowed to be hard to find.
+- Every tier reaches the used lot, scarcest included, which is what makes a
+  forecourt gap scarcity rather than a missing car.
+- A dealer's roster ignores performance and your garage: a slow `vrare` stays on
+  the exclusive floor and a quick `uncommon` stays in the cheap yard.
+- No house is ever empty, in any rotation.

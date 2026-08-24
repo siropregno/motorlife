@@ -27,6 +27,24 @@ export type Rarity =
   | "exclusive"
   | "unique";
 
+/**
+ * The same six at runtime, scarcest last.
+ *
+ * A type cannot be iterated, and acquisition is decided by tier now -- which
+ * forecourt carries a car, what fills a used lot -- so something has to be able
+ * to walk them. Ordered, because the order is the meaning: everything that
+ * reads this reads it as a ladder, and `RARITIES.indexOf` is how "at least as
+ * scarce as" is asked. Same shape and same reason as PART_IDS in mods.ts.
+ */
+export const RARITIES: Rarity[] = [
+  "common",
+  "uncommon",
+  "rare",
+  "vrare",
+  "exclusive",
+  "unique",
+];
+
 /** How much the sim actually knows about this car. */
 export type Confidence = "rough" | "estimated" | "calibrated";
 

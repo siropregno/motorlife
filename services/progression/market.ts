@@ -3,7 +3,7 @@ import type { Mods, PartId, PartLevel } from "@contracts/mods";
 import { PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
 
-import { mulberry32 } from "@sim/rng";
+import { hashSeed, mulberry32 } from "@sim/rng";
 import { priceOf } from "./economy";
 import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
 import { modsValue } from "./mods";
@@ -132,15 +132,95 @@ export interface Dealer {
   carries: (car: CarSpec) => boolean;
 }
 
+/**
+ * The catalogue cut by how hard a car is to come by. Three bands, and the
+ * middle one is a band by being in NEITHER list.
+ *
+ * ORDINARY is what you find on any street: the stock of a cheap yard, and the
+ * filler of a used lot. SCARCE is the other end -- a car that is hard to get
+ * hold of, whatever it laps.
+ *
+ * `rare` is deliberately in neither. It is the band that has no shop of its own
+ * at either end, so a rare car is only ever on the forecourt of its own segment
+ * -- one place in the game, rather than two.
+ */
+export const ORDINARY: Rarity[] = ["common", "uncommon"];
+export const SCARCE: Rarity[] = ["vrare", "exclusive", "unique"];
+
+/**
+ * The tiers a forecourt only SOMETIMES has one of, and how often.
+ *
+ * Everything not listed here is on the floor every era: a dealer that carries
+ * it, has it. These two are not, and that is the whole point -- a house whose
+ * pitch is "if you ask the price it is not for you" cannot credibly have an F40
+ * in the window every week of the year. A car being permanently in stock is the
+ * opposite of the thing its tier claims about it.
+ *
+ * So scarcity finally does something other than move a price. `unique` at 0.2
+ * means the top of the catalogue is on a forecourt one era in five; `exclusive`
+ * at 0.4 is a little under half. Neither is a wall: an era is DEALER_PERIOD
+ * races, so a car that is in stock stays in stock long enough to go and earn
+ * the money for it, and the Marketplace can always turn one up in the meantime.
+ *
+ * It is a REASON TO WALK IN, which is the thing a rotating floor is for. You
+ * cannot plan around it, you can only go and look -- and unlike the lot, when
+ * you look you get an answer that holds for the next few races.
+ */
+export const SHOWPIECE_CHANCE: Partial<Record<Rarity, number>> = {
+  exclusive: 0.4,
+  unique: 0.2,
+};
+
+/** Whether this car's presence on a forecourt is rolled at all. */
+export const isShowpiece = (spec: CarSpec): boolean =>
+  SHOWPIECE_CHANCE[spec.rarity] !== undefined;
+
+/**
+ * Whether anybody has one of these this era.
+ *
+ * Salted with the CAR and the era, deliberately NOT with the dealer. Two houses
+ * can carry the same car -- Recoleta and Panamericana both deal in an M3 E30 --
+ * and rolling per dealer would make each one's answer a coin flip of its own:
+ * the car would be absent from Recoleta and sitting on Panamericana's floor,
+ * which reads as a bug rather than as scarcity, and would halve the effect of
+ * the roll into the bargain.
+ *
+ * "Is there one around this month" is a fact about the CAR. Every forecourt
+ * that deals in it agrees, and the player learns one rule instead of four.
+ */
+export function onFloor(spec: CarSpec, era: number): boolean {
+  const chance = SHOWPIECE_CHANCE[spec.rarity];
+  if (chance === undefined) return true;
+  return mulberry32(hashSeed(`showpiece|${spec.id}|${era}`))() < chance;
+}
+
 export const DEALERS: Dealer[] = [
   {
     id: "exclusivos",
     name: "Exclusivos Recoleta",
     tagline: "Importados. Si preguntás el precio, no es para vos.",
-    // Priced, not rated. On rating this floor let a Fuego GTA Max share a
-    // forecourt with an F40, because a hot Renault is genuinely quick -- and
-    // "quick" was never what this dealer is selling.
-    carries: (c) => c.cls === "supercar" || priceOf(c) >= 150_000,
+    /*
+     * By TIER, not by price and not by rating.
+     *
+     * It was a rating floor once, and that let a Fuego GTA Max share a
+     * forecourt with an F40 because a hot Renault is genuinely quick -- and
+     * "quick" was never what this dealer sells. So it became a price floor,
+     * which was closer but still the wrong question asked sideways: priceOf is
+     * mostly rarity with a gentle nudge from the class index, so a slow vrare
+     * cotized under the floor and fell off the forecourt for being slow. Same
+     * bug as the first one, one layer down and harder to see.
+     *
+     * A vrare that laps badly is still a hard car to find, and hard to find is
+     * the entire product here. Reading the tier directly says that, and it
+     * cannot be knocked out by a car being slow or by the price table moving.
+     *
+     * `supercar` stays alongside it because it is the only segment with no
+     * house of its own -- Pacheco takes saloons and muscle, Panamericana takes
+     * sports, and nobody else takes a supercar. It is a segment rule sitting in
+     * a tier list, which is untidy, and it is the thing that keeps a supercar
+     * from depending on its tier to have anywhere to be sold at all.
+     */
+    carries: (c) => c.cls === "supercar" || SCARCE.includes(c.rarity),
   },
   {
     id: "pacheco",
@@ -158,7 +238,13 @@ export const DEALERS: Dealer[] = [
     id: "donbeto",
     name: "Fierros Don Beto",
     tagline: "Anda todo. Casi todo.",
-    carries: (c) => priceOf(c) <= 35_000,
+    /*
+     * The other half of the same correction. On a price ceiling of 35.000 the
+     * Fuego GTA Max sat at 34.600 -- one good class index away from falling out
+     * of the cheap yard for being quick, which is not what makes a car cheap.
+     * An uncommon car belongs in a cheap yard because it is an uncommon car.
+     */
+    carries: (c) => ORDINARY.includes(c.rarity),
   },
 ];
 
@@ -214,6 +300,16 @@ export const racesToRotation = (clock: number): number =>
  * something (a better example of the car you want) without the car you want
  * ever disappearing on you.
  *
+ * With ONE exception, and it is why `carries` and the floor are two different
+ * questions. A showpiece -- an `exclusive` or a `unique` -- is on the roster
+ * forever and on the FLOOR only some eras. Recoleta deals in F40s; Recoleta
+ * does not have an F40 in the window every week, because a car that is
+ * permanently in stock is not a unique car. See onFloor.
+ *
+ * Keeping the two apart is what makes that describable rather than fiddly:
+ * `carries` stays a flat fact about the house that never moves, and everything
+ * that comes and goes is one roll in one place.
+ *
  * No mods on any of it. A concesionaria sells what the factory built, and that
  * is a fact about these four dealers rather than a rule about forecourts --
  * `offer` takes mods from any caller, the sheet draws the preparación row off
@@ -222,7 +318,7 @@ export const racesToRotation = (clock: number): number =>
  * is a change to this function and nothing else.
  */
 export function stockOf(dealer: Dealer, era = 0): Offer[] {
-  return CARS.filter((c) => dealer.carries(c)).map((c) =>
+  return CARS.filter((c) => dealer.carries(c) && onFloor(c, era)).map((c) =>
     // salted with the dealer AND the era, so its cars keep their odometers for
     // as long as that floor stands and get new ones when it turns over
     offer(c, `${dealer.id}|${era}`),
@@ -252,7 +348,13 @@ export const LOT_SIZE = 6;
  */
 export const TREASURE_CHANCE = 0.3;
 
-const JUNK: Rarity[] = ["common", "uncommon"];
+/*
+ * The lot's filler is the same two tiers Don Beto's yard is, and it is the same
+ * constant rather than a second copy of the list. They are one claim about the
+ * catalogue -- "the ordinary half" -- and two copies would drift the day a
+ * seventh tier is added, leaving a car that is junk to one and treasure to the
+ * other.
+ */
 
 /**
  * The lot for one rotation.
@@ -272,8 +374,8 @@ const JUNK: Rarity[] = ["common", "uncommon"];
 export function usedLot(seed: number): Offer[] {
   const rng = mulberry32(seed);
   const available = CARS;
-  const junk = available.filter((c) => JUNK.includes(c.rarity));
-  const treasure = available.filter((c) => !JUNK.includes(c.rarity));
+  const junk = available.filter((c) => ORDINARY.includes(c.rarity));
+  const treasure = available.filter((c) => !ORDINARY.includes(c.rarity));
 
   const lot: CarSpec[] = [];
   const draw = (from: CarSpec[]) => {
