@@ -1849,6 +1849,165 @@ try {
   );
   await page.setViewportSize({ width: 1280, height: 900 });
 
+  /*
+   * ---------------------------------------------------------------------
+   * The motion character, in a real browser.
+   *
+   * src/styles/motion.test.ts gates the RULES as text -- that nobody wrote a
+   * raw duration, that the two curves are still a decelerate and an
+   * accelerate. None of that proves the browser resolved any of it, which is
+   * the half that actually reaches a player: a delay that computes to `0s`
+   * because a custom property was misspelled passes every text check there is
+   * and ships a screen where everything arrives at once.
+   *
+   * So these read COMPUTED values off live elements. See motion.css for what
+   * each rule is for; this is only the proof it happens.
+   */
+  console.log("\nthe motion character, as the browser resolves it");
+  await garage();
+  await settled();
+
+  /*
+   * The run: siblings arrive in order, and the order STOPS. The cap is the
+   * part worth checking in a browser rather than in the stylesheet, because
+   * the failure it prevents only appears once somebody owns more cars than
+   * the cap -- which is to say, never during development.
+   */
+  {
+    const delays = await page.$$eval(".card-grid.run > *", (els) =>
+      els.map((el) => getComputedStyle(el).animationDelay),
+    );
+    check("the garage deals its cards out in order", delays.slice(0, 3).join(" "), "0s 0.045s 0.09s");
+    check(
+      "and every card past the cap lands with the last ordered one",
+      delays.length > 6 ? delays.slice(6).every((d) => d === delays[5]) : true,
+      true,
+    );
+    check(
+      "the cards settle in place rather than travelling from anywhere",
+      [...new Set(await page.$$eval(".card-grid.run > *", (els) =>
+        els.map((el) => getComputedStyle(el).animationName),
+      ))].join(","),
+      "settle-in",
+    );
+    /*
+     * `backwards`, not `both`. An animation holding its final keyframe
+     * outranks the cascade, so `both` would silently pin these elements and
+     * kill the press on exactly the surfaces that use a run. It is invisible
+     * until somebody holds the mouse down on a garage card.
+     */
+    check(
+      "and release their transform when they land, so they can still be pressed",
+      await page.$eval(".card-grid.run > *", (el) => getComputedStyle(el).animationFillMode),
+      "backwards",
+    );
+  }
+
+  /*
+   * The press. Every control acknowledges being pressed, and the
+   * acknowledgement survives the cascade -- it is on `scale` rather than
+   * `transform` precisely so a stylesheet loading later cannot take it away
+   * with its own `transition:` shorthand, which is what card.css did to the
+   * first version of this.
+   */
+  {
+    const card = page.locator(".car-card.menuable").first();
+    const scale = () => card.evaluate((e) => getComputedStyle(e).scale);
+    const box = await card.boundingBox();
+    check("a card at rest is not scaled", await scale(), "1");
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(240);
+    const held = Number(await scale());
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    check("it shrinks while held", held < 1, true);
+    // Felt rather than watched: the 4% that suits a 40px button visibly warps
+    // a 470px card carrying a photo.
+    check("but by under 2%, because these are large surfaces", held > 0.97, true);
+    check("and comes back when released", await scale(), "1");
+    check(
+      "on a transition a later stylesheet cannot clobber",
+      await card.evaluate((e) => getComputedStyle(e).transition),
+      "scale 0.18s",
+    );
+
+    // That click opened the card's sheet.
+    await page.keyboard.press("Escape");
+    await page.waitForSelector("dialog.modal", { state: "detached" });
+  }
+
+  /*
+   * The composition, which is the whole reason the press is a variable on its
+   * own property. A pick card lifts on hover AND scales on press, and every
+   * press made with a mouse is a press on something hovered -- so if these
+   * two ever collapsed into one `transform`, the more common of the two would
+   * silently win and the other would never be seen again.
+   */
+  {
+    await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+    await settled();
+    const pick = page.locator(".pick-card").first();
+
+    const doors = await page.$$eval(".pick-grid.run > *", (els) =>
+      els.map((el) => getComputedStyle(el).animationDelay),
+    );
+    check("the shop's two doors are ordered like any other run", doors.join(" "), "0s 0.045s");
+
+    const box = await pick.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(250);
+    const read = () =>
+      pick.evaluate((e) => {
+        const s = getComputedStyle(e);
+        return `${s.transform} | ${s.scale}`;
+      });
+    const hovered = await read();
+    await page.mouse.down();
+    await page.waitForTimeout(240);
+    const pressed = await read();
+    await page.mouse.up();
+
+    check("hovering a door lifts it and does not scale it", hovered, "matrix(1, 0, 0, 1, 0, -2) | 1");
+    check("pressing it KEEPS the lift", /0, -2\)/.test(pressed), true);
+    check("and adds the press on top rather than replacing it", /\| 0\.9/.test(pressed), true);
+
+    // The press landed on Concesionarios; the houses continue the same run.
+    await settled();
+    const houses = await page.$$eval(".dealer-grid.run > *", (els) =>
+      els.map((el) => getComputedStyle(el).animationDelay),
+    );
+    check("and the dealer list continues the same count", houses.slice(0, 3).join(" "), "0s 0.045s 0.09s");
+  }
+
+  /*
+   * Setup, where the taller's two-beat is translated rather than copied: the
+   * right column waits for the left to FINISH instead of counting beside it.
+   * Without the offset the screen arrives two panels at a time, side by side,
+   * which is the identical failure the workshop's overlapping first cut had.
+   */
+  {
+    await page.locator('.topnav-btn[aria-label="Carrera"]').click();
+    await settled();
+    const col = (n) =>
+      page.$$eval(`.setup-grid.run > .setup-col:nth-child(${n}) > *`, (els) =>
+        els.map((el) => Number(getComputedStyle(el).animationDelay.replace("s", ""))),
+      );
+    const left = await col(1);
+    const right = await col(2);
+    check("setup's left column leads", left.join(" "), "0 0.045");
+    check(
+      "and nothing on the right moves until the left has landed",
+      right[0] >= left[left.length - 1] + 0.4,
+      true,
+    );
+  }
+
+  await garage();
+  await settled();
+
   check("nothing 404ed and nothing threw", noise.join(", "), "");
 
   /*
@@ -1877,6 +2036,28 @@ try {
     }),
     "opacity 1, visible",
   );
+  /*
+   * The garage's run, checked HERE -- while the garage is still the screen on
+   * show -- rather than further down with the other three. It has the same
+   * shape of risk and one more reason to be blunt about it: a run rests at
+   * opacity 0 and is carried to visible by an animation with a fill, so
+   * cancelling the animation without putting the content back hands the person
+   * who asked for less movement an EMPTY GARAGE. Not a rough edge: their cars,
+   * gone, with no error to explain it.
+   */
+  check(
+    "no card in the garage animates",
+    await calm.locator(".card-grid.run > *").evaluateAll((els) =>
+      els.length > 0 && els.every((e) => getComputedStyle(e).animationName === "none")),
+    true,
+  );
+  check(
+    "and every car is still on screen anyway",
+    await calm.locator(".card-grid.run > *").evaluateAll((els) =>
+      els.length > 0 && els.every((e) => getComputedStyle(e).opacity === "1")),
+    true,
+  );
+
   await calm.locator('.topnav-btn[aria-label="Concesionaria"]').click();
   await calm.waitForSelector(".pick-grid, .shop-item, .card-grid");
   check(

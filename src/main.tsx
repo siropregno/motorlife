@@ -4,6 +4,9 @@ import App from "./App";
 import { ToastProvider } from "./components/Toasts";
 
 import "./styles/tokens.css";
+// The character, right after the units it is written in and before every
+// surface that answers to it.
+import "./styles/motion.css";
 import "./styles/card.css";
 import "./styles/app.css";
 import "./styles/menu.css";

@@ -642,6 +642,67 @@ p.screen-sub {
 }
 
 /*
+ * Staging the panels. See motion.css for the character this answers to; what
+ * is decided HERE is what a column means, which is a layout question.
+ *
+ * The run is on .setup-grid, whose children are the two columns -- so this
+ * reaches through to the panels inside them, and each column counts its own
+ * children from one. That is the mechanism, and the --beat below is what stops
+ * it from being wrong: without an offset the two columns would count in
+ * parallel and the screen would arrive as two panels at a time, side by side.
+ * Rule 1 says one thing at a time.
+ *
+ * So the right column starts after the left has finished. The left is two
+ * panels -- the card and the circuit -- so its last one begins at 1 * --step
+ * and the column is done a --dur-move later. --beat is that arithmetic written
+ * out, and it is expressed in the same two tokens rather than as a number, so
+ * retuning either one keeps the columns in step instead of silently
+ * overlapping them.
+ *
+ * Reading order is also the order of consequence, which is why it is worth
+ * staging at all: you pick a car, you pick where it is going, and only then do
+ * the sliders that tune it for that circuit mean anything.
+ */
+.setup-grid.run > .setup-col > * {
+  --step: 45ms;
+  --beat: 0ms;
+  animation: settle-in var(--dur-move) var(--ease-out) calc(var(--beat) + var(--i) * var(--step))
+    both;
+  --i: 0;
+}
+.setup-grid.run > .setup-col > *:nth-child(2) {
+  --i: 1;
+}
+.setup-grid.run > .setup-col > *:nth-child(3) {
+  --i: 2;
+}
+/* The right column falls in behind the left: two panels of stagger, plus the
+   length of the animation the second one is still playing. */
+.setup-grid.run > .setup-col:nth-child(2) > * {
+  --beat: calc(1 * 45ms + var(--dur-move));
+}
+
+/*
+ * Under the breakpoint the grid is ONE column, so the two .setup-col elements
+ * stack and the second is genuinely below the first -- which is exactly when
+ * the offset stops being a stagger and becomes a wait. The panels you can see
+ * are the top two; everything --beat delays is off the bottom of the screen,
+ * so the delay buys nothing and costs half a second of a screen that looks
+ * unfinished.
+ */
+@media (max-width: 859px) {
+  .setup-grid.run > .setup-col:nth-child(2) > * {
+    --beat: calc(2 * 45ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-grid.run > .setup-col > * {
+    animation: none;
+  }
+}
+
+/*
  * A pinned row of actions at the bottom of a screen. It sits on the app's own
  * ground rather than on a panel, and the hairline is what separates it from
  * the list scrolling underneath -- without it the button appears to float over
@@ -1296,9 +1357,13 @@ p.screen-sub {
   position: relative;
   z-index: 1;
 }
+/* The lift COMPOSES with the press rather than replacing it -- see --press in
+   motion.css. Written as one transform because two rules both setting
+   `transform` cannot both win: pressing a card you are hovering (which is
+   every press with a mouse) would drop whichever of the two lost the cascade. */
 .pick-card:hover {
   border-color: var(--purple-ink);
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(var(--press));
 }
 
 .pick-name {

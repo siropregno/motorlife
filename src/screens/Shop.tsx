@@ -78,8 +78,18 @@ export function Shop({ save, onBuy }: Props) {
 
         {/* Two cards and nothing below them: no scroll box, or the shop's front
             door draws a scrollbar track down a page with nothing under it. */}
+        {/*
+          * The two doors settle in, left then right.
+          *
+          * Two members is the smallest run there is, and it is still worth
+          * ordering: these are a CHOICE between two things, and showing them
+          * one after the other is the difference between offering two options
+          * and revealing a row. The gap is the same --step everything else
+          * uses, so the pair reads as the front of the same list the dealer
+          * grid continues.
+          */}
         <div className="screen-body still">
-          <div className="pick-grid">
+          <div className="pick-grid run">
             <button className="pick-card pick-dealers" onClick={() => setView({ at: "dealers" })}>
               <span className="pick-name">Concesionarios</span>
               <span className="pick-note">
@@ -109,8 +119,10 @@ export function Shop({ save, onBuy }: Props) {
           back={{ label: "Comprar", onBack: () => setView({ at: "choose" }) }}
         />
 
+        {/* The four houses arrive in order, the same way the two doors that
+            led here did -- one list continuing into another. */}
         <div className="screen-body">
-          <div className="dealer-grid">
+          <div className="dealer-grid run">
             {DEALERS.map((d) => {
               const stock = stockOf(d, ownedIds(save));
               const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;

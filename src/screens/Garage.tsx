@@ -134,8 +134,28 @@ export function Garage({ owned, currentId, onDrive, onSell, onTune }: Props) {
         </p>
       </div>
 
+      {/*
+        * The cars SETTLE, they do not arrive from anywhere.
+        *
+        * This is where the taller's character had to be translated rather than
+        * copied. In the workshop a row comes in from the left because the tiles
+        * are being brought out to you -- a new set of options, fetched. These
+        * cars were already yours before the screen drew, so there is nowhere
+        * for them to have come from, and sliding them in from the side would be
+        * borrowing the workshop's word for navigation to say something that is
+        * not navigation. Rule 2: a surface with no direction to express does
+        * not borrow one.
+        *
+        * So they rise the 8px of --rise and settle, in order, which is rule 1
+        * applied to a list -- one at a time rather than one event with six
+        * participants. The order is the reading order of the grid, so the
+        * garage reads as being dealt out to you.
+        *
+        * `--i` is the position, capped in motion.css so a full garage does not
+        * take a second and a half to finish appearing.
+        */}
       <div className="screen-body">
-        <div className="card-grid">
+        <div className="card-grid run">
           {cars.map(({ spec: c, km, mods, image }) => (
             <CarCard
               key={c.id}

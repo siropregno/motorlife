@@ -100,7 +100,14 @@
    *
    * background-color takes --dur-move because that half is chrome again: it is
    * the row lighting up as yours, not the car moving.
+   *
+   * The marker below is what makes this a signed exception rather than a
+   * drift: motion.test.ts fails on any raw duration or curve in any stylesheet
+   * UNLESS the declaration carries it, and it pins the total count at one. So
+   * this rule is allowed to stand, and a second one appearing anywhere in the
+   * app breaks the build until somebody argues for it.
    */
+  /*motion-exception*/
   transition:
     transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
     background-color var(--dur-move);

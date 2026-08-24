@@ -583,9 +583,13 @@
     transform var(--dur-tap);
 }
 /* Dark paint on a dark panel needs the ring to find its edge. */
+/* The lift composes with the press scale rather than replacing it -- see
+   --press in motion.css. A dot is hovered whenever it is clicked with a mouse,
+   so a bare `transform` here would be the one that wins and the press would do
+   nothing on the control it is most often used on. */
 .paint-dot:hover:not(:disabled) {
   box-shadow: 0 0 0 2px var(--ink-3);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(var(--press));
 }
 .paint-dot.on {
   /* Two rings with the panel between them, so the halo reads on a white dot

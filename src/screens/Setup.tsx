@@ -115,8 +115,26 @@ export function SetupScreen({ carId, km, mods, image, build, onBuild, track, onT
         </p>
       </div>
 
+      {/*
+        * The panels stage in reading order: the car and the circuit, then the
+        * readout and the two things you turn.
+        *
+        * `run` on the GRID rather than on each column, so the order runs across
+        * the whole screen -- card, circuit, comportamiento, gomas, regulaciones
+        * -- rather than two columns each counting from one and arriving in
+        * parallel. Two synchronised runs would be five panels appearing as two
+        * events, which is rule 1 broken in the one place it is easiest to break
+        * it by accident.
+        *
+        * The columns are the grid's children, so `run` alone would order two
+        * things. `.setup-grid.run > .setup-col > *` in the stylesheet is what
+        * reaches through to the panels themselves, and the counting is
+        * per-column -- so the right column is offset by --beat to fall in
+        * behind the left rather than beside it. That offset is the whole
+        * translation of the taller here: sequential, not overlapping.
+        */}
       <div className="screen-body">
-        <div className="setup-grid">
+        <div className="setup-grid run">
         {/*
           * Left: the car and where it is going. Right: how it behaves, and the
           * two things you turn to change that.
