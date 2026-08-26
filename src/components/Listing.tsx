@@ -32,7 +32,20 @@ interface Props {
    * the Comprar button stays live either way.
    */
   owned: string[];
-  onBuy: (carId: string, price: number, km: number, color?: string, mods?: Mods) => void;
+  /**
+   * Which window these offers are sitting in, so a purchase can take the car
+   * out of it. A listing is one CAR -- one odometer, one colour, one price --
+   * and buying it has to make it stop being for sale.
+   */
+  origin: { source: string; rotation: number };
+  onBuy: (
+    carId: string,
+    price: number,
+    km: number,
+    color?: string,
+    mods?: Mods,
+    origin?: { source: string; rotation: number },
+  ) => void;
   /** Filters and sort. Off for a six-car lot, where they are furniture. */
   controls?: boolean;
   /** Whose forecourt this is, for the header it now draws itself. */
@@ -62,6 +75,7 @@ export function Listing({
   offers,
   credits,
   owned,
+  origin,
   onBuy,
   controls = true,
   title,
@@ -220,8 +234,9 @@ export function Listing({
             owned: owned.filter((id) => id === open.spec.id).length,
             // The parts travel with the sale, the same way the odometer and
             // the colour already do: what you paid for is what lands in the
-            // garage.
-            onBuy: (id, price, km) => onBuy(id, price, km, open.color, open.mods),
+            // garage. The origin travels too, so the car can leave the window
+            // it was standing in.
+            onBuy: (id, price, km) => onBuy(id, price, km, open.color, open.mods, origin),
           }}
           onClose={() => setOpenId(null)}
         />

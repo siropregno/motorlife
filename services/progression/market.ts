@@ -4,6 +4,7 @@ import { PART_IDS } from "@contracts/mods";
 import { CARS } from "@catalog/cars";
 
 import { hashSeed, mulberry32 } from "@sim/rng";
+import type { Save } from "./save";
 import { priceOf } from "./economy";
 import { conditionOf, kmFor, priceWithKm, type Condition } from "./mileage";
 import { modsValue } from "./mods";
@@ -317,12 +318,71 @@ export const racesToRotation = (clock: number): number =>
  * whatever a listing has into the save. So a dealer that stocks a modified car
  * is a change to this function and nothing else.
  */
-export function stockOf(dealer: Dealer, era = 0): Offer[] {
-  return CARS.filter((c) => dealer.carries(c) && onFloor(c, era)).map((c) =>
+export function stockOf(dealer: Dealer, era = 0, sold: string[] = []): Offer[] {
+  return CARS.filter(
+    (c) => dealer.carries(c) && onFloor(c, era) && !sold.includes(offerToken(dealer.id, era, c.id)),
+  ).map((c) =>
     // salted with the dealer AND the era, so its cars keep their odometers for
     // as long as that floor stands and get new ones when it turns over
     offer(c, `${dealer.id}|${era}`),
   );
+}
+
+/**
+ * Where the Marketplace's listings come from, for the purposes of naming one.
+ *
+ * A string rather than a dealer id because the lot is not a dealer -- it has no
+ * roster, no tagline and no floor -- but a car on it is exactly as much a
+ * particular car as one on a forecourt, and it goes away when you buy it for
+ * exactly the same reason.
+ */
+export const LOT_SOURCE = "usados";
+
+/**
+ * The name of one offer: one car, in one window, in one rotation.
+ *
+ * The rotation is IN the name, and that is what makes the whole thing
+ * self-cleaning. A token minted against era 3 can never match an offer on era
+ * 4's floor, so a save that never pruned would still be CORRECT -- the stale
+ * entries would just pile up. Nothing has to run on a timer, and nothing has to
+ * know when a floor turned over in order to forget about it.
+ *
+ * The two sources count rotations differently and that is fine: a dealer's is
+ * dealerEra(clock) and the lot's is the clock itself. They never collide
+ * because the source is the first field.
+ */
+export const offerToken = (source: string, rotation: number, carId: string): string =>
+  `${source}|${rotation}|${carId}`;
+
+/**
+ * Take one car off the window it was bought from.
+ *
+ * Lives here rather than in economy.ts for two reasons, one of them dull:
+ * market.ts already imports economy.ts for priceOf, so the arrow cannot point
+ * back. The other is that this is the module that knows what an offer IS -- how
+ * one is named, which window it sat in, and when that window turns over -- and
+ * splitting the token format from the thing that writes it is how the two drift.
+ *
+ * Prunes on the way through. Every surviving token is checked against the
+ * rotation its own source is actually showing right now, which is why a dealer
+ * token and a lot token can sit in the same list and be judged by different
+ * clocks. The list ends up the size of one rotation's shopping rather than the
+ * size of a whole save's.
+ *
+ * Returns the save unchanged when the car was already struck off, the same
+ * contract every other move has: this is reachable from a click handler, and a
+ * repeated one should do nothing rather than write a duplicate.
+ */
+export function takeOffFloor(save: Save, source: string, rotation: number, carId: string): Save {
+  const token = offerToken(source, rotation, carId);
+  if (save.sold.includes(token)) return save;
+  const clock = save.racesRun + save.lotNudge;
+  const live = (t: string) => {
+    const parts = t.split("|");
+    const showing = parts[0] === LOT_SOURCE ? clock : dealerEra(clock);
+    return Number(parts[1]) === showing;
+  };
+  return { ...save, sold: [...save.sold.filter(live), token] };
 }
 
 /**
@@ -405,8 +465,12 @@ export const TREASURE_WEIGHT: Record<Rarity, number> = {
  * somebody else's, with its own kilometres and somebody else's turbo on it. The
  * side effect is that the lot stays six deep late in the game instead of
  * thinning out as you buy the catalogue.
+ *
+ * `sold` is a different question and it does shorten the lot: a used car you
+ * have already bought is in your garage, so it is not still for sale. That is
+ * the one case where a six-slot lot comes back with five.
  */
-export function usedLot(seed: number): Offer[] {
+export function usedLot(seed: number, sold: string[] = []): Offer[] {
   const rng = mulberry32(seed);
   const available = CARS;
   const junk = available.filter((c) => ORDINARY.includes(c.rarity));
@@ -479,5 +543,17 @@ export function usedLot(seed: number): Offer[] {
    * the NSX"); which cars are on it is not something a new feature gets to
    * change.
    */
-  return lot.map((c) => offer(c, `usados-${seed}`, USED_RATE, rollMods(rng)));
+  /*
+   * The sold ones are filtered AFTER every car has been built, never before the
+   * draw. Filtering the pool would change which cars get drawn, so buying one
+   * car off the lot would reshuffle the other five -- and the whole rotation
+   * would be a different rotation because you went shopping. Build the six the
+   * seed says, then remove the ones that are no longer for sale.
+   *
+   * The map has to run over all six for the same reason: rollMods spends rng
+   * per car, so skipping one would shift the parts on every car after it.
+   */
+  return lot
+    .map((c) => offer(c, `usados-${seed}`, USED_RATE, rollMods(rng)))
+    .filter((o) => !sold.includes(offerToken(LOT_SOURCE, seed, o.spec.id)));
 }

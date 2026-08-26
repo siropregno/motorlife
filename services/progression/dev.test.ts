@@ -8,6 +8,7 @@ const save = (over: Partial<Save> = {}): Save => ({
   credits: 10_000,
   owned: [{ uid: "1", id: "renault-12-tl", km: 200_000 }],
   nextUid: 2,
+  sold: [],
   racesRun: 7,
   lotNudge: 0,
   ...over,

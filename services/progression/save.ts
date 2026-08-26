@@ -13,7 +13,7 @@ import { kmFor } from "./mileage";
 import { colorFor } from "./paint";
 
 export const SAVE_KEY = "motorlife.save";
-export const SAVE_VERSION = 6 as const;
+export const SAVE_VERSION = 7 as const;
 
 /** What an already-owned car arrives with when a field is added under it. */
 function kmForOwned(id: string): number {
@@ -88,6 +88,26 @@ export interface Save {
    * A counter only ever goes up.
    */
   nextUid: number;
+  /**
+   * Offers already taken off a forecourt, as `source|rotation|carId`.
+   *
+   * A listing is one CAR, not a model in a brochure: it has an odometer, a
+   * colour and a price, all fixed for as long as that floor stands. So buying
+   * it has to take it away. Without this the same 289.000 km Chevy sat on
+   * Pacheco's floor after you had driven it home, at the same price, ready to
+   * be bought again -- five identical cars from one listing.
+   *
+   * Tokens rather than a count, because "which one is gone" is the question.
+   * The rotation is IN the token, which is what makes this self-cleaning: a
+   * token from a floor that has since turned over can never match a live offer
+   * again, so a stale entry is inert rather than wrong. takeOffFloor drops them
+   * anyway to keep the list the size of one rotation's shopping.
+   *
+   * It is emphatically NOT "cars you own". Selling a car does not put it back
+   * on the forecourt it came from, and owning one has never stopped you buying
+   * another -- this is about a particular car having been sold, once.
+   */
+  sold: string[];
   racesRun: number;
   /**
    * How many extra rotations the Marketplace has been pushed through by hand.
@@ -109,6 +129,7 @@ export const STARTING_SAVE: Save = {
   credits: 6_000,
   owned: [{ uid: "1", id: "renault-12-tl", km: 214_000, color: "light-blue" }],
   nextUid: 2,
+  sold: [],
   racesRun: 0,
   lotNudge: 0,
 };
@@ -249,6 +270,8 @@ function isSave(v: unknown): v is Save {
     Array.isArray(s.owned) &&
     s.owned.every(isOwnedCar) &&
     typeof s.nextUid === "number" &&
+    Array.isArray(s.sold) &&
+    s.sold.every((t) => typeof t === "string") &&
     typeof s.racesRun === "number" &&
     typeof s.lotNudge === "number"
   );
@@ -372,6 +395,15 @@ interface SaveV5 {
   lotNudge: number;
 }
 
+interface SaveV6 {
+  version: 6;
+  credits: number;
+  owned: OwnedCar[];
+  nextUid: number;
+  racesRun: number;
+  lotNudge: number;
+}
+
 function isSaveV3(v: unknown): v is SaveV3 {
   if (typeof v !== "object" || v === null) return false;
   const s = v as Partial<SaveV3>;
@@ -448,12 +480,35 @@ const v4ToV5 = (s: SaveV4): SaveV5 => ({
  * `nextUid` lands one past the last one handed out, which is what makes the
  * first car bought after the migration take a name no car in the garage has.
  */
-const v5ToV6 = (s: SaveV5): Save => ({
-  version: SAVE_VERSION,
+const v5ToV6 = (s: SaveV5): SaveV6 => ({
+  version: 6,
   credits: s.credits,
   racesRun: s.racesRun,
   owned: s.owned.map((o, i) => ({ uid: String(i + 1), ...o })),
   nextUid: s.owned.length + 1,
+  lotNudge: s.lotNudge,
+});
+
+/**
+ * v6 -> v7: forecourts start remembering what has been taken off them.
+ *
+ * Empty for everyone, and that is the whole migration. The alternative -- try
+ * to guess which listings an existing player had already bought, from what is
+ * in their garage -- is both impossible and wrong: owning a Falcon has never
+ * meant you bought THAT Falcon from THAT floor, and a migration that struck
+ * cars off forecourts on a guess would silently shrink somebody's shop.
+ *
+ * Starting empty means the first rotation after this ships has everything on
+ * it, exactly as it did before the field existed, and the field starts doing
+ * its job on the next purchase.
+ */
+const v6ToV7 = (s: SaveV6): Save => ({
+  version: SAVE_VERSION,
+  credits: s.credits,
+  racesRun: s.racesRun,
+  owned: s.owned.map((o) => ({ ...o })),
+  nextUid: s.nextUid,
+  sold: [],
   lotNudge: s.lotNudge,
 });
 
@@ -482,13 +537,28 @@ function isSaveV5(v: unknown): v is SaveV5 {
   );
 }
 
+function isSaveV6(v: unknown): v is SaveV6 {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SaveV6>;
+  return (
+    s.version === 6 &&
+    typeof s.credits === "number" &&
+    Array.isArray(s.owned) &&
+    s.owned.every(isOwnedCar) &&
+    typeof s.nextUid === "number" &&
+    typeof s.racesRun === "number" &&
+    typeof s.lotNudge === "number"
+  );
+}
+
 /** Any shape we have ever written, brought to the current one. */
 export function migrate(old: unknown): Save | null {
-  if (isSaveV1(old)) return v5ToV6(v4ToV5(v3ToV4(v2ToV3(v1ToV2(old)))));
-  if (isSaveV2(old)) return v5ToV6(v4ToV5(v3ToV4(v2ToV3(old))));
-  if (isSaveV3(old)) return v5ToV6(v4ToV5(v3ToV4(old)));
-  if (isSaveV4(old)) return v5ToV6(v4ToV5(old));
-  if (isSaveV5(old)) return v5ToV6(old);
+  if (isSaveV1(old)) return v6ToV7(v5ToV6(v4ToV5(v3ToV4(v2ToV3(v1ToV2(old))))));
+  if (isSaveV2(old)) return v6ToV7(v5ToV6(v4ToV5(v3ToV4(v2ToV3(old)))));
+  if (isSaveV3(old)) return v6ToV7(v5ToV6(v4ToV5(v3ToV4(old))));
+  if (isSaveV4(old)) return v6ToV7(v5ToV6(v4ToV5(old)));
+  if (isSaveV5(old)) return v6ToV7(v5ToV6(old));
+  if (isSaveV6(old)) return v6ToV7(old);
   return null;
 }
 

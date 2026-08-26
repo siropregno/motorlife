@@ -512,6 +512,7 @@ try {
     await page.locator(".modal-part.stock").count(),
     4,
   );
+  const stockBefore = await page.locator(".shop-item").count();
   await page.locator(".modal-foot .btn").last().click();
   await page.waitForSelector("dialog.modal", { state: "detached" });
   check(
@@ -519,6 +520,37 @@ try {
     Number((await wallet()).replace(/[^\d]/g, "")),
     beforeBuy - listed,
   );
+
+  /*
+   * Buying lands you in the garage, next to the thing you just bought.
+   *
+   * It was the one move in the game that left you exactly where you started,
+   * looking at a forecourt -- so the only evidence it had worked was a toast
+   * and a smaller number in the corner.
+   */
+  await settled();
+  check(
+    "and it takes you to the garage, where the car now is",
+    await page.locator(".topnav-btn.on").getAttribute("aria-label"),
+    "Garaje",
+  );
+  check("with the car in it", await card("Chevy 250").count(), 1);
+
+  /*
+   * And the car is GONE from the floor it came off.
+   *
+   * A listing is one car -- one odometer, one colour, one price -- so once it
+   * is in the garage it is not still for sale. It used to sit there afterwards
+   * at the same 289.000 km and the same price, buyable as many times as you
+   * liked, which is a different claim from "you may own two Falcons".
+   */
+  await page.locator('.topnav-btn[aria-label="Concesionaria"]').click();
+  await settled();
+  await page.getByRole("button", { name: /Concesionarios/ }).click();
+  await page.getByRole("button", { name: /Pacheco/ }).click();
+  await page.waitForSelector(".shop-item");
+  check("the car it came off is one shorter", await page.locator(".shop-item").count(), stockBefore - 1);
+  check("and the car itself is not on it", await page.locator(".shop-item", { hasText: "Chevy 250" }).count(), 0);
 
   console.log("\nthe right-click menu");
   await garage();
@@ -1824,7 +1856,7 @@ try {
       const s = JSON.parse(localStorage.getItem("motorlife.save"));
       return `v${s.version} uids ${s.owned.map((o) => o.uid).join(",")} next ${s.nextUid}`;
     }),
-    "v6 uids 1,2 next 3",
+    "v7 uids 1,2 next 3",
   );
 
   /*

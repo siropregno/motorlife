@@ -75,6 +75,7 @@ const PLAYED: Save = {
   racesRun: 37,
   lotNudge: 9,
   nextUid: 3,
+  sold: [],
   owned: [
     { uid: "1", id: "ferrari-f40", km: 12_000, color: "red" },
     { uid: "2", id: "bmw-m3-e30", km: 240_100, color: "black" },
@@ -195,6 +196,7 @@ describe("the little readers over a save", () => {
     const twins: Save = {
       ...PLAYED,
       nextUid: 3,
+      sold: [],
       owned: [
         { uid: "1", id: "ford-falcon-sprint", km: 40_000, color: "white", mods: { turbo: 3 } },
         { uid: "2", id: "ford-falcon-sprint", km: 310_000, color: "red" },
@@ -266,6 +268,7 @@ describe("a hand-edited save with duplicate uids", () => {
       JSON.stringify({
         ...PLAYED,
         nextUid: 2,
+        sold: [],
         owned: [
           { uid: "1", id: "ferrari-f40", km: 12_000, color: "red" },
           { uid: "1", id: "bmw-m3-e30", km: 240_100, color: "black" },
@@ -407,8 +410,53 @@ describe("older saves", () => {
     ).toBe(0);
   });
 
+  /**
+   * v6 -> v7: forecourts start remembering what was taken off them, empty.
+   *
+   * Empty is the whole migration, and the alternative is worth naming: guessing
+   * from the garage which listings had already been bought. That is both
+   * impossible and wrong -- owning a Falcon has never meant you bought THAT
+   * Falcon off THAT floor -- and it would silently shrink an existing player's
+   * shop on the day the field arrived. A migration is not allowed to change
+   * what the game shows.
+   */
+  it("bring v6 up with every forecourt still full", () => {
+    const up = migrate({
+      version: 6,
+      credits: 88_000,
+      racesRun: 14,
+      lotNudge: 2,
+      nextUid: 3,
+      owned: [
+        { uid: "1", id: "renault-12-tl", km: 214_000, color: "light-blue" },
+        { uid: "2", id: "bmw-m3-e30", km: 90_000, color: "black", mods: { turbo: 2 } },
+      ],
+    });
+    expect(up?.version).toBe(SAVE_VERSION);
+    expect(up?.sold).toEqual([]);
+    // and nothing else moved on the way up
+    expect(up?.credits).toBe(88_000);
+    expect(up?.racesRun).toBe(14);
+    expect(up?.lotNudge).toBe(2);
+    expect(up?.nextUid).toBe(3);
+    expect(up?.owned.map((o) => o.uid)).toEqual(["1", "2"]);
+    expect(up?.owned[1]?.mods).toEqual({ turbo: 2 });
+  });
+
+  it("give every older shape an empty forecourt memory too", () => {
+    for (const old of [
+      { version: 1, credits: 9_000, racesRun: 2, owned: ["bmw-m3-e30"] },
+      { version: 2, credits: 500, racesRun: 0, owned: [{ id: "bmw-m3-e30", km: 1_000 }] },
+      { version: 3, credits: 500, racesRun: 0, owned: [{ id: "bmw-m3-e30", km: 1_000 }] },
+      { version: 4, credits: 500, racesRun: 0, owned: [{ id: "bmw-m3-e30", km: 1_000 }] },
+      { version: 5, credits: 500, racesRun: 0, lotNudge: 0, owned: [{ id: "bmw-m3-e30", km: 1_000 }] },
+    ]) {
+      expect(migrate(old)?.sold, `v${old.version}`).toEqual([]);
+    }
+  });
+
   it("refuse a shape they have never written", () => {
-    expect(migrate({ version: 8 })).toBeNull();
+    expect(migrate({ version: 9 })).toBeNull();
     expect(migrate(null)).toBeNull();
     expect(migrate("save")).toBeNull();
   });
@@ -443,6 +491,7 @@ describe("older saves", () => {
         racesRun: 3,
         lotNudge: 0,
         nextUid: 2,
+        sold: [],
         owned: [{ id: "bmw-m3-e30", km: 1_000 }],
       }),
     );

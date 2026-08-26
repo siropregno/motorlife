@@ -8,6 +8,7 @@ import {
   dealerById,
   dealerEra,
   isShowpiece,
+  LOT_SOURCE,
   racesToRotation,
   stockOf,
   usedLot,
@@ -18,7 +19,14 @@ import { ScreenHead } from "../components/ScreenHead";
 
 interface Props {
   save: Save;
-  onBuy: (carId: string, price: number, km: number, color?: string, mods?: Mods) => void;
+  onBuy: (
+    carId: string,
+    price: number,
+    km: number,
+    color?: string,
+    mods?: Mods,
+    origin?: { source: string; rotation: number },
+  ) => void;
 }
 
 type View = { at: "choose" } | { at: "dealers" } | { at: "dealer"; id: string } | { at: "used" };
@@ -67,8 +75,12 @@ export function Shop({ save, onBuy }: Props) {
   const era = dealerEra(clock);
   const untilRotation = racesToRotation(clock);
 
-  // Frozen per rotation, so filtering never reshuffles it.
-  const lot = useMemo(() => usedLot(clock), [clock]);
+  /*
+   * Frozen per rotation, so filtering never reshuffles it -- and shortened by
+   * whatever has already been bought off it, which is why `sold` is in here
+   * too. A used car you drove home is not still on the lot.
+   */
+  const lot = useMemo(() => usedLot(clock, save.sold), [clock, save.sold]);
 
   if (view.at === "choose") {
     /*
@@ -144,12 +156,14 @@ export function Shop({ save, onBuy }: Props) {
           <div className="dealer-grid run">
             {DEALERS.map((d) => {
               /*
-               * No "Sin stock: ya tenés todo lo suyo" any more, and no disabled
-               * card. A dealer's floor no longer shrinks as you buy it, because
-               * it no longer hides what you own -- so the empty state it used to
-               * reach is a state it cannot reach.
+               * The floor can genuinely run out now, so the card has to cope.
+               *
+               * Not the old "ya tenés todo lo suyo" -- that hid cars you owned,
+               * and owning one has stopped being a reason not to sell you
+               * another. This is the other thing: the house had ONE of each and
+               * you bought them. It fills back up when the floor turns over.
                */
-              const stock = stockOf(d, era);
+              const stock = stockOf(d, era, save.sold);
               const cheapest = stock.length ? Math.min(...stock.map((o) => o.price)) : 0;
               /*
                * A showpiece on the floor this era, flagged the same way the
@@ -193,14 +207,19 @@ export function Shop({ save, onBuy }: Props) {
     if (!dealer) return <p>Concesionaria no encontrada.</p>;
     return (
       <Listing
-        offers={stockOf(dealer, era)}
+        offers={stockOf(dealer, era, save.sold)}
         credits={save.credits}
         owned={ownedIds(save)}
+        // the era, not the clock: a forecourt's window is one rotation of ITS
+        // floor, and that is what a car bought here has to disappear from
+        origin={{ source: dealer.id, rotation: era }}
         onBuy={onBuy}
         title={dealer.name}
         sub={dealer.tagline}
         back={{ label: "Concesionarios", onBack: () => setView({ at: "dealers" }) }}
-        empty="Esta casa no tiene nada en el catálogo."
+        empty={`Se llevaron todo. Vuelve a haber en ${untilRotation} carrera${
+          untilRotation === 1 ? "" : "s"
+        }.`}
       />
     );
   }
@@ -210,6 +229,8 @@ export function Shop({ save, onBuy }: Props) {
       offers={lot}
       credits={save.credits}
       owned={ownedIds(save)}
+      // the whole clock, not the era: the lot is a new lot every race
+      origin={{ source: LOT_SOURCE, rotation: clock }}
       onBuy={onBuy}
       controls={false}
       title="Marketplace"

@@ -180,6 +180,26 @@ saving for is still there next week) while still being worth checking back on
 (this rotation's example might be the clean one). Neither hides what you already
 own, because two of a model are two cars.
 
+### A listing is one car
+
+Buying takes it off the window it was standing in (`sold` in the save, keyed
+`source|rotation|carId`). Without that, the same 289.000 km Chevy sat on
+Pacheco's floor after you had driven it home, at the same price, buyable as many
+times as you liked -- which is a different claim from "you may own two Falcons".
+It applies to the Marketplace too: a used car you bought is not still on the lot.
+
+The rotation is *in* the token, which is what makes it self-cleaning. A token
+minted against era 3 can never match an offer on era 4's floor, so a stale entry
+is inert rather than wrong and nothing has to run on a timer. `takeOffFloor`
+prunes anyway, judging each token against the rotation its own source is showing
+-- a dealer's is `dealerEra(clock)`, the lot's is the clock itself.
+
+So a forecourt *can* now run out, and the shop says so rather than rendering
+"0 autos · desde 0 cr". It fills back up when the floor turns over.
+
+`sold` is emphatically not "cars you own": selling a car does not put it back on
+the forecourt it came from, and owning one has never stopped you buying another.
+
 Which house deals in what is decided by **tier and segment, never by price**.
 Pacheco takes saloons and muscle, Panamericana takes sports; Recoleta takes the
 scarce tiers plus supercars, Don Beto takes the ordinary ones. Those last two
@@ -276,4 +296,8 @@ would otherwise fail silently:
   rewriting every player's Marketplace.
 - A dealer's roster ignores performance and your garage: a slow `vrare` stays on
   the exclusive floor and a quick `uncommon` stays in the cheap yard.
-- No house is ever empty, in any rotation.
+- No house starts a rotation empty (it can be emptied by buying).
+- Buying a listing takes that car off that window and leaves the same model
+  alone on every other one; the floor refills when it turns over.
+- Buying off the lot shortens it without disturbing the other five cars --
+  a rotation does not become a different rotation because you went shopping.

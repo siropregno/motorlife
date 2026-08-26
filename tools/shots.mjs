@@ -205,11 +205,22 @@ await page.getByRole("button", { name: "Comprar", exact: true }).click();
 await page.waitForTimeout(300);
 if (await page.locator("dialog.modal[open]").count()) errors.push("the spec sheet stayed open after buying");
 await page.waitForTimeout(300);
-const after = await page.locator(".shop-item").count();
-console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).replace(/\s+/g, " ")}`);
 const buyToast = await page.locator(".toast").innerText().catch(() => "");
 console.log(`toast:  "${buyToast.replace(/\s+/g, " ")}"`);
 if (!/^Compraste un /.test(buyToast)) errors.push(`no buy toast, got "${buyToast}"`);
+/*
+ * Buying lands you in the garage now, so the stock has to be measured by
+ * walking BACK to the forecourt. Counting .shop-item straight after the
+ * purchase used to work and now reports 0 -- not because the floor emptied,
+ * but because there is no forecourt on the screen any more.
+ */
+console.log(
+  `land:   ${(await page.locator(".screen-title").innerText()).trim().toLowerCase()} after buying`,
+);
+await toDealer("Fierros Don Beto");
+const after = await page.locator(".shop-item").count();
+console.log(`buy:    stock ${before} -> ${after}, wallet ${(await wallet()).replace(/\s+/g, " ")}`);
+if (after !== before - 1) errors.push(`the car did not leave the floor: ${before} -> ${after}`);
 await nav("Garaje").click();
 await page.waitForSelector(".car-card");
 console.log(`garage: ${await page.locator(".car-card").count()} owned after purchase`);

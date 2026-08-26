@@ -11,6 +11,9 @@ import {
   DEALERS,
   DEALER_PERIOD,
   LOT_SIZE,
+  LOT_SOURCE,
+  offerToken,
+  takeOffFloor,
   MODDED_CHANCE,
   MODDED_MAX_LEVEL,
   MODDED_MAX_PARTS,
@@ -340,6 +343,141 @@ describe("the dealer rotation", () => {
         }
       }
     }
+  });
+});
+
+/**
+ * A listing is one car, and buying it takes it away.
+ *
+ * The bug this closes was visible and silly: you bought the 289.000 km Chevy
+ * off Pacheco's floor, drove it home, and the same 289.000 km Chevy was still
+ * standing there at the same price, ready to be bought again as many times as
+ * you liked. Duplicates being allowed is not the same claim as one listing
+ * being an infinite supply of one car.
+ */
+describe("taking a car off the floor", () => {
+  const pacheco = dealerById("pacheco")!;
+  const base: Save = {
+    version: SAVE_VERSION,
+    credits: 5_000_000,
+    owned: [],
+    nextUid: 1,
+    sold: [],
+    racesRun: 0,
+    lotNudge: 0,
+  };
+  const first = stockOf(pacheco, 0)[0]!.spec.id;
+
+  it("removes exactly the car that was bought", () => {
+    const after = takeOffFloor(base, pacheco.id, 0, first);
+    const left = stockOf(pacheco, 0, after.sold).map((o) => o.spec.id);
+    expect(left).not.toContain(first);
+    expect(left).toHaveLength(stockOf(pacheco, 0).length - 1);
+  });
+
+  it("leaves the same model alone on another house's floor", () => {
+    // Pacheco and Don Beto both deal in the cheap sedans, and they are two
+    // different cars: buying one does not empty the other's forecourt
+    const shared = DEALERS.filter((d) => d.carries(CARS.find((c) => c.id === first)!));
+    expect(shared.length, `${first} is only at one house`).toBeGreaterThan(1);
+    const after = takeOffFloor(base, pacheco.id, 0, first);
+    for (const d of shared) {
+      const listed = stockOf(d, 0, after.sold).map((o) => o.spec.id);
+      if (d.id === pacheco.id) expect(listed).not.toContain(first);
+      else expect(listed, `${d.id} lost a car it did not sell`).toContain(first);
+    }
+  });
+
+  it("puts it back when the floor turns over", () => {
+    const after = takeOffFloor(base, pacheco.id, 0, first);
+    // era 0 is short one car; era 1 is a whole new floor and has it again
+    expect(stockOf(pacheco, 0, after.sold).map((o) => o.spec.id)).not.toContain(first);
+    expect(stockOf(pacheco, 1, after.sold).map((o) => o.spec.id)).toContain(first);
+  });
+
+  /**
+   * The lot loses the car and the other five do not move.
+   *
+   * This is the same rule the golden fixture protects, seen from the other
+   * side: a lot is what the seed says it is. Filtering the POOL before the draw
+   * would have made buying one car reshuffle the rest, so the rotation you were
+   * looking at would become a different rotation because you went shopping.
+   */
+  it("shortens the lot without disturbing what is left of it", () => {
+    const full = usedLot(4);
+    const taken = full[2]!.spec.id;
+    const after = takeOffFloor(base, LOT_SOURCE, 4, taken);
+    const left = usedLot(4, after.sold);
+    expect(left).toHaveLength(full.length - 1);
+    expect(left.map((o) => o.spec.id)).toEqual(
+      full.filter((o) => o.spec.id !== taken).map((o) => o.spec.id),
+    );
+    // and the survivors are the same CARS, parts and all, not just the same ids
+    expect(left.map((o) => `${o.km}|${o.price}|${JSON.stringify(o.mods ?? null)}`)).toEqual(
+      full
+        .filter((o) => o.spec.id !== taken)
+        .map((o) => `${o.km}|${o.price}|${JSON.stringify(o.mods ?? null)}`),
+    );
+  });
+
+  it("judges a dealer token and a lot token by their own clocks", () => {
+    // the two count rotations differently -- era vs the raw clock -- and both
+    // live in one list, so the source is what says which one to ask
+    const s = takeOffFloor(takeOffFloor(base, pacheco.id, 0, first), LOT_SOURCE, 0, first);
+    expect(s.sold).toHaveLength(2);
+    expect(stockOf(pacheco, 0, s.sold).map((o) => o.spec.id)).not.toContain(first);
+  });
+
+  it("does nothing at all when the same car is struck off twice", () => {
+    const once = takeOffFloor(base, pacheco.id, 0, first);
+    expect(takeOffFloor(once, pacheco.id, 0, first)).toBe(once);
+  });
+
+  /**
+   * The list stays the size of one rotation's shopping.
+   *
+   * Stale tokens are already harmless -- a token naming era 0 can never match
+   * an offer on era 4's floor -- so this is hygiene rather than correctness.
+   * Without it a long save accumulates a token per car ever bought, forever.
+   */
+  it("drops tokens from rotations that are over", () => {
+    const old = takeOffFloor(base, pacheco.id, 0, first);
+    expect(old.sold).toHaveLength(1);
+    // race far enough that both clocks have moved on
+    const later = { ...old, racesRun: DEALER_PERIOD * 3 };
+    const next = takeOffFloor(later, pacheco.id, dealerEra(DEALER_PERIOD * 3), first);
+    expect(next.sold).toHaveLength(1);
+    expect(next.sold[0]).toBe(offerToken(pacheco.id, 3, first));
+  });
+
+  it("keeps a token that belongs to the rotation being shown", () => {
+    const a = takeOffFloor(base, pacheco.id, 0, first);
+    const second = stockOf(pacheco, 0, a.sold)[0]!.spec.id;
+    const b = takeOffFloor(a, pacheco.id, 0, second);
+    expect(b.sold).toHaveLength(2);
+  });
+
+  /**
+   * Selling a car does not put it back on the forecourt it came from.
+   *
+   * `sold` is not "cars you own" and must never drift into being that. A car
+   * you bought and sold on is a car that WAS on that floor and left; the floor
+   * turning over is the only thing that restocks it.
+   */
+  it("is about a car having been sold, not about what you own", () => {
+    const after = takeOffFloor(base, pacheco.id, 0, first);
+    const withCar = { ...after, owned: [{ uid: "1", id: first, km: 10_000 }] };
+    const withoutCar = { ...after, owned: [] };
+    expect(stockOf(pacheco, 0, withCar.sold).map((o) => o.spec.id)).not.toContain(first);
+    expect(stockOf(pacheco, 0, withoutCar.sold).map((o) => o.spec.id)).not.toContain(first);
+  });
+
+  it("can empty a floor completely, which the shop has to be able to say", () => {
+    let s = base;
+    for (const o of stockOf(pacheco, 0)) s = takeOffFloor(s, pacheco.id, 0, o.spec.id);
+    expect(stockOf(pacheco, 0, s.sold)).toHaveLength(0);
+    // and the next rotation is a full floor again
+    expect(stockOf(pacheco, 1, s.sold).length).toBeGreaterThan(0);
   });
 });
 
@@ -709,6 +847,7 @@ describe("modified listings", () => {
       credits: 5_000_000,
       owned: [],
       nextUid: 1,
+      sold: [],
       racesRun: 0,
       lotNudge: 0,
     };
@@ -726,6 +865,7 @@ describe("modified listings", () => {
       credits: 5_000_000,
       owned: [],
       nextUid: 1,
+      sold: [],
       racesRun: 0,
       lotNudge: 0,
     };

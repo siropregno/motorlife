@@ -45,6 +45,7 @@ const fresh = (): Save => ({
   version: SAVE_VERSION,
   credits: 2_000_000,
   nextUid: 2,
+  sold: [],
   owned: [{ uid: "1", id: FALCON, km: 300_000, color: PAINT[0]! }],
   racesRun: 0,
   lotNudge: 0,

@@ -47,6 +47,7 @@ const saveWith = (mods?: Mods, credits = 5_000_000): Save => ({
   version: SAVE_VERSION,
   credits,
   nextUid: 3,
+  sold: [],
   owned: [
     { uid: R12, id: "renault-12-tl", km: 200_000, ...(mods ? { mods } : {}) },
     { uid: FALCON, id: "ford-falcon-sprint", km: 100_000 },
@@ -172,6 +173,7 @@ describe("installing a part", () => {
       version: SAVE_VERSION,
       credits: 5_000_000,
       nextUid: 3,
+      sold: [],
       owned: [
         { uid: "a", id: "renault-12-tl", km: 200_000 },
         { uid: "b", id: "renault-12-tl", km: 40_000 },
@@ -191,6 +193,7 @@ describe("installing a part", () => {
       version: SAVE_VERSION,
       credits: 5_000_000,
       nextUid: 3,
+      sold: [],
       owned: [
         { uid: "a", id: "renault-12-tl", km: 200_000 },
         { uid: "b", id: "renault-12-tl", km: 200_000 },

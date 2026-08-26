@@ -25,7 +25,7 @@ import {
   sellCar,
 } from "@progression/economy";
 import { DEV_CREDITS, grantCredits, refreshMarket } from "@progression/dev";
-import { dealerEra } from "@progression/market";
+import { dealerEra, takeOffFloor } from "@progression/market";
 import { LEVEL_NAME, modCount, PART_NAME } from "@progression/mods";
 import { colorName, imageFor } from "@progression/paint";
 import { Garage } from "./screens/Garage";
@@ -294,10 +294,40 @@ export default function App() {
    * functions return the save unchanged when the move is illegal -- comparing
    * by identity out here is what lets a refused click stay silent.
    */
-  const buy = (id: string, price: number, km: number, color?: string, mods?: Mods) => {
-    const next = buyCar(save, id, price, km, color, mods);
-    if (next === save) return;
+  const buy = (
+    id: string,
+    price: number,
+    km: number,
+    color?: string,
+    mods?: Mods,
+    origin?: { source: string; rotation: number },
+  ) => {
+    const bought = buyCar(save, id, price, km, color, mods);
+    if (bought === save) return;
+    /*
+     * The car leaves the window it was standing in.
+     *
+     * A listing is one CAR -- one odometer, one colour, one price -- so once it
+     * is in your garage it is not still for sale. Without this the same 289.000
+     * km Chevy sat on Pacheco's floor after you had driven it home, at the same
+     * price, ready to be bought again as many times as you liked.
+     *
+     * Composed out here rather than folded into buyCar, because where a car
+     * came FROM is not something buying knows about: the same function buys off
+     * a forecourt, off the lot, and off whatever sells cars next. Two small
+     * pure moves, applied in one setSave.
+     */
+    const next = origin ? takeOffFloor(bought, origin.source, origin.rotation, id) : bought;
     setSave(next);
+    /*
+     * And you land in the garage, next to what you just bought.
+     *
+     * Buying was the one thing in the game that left you exactly where you
+     * started, looking at a forecourt -- so the only evidence it had worked was
+     * a toast and a smaller number in the corner. The car is the point; go and
+     * stand next to it.
+     */
+    go("garage");
     const name = nameOf(id);
     // A Marketplace car can arrive with parts on it, and that is the thing
     // worth saying: the price already told you what it cost.

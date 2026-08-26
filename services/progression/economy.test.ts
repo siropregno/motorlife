@@ -185,6 +185,7 @@ describe("save", () => {
         racesRun: 0,
         lotNudge: 0,
         nextUid: 2,
+        sold: [],
         owned: [{ uid: "1", id: car.id, km: 1_000 }], // no `color`, the pre-paint shape
       };
       const color = colorOf(save, "1");
@@ -205,6 +206,7 @@ describe("save", () => {
       racesRun: 0,
       lotNudge: 0,
       nextUid: 2,
+      sold: [],
       owned: [{ uid: "1", id: "bmw-m3-e30", km: 1_000, color: "white" }],
     };
     expect(colorOf(save, "1")).toBe("white");
@@ -247,6 +249,7 @@ const save = (over: Partial<Save> = {}): Save => ({
   version: SAVE_VERSION,
   credits: 100_000,
   nextUid: 3,
+  sold: [],
   owned: [held("renault-12-tl", R12), held("ford-f100", F100)],
   racesRun: 0,
   lotNudge: 0,
@@ -328,6 +331,7 @@ describe("selling", () => {
     const s = save({
       credits: 0,
       nextUid: 3,
+      sold: [],
       owned: [
         { uid: "a", id: "ford-f100", km: 40_000 },
         { uid: "b", id: "ford-f100", km: 300_000 },
@@ -395,6 +399,7 @@ describe("repainting", () => {
   it("paints the unit you named, not every car of that model", () => {
     const s = save({
       nextUid: 3,
+      sold: [],
       owned: [
         { uid: "a", id: m3.id, km: 100_000, color: "black" },
         { uid: "b", id: m3.id, km: 100_000, color: "black" },
