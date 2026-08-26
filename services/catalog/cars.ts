@@ -506,6 +506,162 @@ export const CARS: CarSpec[] = [
     photo: "peugeot-607-v6-phase2",
     logo: "/peugeot-logo.png",
   },
+
+  /*
+   * -------------------------------------------------------------------------
+   * The bottom of the ladder, and the top of it.
+   *
+   * The catalogue had a shape problem rather than a size one: fourteen of
+   * twenty-five cars were `sports`, class D held exactly TWO cars, and nothing
+   * rated S or X at all. So the first race a new player enters -- in the R12
+   * they start with -- was a grid of two models, and the ladder they were
+   * climbing had no top.
+   *
+   * None of these has photos yet. `imageFor` falls back to `spec.image`, which
+   * is absent, so the card draws its empty frame rather than a broken one, and
+   * cars.test.ts stays green because a car that names no file cannot name a
+   * missing one. They are real cars with real numbers in the meantime.
+   * -------------------------------------------------------------------------
+   */
+
+  /**
+   * The Fitito. 250.000 built here between 1970 and 1977, a national record.
+   *
+   * The first `economy` car in the catalogue -- the segment existed in the
+   * contract and in the filter list and nothing had ever used it. Worth knowing
+   * what that means for where it sells: no house takes `economy` by segment, so
+   * this is on Don Beto's floor and nowhere else, which is exactly right for a
+   * Fitito and would NOT be right for an expensive one. An `economy` car above
+   * uncommon would be Marketplace-only.
+   */
+  {
+    id: "fiat-600r",
+    make: "Fiat",
+    model: "600 R",
+    year: 1972,
+    kW: 26.5, // 797 cm³, 36 HP SAE at 4800 rpm
+    /*
+     * The one figure here I could not source. Every Argentine spec sheet gives
+     * displacement, power and top speed and none gives a kerb mass; 620 kg is
+     * the Italian 600D's 585 kg plus what the local car carried, and it is a
+     * guess wearing an honest number's clothes. If a real figure turns up, it
+     * belongs here.
+     */
+    kg: 620,
+    layout: "RR",
+    cls: "economy",
+    topKph: 120,
+    nm: 59, // 6 mKg at 2800 rpm
+    rarity: "common",
+    blurb: "Fitito",
+    logo: "/fiat-logo.png",
+  },
+
+  /**
+   * Built here by Safrar from 1965. The taxi, the family car, the everything.
+   *
+   * The XC7 of the last series (1970-1975), which is the one most people mean:
+   * 1618 cm³, 73 bhp. The earlier XC6 made 80 and was gone by 1968.
+   */
+  {
+    id: "peugeot-404",
+    make: "Peugeot",
+    model: "404",
+    year: 1970,
+    kW: 54, // XC7 1618 cm³, 73 bhp at 5600 rpm
+    kg: 1100,
+    layout: "FR",
+    cls: "saloon",
+    topKph: 148,
+    nm: 127,
+    rarity: "common",
+    blurb: "Sedán",
+    logo: "/peugeot-logo.png",
+  },
+
+  /**
+   * The other pickup, so the F-100 stops being a segment of one.
+   *
+   * Sevel built it in Córdoba from late 1985 to 1991 with the Chevy 250 six --
+   * the same 4093 cm³ engine the Chevy 250 saloon in this catalogue runs, at
+   * 130 hp here.
+   *
+   * NO topKph, and that is deliberate rather than lazy. The figures I could
+   * find put it around 140 km/h, and 96 kW that only reaches 140 derives a drag
+   * area of 2.09 m² -- outside the 0.4-1.4 the importer accepts, because the
+   * two numbers genuinely disagree. One of them is wrong and I do not know
+   * which, so the car goes in with the class estimate and says `rough` rather
+   * than carrying a figure that makes the physics lie.
+   */
+  {
+    id: "chevrolet-c10",
+    make: "Chevrolet",
+    model: "C-10",
+    year: 1987,
+    kW: 96, // Chevy 250 CID (4093 cm³), 130 hp
+    kg: 1650,
+    layout: "FR",
+    cls: "truck",
+    nm: 300,
+    rarity: "uncommon",
+    blurb: "Pickup",
+  },
+
+  /**
+   * 337 road cars. The one that made an F40 look old-fashioned and lost.
+   *
+   * Rear-engined and four-wheel drive, which is a layout nothing else in the
+   * catalogue has in that combination -- the sim reads RR for where the mass
+   * sits, and AWD is the closer answer for what it does out of a corner.
+   * Modelled as AWD because traction is the thing the 959 is famous for.
+   */
+  {
+    id: "porsche-959",
+    make: "Porsche",
+    model: "959",
+    year: 1987,
+    kW: 331, // 450 PS at 6500 rpm
+    kg: 1450,
+    layout: "AWD",
+    cls: "supercar",
+    topKph: 317,
+    zeroTo100: 3.7,
+    nm: 500,
+    rarity: "exclusive",
+    blurb: "Superdeportivo",
+  },
+
+  /**
+   * The top of the ladder, and the reason class S was empty until now.
+   *
+   * Two numbers here needed care. The 0-100 is McLaren's own 3.2 s: published
+   * figures run 3.2 to 3.4 and one estimate says 2.9, and the factory number is
+   * the honest pick rather than the middle of a range of hearsay -- the same
+   * rule the Falcon's top speed follows. Note that the 3.2 s everyone quotes
+   * for 0-60 MPH is a different measurement that happens to land on the same
+   * number; this field is 0-100 km/h.
+   *
+   * The top speed is 372 km/h, McLaren's claim for the car as delivered. NOT
+   * the 386.4 km/h record: that was XP5 with the rev limiter raised, and the
+   * catalogue's rule at the top of this file is to use the unrestricted figure
+   * for the car you can buy. As it leaves the factory the limiter stops it at
+   * about 356.
+   */
+  {
+    id: "mclaren-f1",
+    make: "McLaren",
+    model: "F1",
+    year: 1994,
+    kW: 461, // BMW S70/2 6064 cm³ V12, 627 PS
+    kg: 1260, // kerb; 1140 dry
+    layout: "MR",
+    cls: "supercar",
+    topKph: 372,
+    zeroTo100: 3.2,
+    nm: 650,
+    rarity: "unique",
+    blurb: "Superdeportivo",
+  },
 ];
 export function carById(id: string): CarSpec | undefined {
   return CARS.find((c) => c.id === id);

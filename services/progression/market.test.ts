@@ -575,27 +575,33 @@ describe("the used lot", () => {
    * different NUMBER of rolls anywhere reshuffles every rotation that ever
    * existed, silently and completely.
    *
-   * These are the five junk slots, captured before the treasure draw was
-   * weighted and unchanged by it -- which is the proof the weighting cost
-   * exactly one roll in exactly one slot, rather than moving the whole
-   * catalogue under everyone's save.
-   *
    * The sixth slot is deliberately NOT here. That is the one the weighting was
    * for, and pinning it would be pinning the thing that is allowed to move.
    *
-   * If this fails, the question is not "update the fixture". It is "which
-   * change spent a roll it did not spend before", and whether every player's
-   * Marketplace was supposed to change that day.
+   * TWO different things make this fail, and they need opposite responses:
+   *
+   *   1. A change that spends a different NUMBER of rolls. Nothing visible
+   *      moved, every rotation reshuffled, and that is the bug. The fixture was
+   *      captured before the treasure draw was weighted and survived it
+   *      unchanged, which is the proof that change cost exactly one roll in
+   *      exactly one slot. Do not update the fixture: find the extra roll.
+   *
+   *   2. A car added to or removed from the catalogue. The pool changed, so the
+   *      same rolls land on different cars -- unavoidable, and the price of a
+   *      new car being able to turn up at all. Regenerate, and say so.
+   *
+   * Regenerated when the Fiat 600R, Peugeot 404, Chevrolet C-10, Porsche 959
+   * and McLaren F1 went in: reason 2.
    */
   const JUNK_SLOTS: [seed: number, ids: string][] = [
-    [0, "ford-falcon-sprint renault-12-tl fiat-128-iava ford-f100 renault-18-gtx"],
-    [1, "renault-18-gtx renault-12-tl ford-taunus-gt volkswagen-gol-gti ford-sierra-xr4"],
-    [2, "chevrolet-chevy-ss ford-falcon-sprint fiat-128-iava chevrolet-chevy-250 ford-sierra-xr4"],
-    [3, "chevrolet-chevy-ss renault-12-tl ford-taunus-gt peugeot-504-tn renault-fuego-gta"],
-    [4, "volkswagen-gol-gti ford-falcon-sprint ford-f100 renault-12-tl dodge-1500-gt90"],
-    [5, "renault-18-gtx renault-fuego-gta ford-f100 chevrolet-chevy-250 renault-12-tl"],
-    [6, "ford-taunus-gt renault-12-tl chevrolet-chevy-ss ford-falcon-sprint chevrolet-chevy-250"],
-    [7, "renault-12-tl peugeot-504-tn volkswagen-gol-gti renault-18-gtx ford-taunus-gt"],
+    [0, "fiat-128-iava renault-12-tl dodge-1500-gt90 ford-f100 chevrolet-chevy-ss"],
+    [1, "renault-fuego-gta renault-12-tl renault-18-gtx chevrolet-c10 peugeot-404"],
+    [2, "ford-sierra-xr4 fiat-128-iava ford-falcon-sprint renault-18-gtx peugeot-404"],
+    [3, "ford-sierra-xr4 renault-12-tl chevrolet-chevy-250 peugeot-504-tn fiat-600r"],
+    [4, "peugeot-404 fiat-128-iava ford-falcon-sprint peugeot-504-tn dodge-1500-gt90"],
+    [5, "ford-sierra-xr4 volkswagen-gol-gti ford-falcon-sprint chevrolet-chevy-ss peugeot-504-tn"],
+    [6, "renault-18-gtx renault-12-tl ford-sierra-xr4 ford-falcon-sprint chevrolet-chevy-ss"],
+    [7, "renault-12-tl peugeot-504-tn chevrolet-c10 ford-sierra-xr4 renault-18-gtx"],
   ];
 
   it("keeps the rotations players already know", () => {

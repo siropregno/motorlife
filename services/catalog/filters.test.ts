@@ -133,14 +133,28 @@ describe("grouping", () => {
     }
   });
 
+  /**
+   * Asserted as ORDER, not as a roster.
+   *
+   * This used to spell out ["D","C","B","A"] and ["1970".."2000"], which made
+   * it a fixture of whatever cars happened to be in the catalogue: adding a
+   * McLaren F1 broke it for being an S, and the failure said nothing about
+   * ordering. What the function owes is that the sections arrive in the order
+   * the facet declares them -- so the check is that the output is the declared
+   * list with the empty buckets taken out, whatever the catalogue holds.
+   */
   it("comes out in the facet's declared order, oldest and slowest first", () => {
-    expect(groupBy(CARS, "decada").map((g) => g.value)).toEqual([
-      "1970",
-      "1980",
-      "1990",
-      "2000",
-    ]);
-    expect(groupBy(CARS, "clase").map((g) => g.value)).toEqual(["D", "C", "B", "A"]);
+    for (const id of ["decada", "clase"] as const) {
+      const declared = FACETS.find((f) => f.id === id)!.options.map((o) => o.value);
+      const got = groupBy(CARS, id).map((g) => g.value);
+      expect(got.length, id).toBeGreaterThan(1);
+      expect(got, id).toEqual(declared.filter((v) => got.includes(v)));
+    }
+    // and the direction of the two ladders, said out loud
+    const clase = groupBy(CARS, "clase").map((g) => g.value);
+    expect(clase.indexOf("D")).toBeLessThan(clase.indexOf("A"));
+    const decada = groupBy(CARS, "decada").map((g) => g.value);
+    expect(Number(decada[0])).toBeLessThan(Number(decada.at(-1)));
   });
 
   it("labels a section with the bucket alone, never the facet name", () => {
@@ -162,8 +176,10 @@ describe("grouping", () => {
   it("flips the sections AND the ladder inside them", () => {
     const asc = groupBy(CARS, "clase", "asc");
     const desc = groupBy(CARS, "clase", "desc");
-    expect(asc.map((g) => g.value)).toEqual(["D", "C", "B", "A"]);
-    expect(desc.map((g) => g.value)).toEqual(["A", "B", "C", "D"]);
+    // desc is asc turned around -- the claim, rather than a list of letters
+    // that has to be edited every time a car joins a new class
+    expect(desc.map((g) => g.value)).toEqual([...asc.map((g) => g.value)].reverse());
+    expect(asc.length).toBeGreaterThan(1);
     // half-reversed is the bug this guards: a section headed A whose slowest
     // car is still on top
     const ascA = asc.find((g) => g.value === "A")!.cars.map((c) => c.id);
@@ -250,20 +266,25 @@ describe("option counts", () => {
     expect(counts.get("A")).toBeGreaterThan(0);
   });
 
+  /**
+   * "And only those" is the half that used to be untested.
+   *
+   * This spelled out three facets' buckets by hand, with a comment calling
+   * Económico and class S "permanently dead in this catalogue" -- which lasted
+   * exactly until a Fiat 600R and a McLaren F1 went in. Worse, hand-listing
+   * three facets meant the other three were never checked at all.
+   *
+   * Stated against groupBy instead, it covers EVERY facet and cannot rot: the
+   * options a row offers are exactly the buckets some car is in.
+   */
   it("drops buckets no car is in, and only those", () => {
-    // permanently dead in this catalogue: no 1960s or 2010s car, nothing
-    // above class A, nothing in Económico or Competición
-    expect(availableOptions(CARS, "decada").map((o) => o.value)).toEqual([
-      "1970",
-      "1980",
-      "1990",
-      "2000",
-    ]);
-    expect(availableOptions(CARS, "clase").map((o) => o.value)).toEqual(["D", "C", "B", "A"]);
-    expect(availableOptions(CARS, "traccion")).toHaveLength(3);
-    for (const o of availableOptions(CARS, "segmento")) {
-      expect(["economy", "race"]).not.toContain(o.value);
+    for (const facet of FACETS) {
+      const offered = new Set(availableOptions(CARS, facet.id).map((o) => o.value));
+      const inUse = new Set(groupBy(CARS, facet.id).map((g) => g.value));
+      expect(offered, facet.id).toEqual(inUse);
     }
+    // and a bucket nothing is in really is gone rather than shown at zero
+    expect(availableOptions(CARS, "clase").map((o) => o.value)).not.toContain("X");
   });
 
   it("keeps the declared order when it prunes", () => {
@@ -275,10 +296,16 @@ describe("option counts", () => {
   });
 
   it("ignores the selection when deciding what exists", () => {
-    // narrowing to one car must not collapse the rows to that car's buckets
+    // Narrowing to a couple of cars must not collapse the rows to their
+    // buckets. Stated as "narrower, and the whole row is still the whole row"
+    // rather than as two counts -- the counts were 1 and 4 while there was a
+    // single pickup in the catalogue, and a second one made the first a 2.
     const sel = { segmento: ["truck"] };
-    expect(availableOptions(applyFilters(CARS, sel), "decada")).toHaveLength(1);
-    expect(availableOptions(CARS, "decada")).toHaveLength(4);
+    const narrowed = availableOptions(applyFilters(CARS, sel), "decada").map((o) => o.value);
+    const whole = availableOptions(CARS, "decada").map((o) => o.value);
+    expect(narrowed.length).toBeGreaterThan(0);
+    expect(narrowed.length).toBeLessThan(whole.length);
+    expect(whole).toEqual(groupBy(CARS, "decada").map((g) => g.value));
   });
 
   it("counts what clicking would actually give you", () => {

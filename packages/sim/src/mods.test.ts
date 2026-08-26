@@ -282,6 +282,23 @@ describe("top speed is the inverse of the drag derivation", () => {
     expect(topSpeed(tired, tired.kg)).toBeLessThan(topSpeed(fresh, fresh.kg));
   });
 
+  /**
+   * A sanity rail, not a balance rule.
+   *
+   * What it is for is NaN, a negative root, and the drag solve running away --
+   * every one of which produces a number that is obviously wrong the moment you
+   * look and completely invisible if nobody does.
+   *
+   * The ceiling was 500 while the fastest thing in the catalogue was an F40,
+   * which tops out at 429 km/h with everything bolted to it. The McLaren F1
+   * arrives at 372 km/h STOCK and reaches 511 fully built, so 500 stopped being
+   * headroom and started being a car. 550 restores the gap.
+   *
+   * 511 is not absurd, it is just fast: no circuit in the game has a straight
+   * long enough to reach it, and the class index puts a fully built F1 out of
+   * every grid an ordinary car can enter. If this fails again, the question is
+   * whether a NEW car is broken -- not whether to nudge the number.
+   */
   it("is finite and sane for every car, stock and fully built", () => {
     for (const c of CARS) {
       for (const mods of [NEW(), FULL]) {
@@ -289,7 +306,7 @@ describe("top speed is the inverse of the drag derivation", () => {
         const kph = topSpeed(d, d.kg) * 3.6;
         expect(Number.isFinite(kph), c.id).toBe(true);
         expect(kph, c.id).toBeGreaterThan(80);
-        expect(kph, c.id).toBeLessThan(500);
+        expect(kph, c.id).toBeLessThan(550);
       }
     }
   });

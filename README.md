@@ -63,6 +63,14 @@ The extension lives in one place, `PHOTO_EXT` in `services/progression/paint.ts`
 because `imageFor` builds the filenames and `tools/photos.ts` checks them — two
 copies of "png" would let the checker pass a set of photos the app cannot load.
 
+**A car without photos is a supported state, not a broken one.** It names no
+`image` and no `colors`, `imageFor` returns undefined, and the card draws its
+frame with the right-hand side empty while the spec sheet says "sin foto".
+`cars.test.ts` only checks that a path a car *names* resolves, so a car that
+names none cannot name a missing one. Waiting on art right now: the Fiat 600R,
+Peugeot 404, Chevrolet C-10, Porsche 959 and McLaren F1, alongside the Chevy SS,
+Chevy 250, 18 GTX, Gol GTI and Sierra XR4 that were already like that.
+
 ## Layout
 
 ```
