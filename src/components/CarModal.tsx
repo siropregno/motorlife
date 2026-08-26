@@ -27,16 +27,21 @@ export type CarSheet =
       price: number;
       credits: number;
       /**
-       * How many of this MODEL are already in your garage.
+       * There is nothing here about what you already own, and that is the point.
        *
-       * It was a boolean, and it disabled the button: owning a car meant nobody
-       * would sell you another one. That rule existed because the garage was
-       * keyed by model and physically could not hold two. It can now, and a
-       * second unit is a thing to want -- one built for a circuit, one left
-       * stock -- so the count is a NOTE rather than a wall. Zero says nothing at
-       * all; the only thing that still stops the sale is the price.
+       * It went through three shapes and every one was wrong. First a boolean
+       * that DISABLED the button, back when the garage was keyed by model and
+       * physically could not hold two. Then, once it could, the same number as
+       * a note -- "Ya tenés uno" beside the price, and "Comprar otro" on the
+       * button -- on the theory that two of a model look identical on a card so
+       * you might not remember.
+       *
+       * That theory was thin and it is now dead: buying lands you in the garage,
+       * where you can see both. What was left was a shop sheet explaining your
+       * own garage back to you at the moment you are deciding about a car. The
+       * button says Comprar, the price says what it costs, and the only thing
+       * that can stop the sale is the money.
        */
-      owned: number;
       /** km travels with the sale: the odometer you bought is the one you own. */
       onBuy?: (id: string, price: number, km: number) => void;
     }
@@ -321,20 +326,6 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
           {sheet.kind === "buy" ? (
             <footer className="modal-foot">
               <span className="modal-rarity">{RARITY[spec.rarity] ?? spec.rarity}</span>
-              {/*
-                * "Ya tenés uno" where the dead "En tu garaje" button used to be.
-                *
-                * Same fact, told instead of enforced. It is worth telling: two
-                * of a model look identical on a card, so somebody who forgot
-                * they own one would otherwise find out in the garage. It sits
-                * beside the price rather than on the button, because it is
-                * information about the car and not a reason you cannot have it.
-                */}
-              {sheet.owned > 0 ? (
-                <span className="modal-owned">
-                  {sheet.owned === 1 ? "Ya tenés uno" : `Ya tenés ${sheet.owned}`}
-                </span>
-              ) : null}
               <span className="modal-price">{formatCredits(sheet.price)} cr</span>
               <button
                 className={`btn${sheet.credits >= sheet.price ? " primary" : ""}`}
@@ -342,16 +333,14 @@ export function CarModal({ spec, km, mods, color, image = spec.image, sheet, onC
                 title={
                   sheet.credits < sheet.price
                     ? `Faltan ${formatCredits(sheet.price - sheet.credits)} cr`
-                    : sheet.owned > 0
-                      ? "Comprar otra unidad"
-                      : "Comprar"
+                    : "Comprar"
                 }
                 onClick={() => {
                   sheet.onBuy?.(spec.id, sheet.price, km);
                   close();
                 }}
               >
-                {sheet.owned > 0 ? "Comprar otro" : "Comprar"}
+                Comprar
               </button>
             </footer>
           ) : (

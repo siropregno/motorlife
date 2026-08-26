@@ -625,29 +625,6 @@
   color: var(--ink-4);
 }
 
-/*
- * "Ya tenés uno", beside the rarity word in the buy foot.
- *
- * It sits with the rarity rather than with the price because it is the same
- * KIND of thing -- a quiet fact about the car, in the same small mono the
- * rarity uses -- and because .modal-price takes the margin-left:auto that
- * pushes the money and the button to the right edge. Dropping this in front of
- * that keeps both halves of the foot where they were.
- *
- * Scoped to .modal-foot, like every other rule in this file: see the note above
- * .modal-foot .btn for why nothing here is a bare class.
- */
-.modal-owned {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  /* --purple-ink, not --purple: this is a WORD, and the brand purple measures
-     2.57:1 on --panel. See the note in tokens.css -- paint with --purple,
-     write in --purple-ink. */
-  color: var(--purple-ink);
-}
-
 .modal-price {
   margin-left: auto;
   font-family: var(--mono);

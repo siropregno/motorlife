@@ -23,15 +23,13 @@ interface Props {
   /** The forecourt: one dealer's stock, or the used lot. */
   offers: Offer[];
   credits: number;
-  /**
-   * The model ids in your garage, repeats and all.
-   *
-   * It used to be the list the forecourt filtered ITSELF against, back when
-   * owning a car meant nobody would sell you another. It is only shown now:
-   * the sheet counts how many of this model you already have and says so, and
-   * the Comprar button stays live either way.
+  /*
+   * No `owned`. A forecourt used to take your garage and subtract it, back when
+   * owning a car meant nobody would sell you another; then it kept taking it
+   * just to print "Ya tenés uno" on the sheet. Neither survives, so the list
+   * does not have to be threaded down here at all -- what a shop shows is a
+   * fact about the shop.
    */
-  owned: string[];
   /**
    * Which window these offers are sitting in, so a purchase can take the car
    * out of it. A listing is one CAR -- one odometer, one colour, one price --
@@ -73,8 +71,7 @@ interface Props {
  */
 export function Listing({
   offers,
-  credits,
-  owned,
+  credits,
   origin,
   onBuy,
   controls = true,
@@ -230,8 +227,7 @@ export function Listing({
           sheet={{
             kind: "buy",
             price: open.price,
-            credits,
-            owned: owned.filter((id) => id === open.spec.id).length,
+            credits,
             // The parts travel with the sale, the same way the odometer and
             // the colour already do: what you paid for is what lands in the
             // garage. The origin travels too, so the car can leave the window

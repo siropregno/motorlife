@@ -1892,15 +1892,30 @@ try {
 
   await card("Falcon Sprint").click();
   await page.waitForSelector("dialog.modal");
+  /*
+   * The sheet says nothing at all about what you already own, and these two
+   * checks are here to keep it that way.
+   *
+   * It went through three shapes. A boolean that DISABLED the button, back when
+   * the garage could not hold two of a model. Then, once it could, the same
+   * number as a note -- "Ya tenés uno" beside the price and "Comprar otro" on
+   * the button -- on the theory that two of a model look identical on a card.
+   * That theory died when buying started landing you in the garage: what was
+   * left was a shop sheet explaining your own garage back to you at the moment
+   * you are deciding about a car.
+   *
+   * The button is the plain word whether it is your first or your fourth. The
+   * only thing that can stop the sale is the money.
+   */
   check(
-    "the sheet says you already have one",
-    await page.locator(".modal-owned").innerText(),
-    "YA TENÉS UNO",
+    "the sheet says nothing about what you already own",
+    await page.locator(".modal-owned").count(),
+    0,
   );
   check(
-    "and offers another rather than going dead",
+    "and the button is the plain word, first one or fourth",
     await page.locator(".modal-foot .btn").last().innerText(),
-    "COMPRAR OTRO",
+    "COMPRAR",
   );
   check(
     "which you can actually press",

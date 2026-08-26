@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Mods } from "@contracts/mods";
-import { ownedIds, type Save } from "@progression/save";
+import { type Save } from "@progression/save";
 import { formatCredits } from "@progression/economy";
 import { modCount } from "@progression/mods";
 import {
@@ -209,7 +209,6 @@ export function Shop({ save, onBuy }: Props) {
       <Listing
         offers={stockOf(dealer, era, save.sold)}
         credits={save.credits}
-        owned={ownedIds(save)}
         // the era, not the clock: a forecourt's window is one rotation of ITS
         // floor, and that is what a car bought here has to disappear from
         origin={{ source: dealer.id, rotation: era }}
@@ -228,7 +227,6 @@ export function Shop({ save, onBuy }: Props) {
     <Listing
       offers={lot}
       credits={save.credits}
-      owned={ownedIds(save)}
       // the whole clock, not the era: the lot is a new lot every race
       origin={{ source: LOT_SOURCE, rotation: clock }}
       onBuy={onBuy}
