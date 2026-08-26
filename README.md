@@ -168,7 +168,8 @@ Racing is the only clock the game has, and both shops read it -- at different
 rates, which is what makes them different shops.
 
 - **The Marketplace** takes `racesRun + lotNudge` whole and turns over every
-  race. Six cars, mostly tired sedans, one lottery slot. You cannot plan for it.
+  race. Six cars: five tired sedans and one lottery slot, which is a treasure
+  about three times in ten. You cannot plan for it.
 - **Concesionarios** take the same clock divided by `DEALER_PERIOD` (5). What
   rotates is the **unit**, not the roster: the same dealer carries the same
   models forever at list price, and every five races it has a different example
@@ -208,6 +209,32 @@ every car can be got hold of *somehow*. The Marketplace draws from the whole
 catalogue and does not roll, so it is the floor under all of it -- a car off the
 forecourt this rotation is scarce, not missing.
 
+### The treasure slot
+
+The lot's sixth slot is a treasure three times in ten, and *which* treasure is
+weighted by tier (`TREASURE_WEIGHT`, halving at each step up the ladder). It was
+flat, which made the ladder decorative in the one place it most wants to bite: a
+`rare` Torino and a `unique` F40 came out of the same hat with the same odds.
+
+| Tier | Weight | Of all lots | Roughly |
+|---|---|---|---|
+| `rare` | 8 | 20% | one every 5 races |
+| `vrare` | 4 | 6% | one every 17 races |
+| `exclusive` | 2 | 3.4% | one every 30 races |
+| `unique` | 1 | 0.6% | one every 163 races |
+
+That last row only reads as harsh if the lot is how you get one, and it is not:
+an F40 is on Recoleta's floor one rotation in five, about every 24 races. The
+forecourt is the route; the lot is the lucky break. Weighting them the same made
+the lucky break *be* the route.
+
+The weighted pick spends **exactly one** roll of the rng, and that is a hard
+constraint rather than tidiness. The lot is one long deterministic sequence, so
+a draw spending a different number of rolls reshuffles every rotation that ever
+existed. `market.test.ts` pins the five ordinary slots of the first eight
+rotations as a fixture for precisely this: it was captured before the weighting
+and is unchanged by it, which is the proof the change stayed in its own slot.
+
 The dev refresh in Ajustes adds to `lotNudge` rather than to `racesRun`, so it
 moves both shops by exactly one race's worth without claiming you drove. Five
 presses rotate the forecourts, and the toast says so on the press that does it.
@@ -239,8 +266,14 @@ would otherwise fail silently:
 - Every car can be bought *somewhere* -- forecourt or Marketplace. Not that
   every car is on a forecourt: that rule was removed on purpose, so a car is
   allowed to be hard to find.
-- Every tier reaches the used lot, scarcest included, which is what makes a
-  forecourt gap scarcity rather than a missing car.
+- Every tier reaches the used lot, scarcest included, and inside 400 rotations
+  -- about as many races as a real save sees. That is what makes a forecourt gap
+  scarcity rather than a missing car.
+- Scarcer tiers turn up on the lot strictly less often than commoner ones, both
+  in the weight table and in what actually gets drawn.
+- The five ordinary slots of the known rotations do not move. Any change that
+  spends a different number of rng rolls fails here rather than silently
+  rewriting every player's Marketplace.
 - A dealer's roster ignores performance and your garage: a slow `vrare` stays on
   the exclusive floor and a quick `uncommon` stays in the cheap yard.
 - No house is ever empty, in any rotation.

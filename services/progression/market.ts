@@ -348,6 +348,41 @@ export const LOT_SIZE = 6;
  */
 export const TREASURE_CHANCE = 0.3;
 
+/**
+ * WHICH treasure, once the slot has decided to be one.
+ *
+ * The draw was flat, and flat made the tier ladder decorative in the one place
+ * a collection game most wants it to bite: a `rare` Torino and a `unique` F40
+ * came out of the same hat with the same odds, so the rarest car in the
+ * catalogue was as easy to stumble into as the fifth-rarest. Rarity moved the
+ * price and nothing else about finding the car.
+ *
+ * Halving at each step up the ladder. Read against the pool as it stands -- 5
+ * rare, 3 vrare, 3 exclusive, 1 unique -- it comes out as: about one lot in
+ * five has a rare on it, one in sixteen a vrare, one in thirty a exclusive, and
+ * an F40 turns up about once every two hundred races.
+ *
+ * That last number only reads as harsh if the lot is the way you get one, and
+ * it is not: an F40 is on Recoleta's floor one rotation in five, which is about
+ * once every twenty-four races. The forecourt is the route and the lot is the
+ * lucky break. Weighting them the same way would have made the lucky break the
+ * route, which is what "flat" quietly was.
+ *
+ * The ordinary tiers sit here at 0 rather than being left out. This is a
+ * `Record<Rarity, number>`, so a seventh tier added to the contract is a
+ * compile error here -- someone has to decide what it is worth finding, instead
+ * of it defaulting to "never" and nobody noticing for a year.
+ */
+export const TREASURE_WEIGHT: Record<Rarity, number> = {
+  // the other five slots are made of these; the treasure slot never is
+  common: 0,
+  uncommon: 0,
+  rare: 8,
+  vrare: 4,
+  exclusive: 2,
+  unique: 1,
+};
+
 /*
  * The lot's filler is the same two tiers Don Beto's yard is, and it is the same
  * constant rather than a second copy of the list. They are one claim about the
@@ -378,10 +413,47 @@ export function usedLot(seed: number): Offer[] {
   const treasure = available.filter((c) => !ORDINARY.includes(c.rarity));
 
   const lot: CarSpec[] = [];
-  const draw = (from: CarSpec[]) => {
+
+  /**
+   * One car out of a pool, in EXACTLY one roll of the rng.
+   *
+   * The single roll is the whole constraint, not a tidiness preference. The lot
+   * is one long deterministic sequence, so a draw that spent two rolls where it
+   * used to spend one would shift every roll after it and hand every player a
+   * different Marketplace on every rotation they had already learned. Both
+   * branches below take one value from `rng` and neither takes a second.
+   *
+   * `weighted` is what the treasure slot uses: same pool, but a car's chance is
+   * TREASURE_WEIGHT for its tier rather than one share each. The walk down the
+   * cumulative weights is the standard trick for spending one number on a
+   * non-uniform pick.
+   */
+  const draw = (from: CarSpec[], weighted = false) => {
     const left = from.filter((c) => !lot.includes(c));
     if (left.length === 0) return false;
-    lot.push(left[Math.floor(rng() * left.length)]!);
+    if (!weighted) {
+      lot.push(left[Math.floor(rng() * left.length)]!);
+      return true;
+    }
+    const total = left.reduce((n, c) => n + TREASURE_WEIGHT[c.rarity], 0);
+    // A pool whose every member is worth 0 to find is not a reason to return a
+    // short lot: fall back to an even chance, still on one roll.
+    if (total <= 0) {
+      lot.push(left[Math.floor(rng() * left.length)]!);
+      return true;
+    }
+    let r = rng() * total;
+    // `at(-1)` is the floating-point backstop, not the normal exit: the
+    // subtractions can leave r a hair above 0 on the last member.
+    let pick = left.at(-1)!;
+    for (const c of left) {
+      r -= TREASURE_WEIGHT[c.rarity];
+      if (r < 0) {
+        pick = c;
+        break;
+      }
+    }
+    lot.push(pick);
     return true;
   };
 
@@ -391,7 +463,8 @@ export function usedLot(seed: number): Offer[] {
     if (!draw(junk)) draw(available);
   }
   if (rng() < TREASURE_CHANCE) {
-    if (!draw(treasure)) draw(available);
+    // the one weighted draw in the game: scarcer tiers come out of the hat less
+    if (!draw(treasure, true)) draw(available, true);
   } else if (!draw(junk)) {
     draw(available);
   }

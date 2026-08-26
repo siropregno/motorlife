@@ -17,6 +17,7 @@ import {
   ORDINARY,
   SCARCE,
   SHOWPIECE_CHANCE,
+  TREASURE_WEIGHT,
   USED_RATE,
   dealerById,
   dealerEra,
@@ -426,6 +427,48 @@ describe("the used lot", () => {
     expect(new Set(lots).size).toBeGreaterThan(1);
   });
 
+  /**
+   * The five ordinary slots of the first rotations, written down.
+   *
+   * usedLot's own comment says the lot is a thing players learn -- "rotation 12
+   * had the NSX" -- and that which cars are on it is not something a new
+   * feature gets to change. That was a principle with nothing enforcing it: the
+   * draw is one long deterministic rng sequence, so any change that spends a
+   * different NUMBER of rolls anywhere reshuffles every rotation that ever
+   * existed, silently and completely.
+   *
+   * These are the five junk slots, captured before the treasure draw was
+   * weighted and unchanged by it -- which is the proof the weighting cost
+   * exactly one roll in exactly one slot, rather than moving the whole
+   * catalogue under everyone's save.
+   *
+   * The sixth slot is deliberately NOT here. That is the one the weighting was
+   * for, and pinning it would be pinning the thing that is allowed to move.
+   *
+   * If this fails, the question is not "update the fixture". It is "which
+   * change spent a roll it did not spend before", and whether every player's
+   * Marketplace was supposed to change that day.
+   */
+  const JUNK_SLOTS: [seed: number, ids: string][] = [
+    [0, "ford-falcon-sprint renault-12-tl fiat-128-iava ford-f100 renault-18-gtx"],
+    [1, "renault-18-gtx renault-12-tl ford-taunus-gt volkswagen-gol-gti ford-sierra-xr4"],
+    [2, "chevrolet-chevy-ss ford-falcon-sprint fiat-128-iava chevrolet-chevy-250 ford-sierra-xr4"],
+    [3, "chevrolet-chevy-ss renault-12-tl ford-taunus-gt peugeot-504-tn renault-fuego-gta"],
+    [4, "volkswagen-gol-gti ford-falcon-sprint ford-f100 renault-12-tl dodge-1500-gt90"],
+    [5, "renault-18-gtx renault-fuego-gta ford-f100 chevrolet-chevy-250 renault-12-tl"],
+    [6, "ford-taunus-gt renault-12-tl chevrolet-chevy-ss ford-falcon-sprint chevrolet-chevy-250"],
+    [7, "renault-12-tl peugeot-504-tn volkswagen-gol-gti renault-18-gtx ford-taunus-gt"],
+  ];
+
+  it("keeps the rotations players already know", () => {
+    for (const [seed, ids] of JUNK_SLOTS) {
+      expect(
+        usedLot(seed).slice(0, LOT_SIZE - 1).map((o) => o.spec.id).join(" "),
+        `rotation ${seed} changed`,
+      ).toBe(ids);
+    }
+  });
+
   it("fills the lot and never repeats a car within it", () => {
     for (let seed = 0; seed < 40; seed++) {
       const lot = usedLot(seed);
@@ -446,6 +489,100 @@ describe("the used lot", () => {
     for (let seed = 0; seed < 40; seed++) {
       expect(usedLot(seed)).toHaveLength(LOT_SIZE);
     }
+  });
+
+  /**
+   * The tier ladder, in the one place it decides how hard a car is to FIND.
+   *
+   * The treasure draw was flat, which made the ladder decorative exactly where
+   * a collection game most wants it to bite: a `rare` Torino and a `unique` F40
+   * came out of the same hat with the same odds. Rarity moved the price and
+   * nothing about finding the car.
+   *
+   * Measured over rotations rather than asserted off the table, because the
+   * table being right and the DRAW reading it are two different claims -- a
+   * weight nobody consults is the bug this replaces, wearing a nicer face.
+   */
+  describe("the treasure draw", () => {
+    const TIERS = ["rare", "vrare", "exclusive", "unique"] as const;
+    /*
+     * Enough to order four tiers that are far apart -- roughly 20%, 6%, 3% and
+     * 0.6% of lots -- and not more. Every rotation here builds six priced
+     * offers, so this loop is most of what this file costs to run.
+     */
+    const N = 2000;
+    const seen: Record<string, number> = {};
+    for (let seed = 0; seed < N; seed++) {
+      for (const o of usedLot(seed)) {
+        if (ORDINARY.includes(o.spec.rarity)) continue;
+        seen[o.spec.rarity] = (seen[o.spec.rarity] ?? 0) + 1;
+      }
+    }
+
+    it("keeps the ordinary tiers out of the slot entirely", () => {
+      // not "very likely", zero: the other five slots are made of these, and a
+      // treasure slot that could serve one would be a sixth junk slot
+      for (const r of ORDINARY) expect(TREASURE_WEIGHT[r], r).toBe(0);
+    });
+
+    it("is a ladder in the table, not four names in a bag", () => {
+      /*
+       * Among the tiers that PARTICIPATE. The step from `uncommon` (0) to
+       * `rare` (8) is a jump upward and is not a violation -- the ordinary
+       * tiers are not the easiest treasures, they are excluded from the draw,
+       * which the test above says separately. Walking the raw ladder here
+       * would fail on that boundary and teach everyone to loosen the check.
+       */
+      const ladder = RARITIES.filter((r) => TREASURE_WEIGHT[r] > 0);
+      expect(ladder.length, "no tier can be found as treasure").toBeGreaterThan(1);
+      for (let i = 1; i < ladder.length; i++) {
+        const under = TREASURE_WEIGHT[ladder[i - 1]!];
+        const over = TREASURE_WEIGHT[ladder[i]!];
+        expect(over, `${ladder[i]} is not scarcer than ${ladder[i - 1]}`).toBeLessThan(under);
+      }
+    });
+
+    it("and a ladder in what actually turns up", () => {
+      for (let i = 1; i < TIERS.length; i++) {
+        const under = seen[TIERS[i - 1]!] ?? 0;
+        const over = seen[TIERS[i]!] ?? 0;
+        expect(over, `${TIERS[i]} is not rarer than ${TIERS[i - 1]} on the lot`).toBeLessThan(
+          under,
+        );
+      }
+    });
+
+    it("never puts an ordinary car in the treasure slot", () => {
+      // the sixth slot is the lottery; the other five are what it is a lottery
+      // against. An ordinary car there means the weights were skipped.
+      for (let seed = 0; seed < 200; seed++) {
+        const lot = usedLot(seed);
+        const last = lot[LOT_SIZE - 1]!;
+        const isTreasure = !ORDINARY.includes(last.spec.rarity);
+        if (isTreasure) expect(TREASURE_WEIGHT[last.spec.rarity]).toBeGreaterThan(0);
+      }
+    });
+
+    /**
+     * The top of the catalogue stays findable, and this is the horizon that
+     * makes that mean something.
+     *
+     * 400 rotations is about as many races as a real save will ever see, so a
+     * car that needs more than that is not scarce, it is lot-unreachable. It is
+     * allowed to be thin -- the F40 lands 3 times in those 400 -- because the
+     * lot is the lucky break and Recoleta's floor is the actual route, one
+     * rotation in five. If a weight is ever tuned far enough down that this
+     * fails, the question to answer is whether that car still has a route.
+     */
+    it("keeps even the scarcest tier inside a real save's lifetime", () => {
+      const within = new Set<string>();
+      for (let seed = 0; seed < 400; seed++) {
+        for (const o of usedLot(seed)) within.add(o.spec.id);
+      }
+      for (const c of CARS.filter((x) => !ORDINARY.includes(x.rarity))) {
+        expect(within.has(c.id), `${c.id} never turns up in 400 rotations`).toBe(true);
+      }
+    });
   });
 
   it("is mostly junk, with a treasure now and then", () => {
