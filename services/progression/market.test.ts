@@ -590,18 +590,18 @@ describe("the used lot", () => {
    *      same rolls land on different cars -- unavoidable, and the price of a
    *      new car being able to turn up at all. Regenerate, and say so.
    *
-   * Regenerated when the Fiat 600R, Peugeot 404, Chevrolet C-10, Porsche 959
-   * and McLaren F1 went in: reason 2.
+   * Regenerated when the Peugeot 404, Ford Falcon Futura, Fiat 128 Super Europa
+   * and Fiat 147 Sorpasso went in: reason 2.
    */
   const JUNK_SLOTS: [seed: number, ids: string][] = [
-    [0, "fiat-128-iava renault-12-tl dodge-1500-gt90 ford-f100 chevrolet-chevy-ss"],
-    [1, "renault-fuego-gta renault-12-tl renault-18-gtx chevrolet-c10 peugeot-404"],
-    [2, "ford-sierra-xr4 fiat-128-iava ford-falcon-sprint renault-18-gtx peugeot-404"],
-    [3, "ford-sierra-xr4 renault-12-tl chevrolet-chevy-250 peugeot-504-tn fiat-600r"],
-    [4, "peugeot-404 fiat-128-iava ford-falcon-sprint peugeot-504-tn dodge-1500-gt90"],
-    [5, "ford-sierra-xr4 volkswagen-gol-gti ford-falcon-sprint chevrolet-chevy-ss peugeot-504-tn"],
-    [6, "renault-18-gtx renault-12-tl ford-sierra-xr4 ford-falcon-sprint chevrolet-chevy-ss"],
-    [7, "renault-12-tl peugeot-504-tn chevrolet-c10 ford-sierra-xr4 renault-18-gtx"],
+    [0, "fiat-128-iava renault-12-tl dodge-1500-gt90 ford-falcon-sprint renault-fuego-gta"],
+    [1, "renault-fuego-gta renault-12-tl renault-18-gtx fiat-147-sorpasso fiat-128-super-europa"],
+    [2, "volkswagen-gol-gti dodge-1500-gt90 fiat-128-iava chevrolet-chevy-ss fiat-128-super-europa"],
+    [3, "volkswagen-gol-gti renault-12-tl chevrolet-chevy-250 ford-f100 peugeot-404"],
+    [4, "fiat-128-super-europa dodge-1500-gt90 ford-falcon-sprint peugeot-504-tn ford-taunus-gt"],
+    [5, "ford-sierra-xr4 peugeot-404 ford-falcon-sprint chevrolet-chevy-ss peugeot-504-tn"],
+    [6, "renault-18-gtx renault-12-tl ford-sierra-xr4 ford-falcon-sprint renault-fuego-gta"],
+    [7, "renault-12-tl peugeot-504-tn fiat-147-sorpasso ford-sierra-xr4 renault-18-gtx"],
   ];
 
   it("keeps the rotations players already know", () => {

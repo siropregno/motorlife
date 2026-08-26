@@ -509,59 +509,30 @@ export const CARS: CarSpec[] = [
 
   /*
    * -------------------------------------------------------------------------
-   * The bottom of the ladder, and the top of it.
+   * Four more from here, chosen for the theme first.
    *
-   * The catalogue had a shape problem rather than a size one: fourteen of
-   * twenty-five cars were `sports`, class D held exactly TWO cars, and nothing
-   * rated S or X at all. So the first race a new player enters -- in the R12
-   * they start with -- was a grid of two models, and the ladder they were
-   * climbing had no top.
+   * A first pass at this added a Fiat 600R, a Chevrolet C-10, a Porsche 959 and
+   * a McLaren F1, picked to fill holes in the class ladder. Siro threw three of
+   * them out and he was right: the game is Argentine production cars with a
+   * handful of imports at the top, and a 959 and an F1 are a different game
+   * wearing this one's clothes. A hole in the ladder is a worse reason to add a
+   * car than the car being the wrong car.
    *
-   * None of these has photos yet. `imageFor` falls back to `spec.image`, which
-   * is absent, so the card draws its empty frame rather than a broken one, and
-   * cars.test.ts stays green because a car that names no file cannot name a
-   * missing one. They are real cars with real numbers in the meantime.
+   * These four are all sourced from measured road tests where one exists --
+   * Test del Ayer reprints the original Corsa and Parabrisas timings, which
+   * beats a factory claim because a stopwatch cannot round in its own favour.
+   * A measured 0-100 is also the field that calibrates the sim exactly.
+   *
+   * None has photos yet, which is a state the catalogue already supported: the
+   * Chevy 250, the 18 GTX, the Gol GTI and the Sierra XR4 have none either.
    * -------------------------------------------------------------------------
    */
 
   /**
-   * The Fitito. 250.000 built here between 1970 and 1977, a national record.
+   * Built here by Safrar from 1965: the taxi, the family car, the everything.
    *
-   * The first `economy` car in the catalogue -- the segment existed in the
-   * contract and in the filter list and nothing had ever used it. Worth knowing
-   * what that means for where it sells: no house takes `economy` by segment, so
-   * this is on Don Beto's floor and nowhere else, which is exactly right for a
-   * Fitito and would NOT be right for an expensive one. An `economy` car above
-   * uncommon would be Marketplace-only.
-   */
-  {
-    id: "fiat-600r",
-    make: "Fiat",
-    model: "600 R",
-    year: 1972,
-    kW: 26.5, // 797 cm³, 36 HP SAE at 4800 rpm
-    /*
-     * The one figure here I could not source. Every Argentine spec sheet gives
-     * displacement, power and top speed and none gives a kerb mass; 620 kg is
-     * the Italian 600D's 585 kg plus what the local car carried, and it is a
-     * guess wearing an honest number's clothes. If a real figure turns up, it
-     * belongs here.
-     */
-    kg: 620,
-    layout: "RR",
-    cls: "economy",
-    topKph: 120,
-    nm: 59, // 6 mKg at 2800 rpm
-    rarity: "common",
-    blurb: "Fitito",
-    logo: "/fiat-logo.png",
-  },
-
-  /**
-   * Built here by Safrar from 1965. The taxi, the family car, the everything.
-   *
-   * The XC7 of the last series (1970-1975), which is the one most people mean:
-   * 1618 cm³, 73 bhp. The earlier XC6 made 80 and was gone by 1968.
+   * The XC7 of the last series (1970-1975), which is the one most people mean.
+   * The earlier XC6 made 80 bhp and was gone by 1968.
    */
   {
     id: "peugeot-404",
@@ -580,87 +551,94 @@ export const CARS: CarSpec[] = [
   },
 
   /**
-   * The other pickup, so the F-100 stops being a segment of one.
+   * The other Falcon, and deliberately a NAMED one rather than "a Falcon 3.0".
    *
-   * Sevel built it in Córdoba from late 1985 to 1991 with the Chevy 250 six --
-   * the same 4093 cm³ engine the Chevy 250 saloon in this catalogue runs, at
-   * 130 hp here.
+   * Corsa No. 228, September 1970, after about 20.000 km: 167,200 km/h as the
+   * average of two runs in opposite directions, and 13,0 s to 100. Both
+   * measured, so the car calibrates itself and the fitted scalar lands at 0.78
+   * -- low, for the same reason the Taunus sits at 0.75: 132 HP is an SAE gross
+   * figure and the crankshaft never saw all of it.
    *
-   * NO topKph, and that is deliberate rather than lazy. The figures I could
-   * find put it around 140 km/h, and 96 kW that only reaches 140 derives a drag
-   * area of 2.09 m² -- outside the 0.4-1.4 the importer accepts, because the
-   * two numbers genuinely disagree. One of them is wrong and I do not know
-   * which, so the car goes in with the class estimate and says `rough` rather
-   * than carrying a figure that makes the physics lie.
+   * The power is quoted SAE on purpose, because the Sprint above is: es.wikipedia
+   * gives the 221 SP as "140 CV DIN / 166 HP SAE (124,5 kW)" and this catalogue
+   * took the SAE side. Two Falcons measured by two different standards would
+   * make this one look weak next to a car it is genuinely slower than, which is
+   * a lie told by units rather than by numbers.
+   *
+   * The kerb weight is the one figure the test does not give. es.wikipedia puts
+   * the Argentine Falcon sedan at 1.230-1.406 kg and this is the middle of it;
+   * the choice barely matters here, because the measured 0-100 pins the car
+   * either way -- the whole range rates D522 to D525.
    */
   {
-    id: "chevrolet-c10",
-    make: "Chevrolet",
-    model: "C-10",
-    year: 1987,
-    kW: 96, // Chevy 250 CID (4093 cm³), 130 hp
-    kg: 1650,
+    id: "ford-falcon-futura",
+    make: "Ford",
+    model: "Falcon Futura",
+    year: 1970,
+    kW: 98, // 221 cid (3.620 cm³) I6, 132 HP SAE at 4.000 rpm
+    kg: 1330,
     layout: "FR",
-    cls: "truck",
-    nm: 300,
+    cls: "saloon",
+    topKph: 167, // 167,200 measured
+    zeroTo100: 13.0,
+    rarity: "common",
+    blurb: "Sedán",
+    logo: "/ford-logo.png",
+  },
+
+  /**
+   * The plain 128, next to the IAVA that is already here.
+   *
+   * The Super Europa arrived in 1983 with two engines, and the 1.3 was the one
+   * Corsa called "ya conocida" -- unchanged from the Europa, 60 CV at 6.000
+   * rpm. So the performance figures are Test del Ayer's measurements of the
+   * Europa 1300 (142,701 km/h averaged over two passes, 15,5 s to 100), which
+   * is the same engine in the same body. Said out loud rather than quietly
+   * borrowed: there is no road test of a Super Europa 1.3.
+   *
+   * The weight is arithmetic off the same source. Corsa gives the Super Europa
+   * 1.500 a power-to-weight of 10,3 kg per CV at 82 CV, which is 845 kg, and
+   * the 1.3 is that car with a smaller engine in it.
+   */
+  {
+    id: "fiat-128-super-europa",
+    make: "Fiat",
+    model: "128 Super Europa",
+    year: 1983,
+    kW: 44, // 1.290 cm³, 60 CV DIN at 6.000 rpm
+    kg: 845,
+    layout: "FWD",
+    cls: "saloon",
+    topKph: 143, // 142,701 measured, Europa 1300
+    zeroTo100: 15.5,
+    rarity: "common",
+    blurb: "Compacto",
+    logo: "/fiat-a-logo.png",
+  },
+
+  /**
+   * The hot 147, and the quickest thing Fiat sold here in the early 80s.
+   *
+   * Everything on this one is measured or published in the same road test:
+   * 1.301 cm³, 90 CV DIN at 6.200 rpm, 10,8 kgm, 820 kg in running order,
+   * 158,7 km/h and 9,49 s to 100. That is the full set, which is why it is the
+   * best-calibrated Argentine car in the catalogue.
+   */
+  {
+    id: "fiat-147-sorpasso",
+    make: "Fiat",
+    model: "147 Sorpasso",
+    year: 1982,
+    kW: 66, // 1.301 cm³, 90 CV DIN at 6.200 rpm
+    kg: 820,
+    layout: "FWD",
+    cls: "sports",
+    topKph: 159, // 158,7 measured
+    zeroTo100: 9.5, // 9,49 measured
+    nm: 106, // 10,8 kgm
     rarity: "uncommon",
-    blurb: "Pickup",
-  },
-
-  /**
-   * 337 road cars. The one that made an F40 look old-fashioned and lost.
-   *
-   * Rear-engined and four-wheel drive, which is a layout nothing else in the
-   * catalogue has in that combination -- the sim reads RR for where the mass
-   * sits, and AWD is the closer answer for what it does out of a corner.
-   * Modelled as AWD because traction is the thing the 959 is famous for.
-   */
-  {
-    id: "porsche-959",
-    make: "Porsche",
-    model: "959",
-    year: 1987,
-    kW: 331, // 450 PS at 6500 rpm
-    kg: 1450,
-    layout: "AWD",
-    cls: "supercar",
-    topKph: 317,
-    zeroTo100: 3.7,
-    nm: 500,
-    rarity: "exclusive",
-    blurb: "Superdeportivo",
-  },
-
-  /**
-   * The top of the ladder, and the reason class S was empty until now.
-   *
-   * Two numbers here needed care. The 0-100 is McLaren's own 3.2 s: published
-   * figures run 3.2 to 3.4 and one estimate says 2.9, and the factory number is
-   * the honest pick rather than the middle of a range of hearsay -- the same
-   * rule the Falcon's top speed follows. Note that the 3.2 s everyone quotes
-   * for 0-60 MPH is a different measurement that happens to land on the same
-   * number; this field is 0-100 km/h.
-   *
-   * The top speed is 372 km/h, McLaren's claim for the car as delivered. NOT
-   * the 386.4 km/h record: that was XP5 with the rev limiter raised, and the
-   * catalogue's rule at the top of this file is to use the unrestricted figure
-   * for the car you can buy. As it leaves the factory the limiter stops it at
-   * about 356.
-   */
-  {
-    id: "mclaren-f1",
-    make: "McLaren",
-    model: "F1",
-    year: 1994,
-    kW: 461, // BMW S70/2 6064 cm³ V12, 627 PS
-    kg: 1260, // kerb; 1140 dry
-    layout: "MR",
-    cls: "supercar",
-    topKph: 372,
-    zeroTo100: 3.2,
-    nm: 650,
-    rarity: "unique",
-    blurb: "Superdeportivo",
+    blurb: "Compacto deportivo",
+    logo: "/fiat-a-logo.png",
   },
 ];
 export function carById(id: string): CarSpec | undefined {

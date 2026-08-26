@@ -289,15 +289,14 @@ describe("top speed is the inverse of the drag derivation", () => {
    * every one of which produces a number that is obviously wrong the moment you
    * look and completely invisible if nobody does.
    *
-   * The ceiling was 500 while the fastest thing in the catalogue was an F40,
-   * which tops out at 429 km/h with everything bolted to it. The McLaren F1
-   * arrives at 372 km/h STOCK and reaches 511 fully built, so 500 stopped being
-   * headroom and started being a car. 550 restores the gap.
+   * The ceiling is 500 against a fastest-in-catalogue F40 that tops out at 429
+   * km/h with everything bolted to it, so there is about 16% of headroom.
    *
-   * 511 is not absurd, it is just fast: no circuit in the game has a straight
-   * long enough to reach it, and the class index puts a fully built F1 out of
-   * every grid an ordinary car can enter. If this fails again, the question is
-   * whether a NEW car is broken -- not whether to nudge the number.
+   * It went to 550 for one commit, when a McLaren F1 was briefly in the
+   * catalogue and reached 511 fully built. The F1 was removed for being off
+   * theme rather than for being fast, so the ceiling came back down with it --
+   * a sanity rail loosened for a car that no longer exists is a rail that has
+   * quietly stopped catching things.
    */
   it("is finite and sane for every car, stock and fully built", () => {
     for (const c of CARS) {
@@ -306,7 +305,7 @@ describe("top speed is the inverse of the drag derivation", () => {
         const kph = topSpeed(d, d.kg) * 3.6;
         expect(Number.isFinite(kph), c.id).toBe(true);
         expect(kph, c.id).toBeGreaterThan(80);
-        expect(kph, c.id).toBeLessThan(550);
+        expect(kph, c.id).toBeLessThan(500);
       }
     }
   });
