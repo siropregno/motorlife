@@ -163,8 +163,14 @@ describe("grouping", () => {
     expect(groupBy(CARS, "clase")[0]!.label).toBe("D");
     expect(groupBy(CARS, "decada")[0]!.label).toBe("1970s");
     expect(groupBy(CARS, "traccion").map((g) => g.label)).toContain("Integral");
-    expect(groupBy(CARS, "marca")[0]!.label).toBe("BMW");
     expect(groupBy(CARS, "segmento").map((g) => g.label)).toContain("Pickup");
+    /*
+     * A marque labels itself, whichever one happens to sort first. This named
+     * BMW, which made it a fixture of the roster rather than of the labelling:
+     * an Audi joined the catalogue and the failure said "expected 'Audi' to be
+     * 'BMW'", which is not a fact about headings.
+     */
+    for (const g of groupBy(CARS, "marca")) expect(g.label).toBe(g.value);
   });
 
   it("orders marques A to Z, and Z to A reversed", () => {

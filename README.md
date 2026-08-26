@@ -68,8 +68,9 @@ copies of "png" would let the checker pass a set of photos the app cannot load.
 frame with the right-hand side empty while the spec sheet says "sin foto".
 `cars.test.ts` only checks that a path a car *names* resolves, so a car that
 names none cannot name a missing one. Waiting on art right now: the Peugeot 404,
-Ford Falcon Futura, Fiat 128 Super Europa and Fiat 147 Sorpasso, alongside the
-Chevy SS, Chevy 250, 18 GTX, Gol GTI and Sierra XR4 that were already like that.
+Ford Falcon Futura, Fiat 128 Super Europa, Fiat 147 Sorpasso, Audi R8 V10, BMW
+M3 F80 and BMW M240i, alongside the Chevy SS, Chevy 250, 18 GTX, Gol GTI and
+Sierra XR4 that were already like that.
 
 ## Layout
 

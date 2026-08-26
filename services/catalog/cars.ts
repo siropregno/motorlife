@@ -640,6 +640,111 @@ export const CARS: CarSpec[] = [
     blurb: "Compacto deportivo",
     logo: "/fiat-a-logo.png",
   },
+
+  /*
+   * -------------------------------------------------------------------------
+   * The modern imports, off a real forecourt.
+   *
+   * Siro sent four listings from Rangugni Auto in Pilar, which is an actual
+   * high-end Argentine dealer, and these are three of the cars on it. That is a
+   * better sourcing rule than my taste: what a real luxury house here has in
+   * the window IS the answer to "which imports belong in this game".
+   *
+   * They also fill class A, which had two cars in it -- the M5 and the F40 --
+   * and a class with two cars is barely a class.
+   *
+   * The site blocks automated fetches (403 on every page, and the listings are
+   * not in the search index either), so nothing here comes FROM Rangugni: the
+   * URLs named the cars and the figures are sourced the usual way. Prices in
+   * this game are derived from rarity and class index anyway, never from what
+   * a dealer is asking.
+   * -------------------------------------------------------------------------
+   */
+
+  /**
+   * AWD rather than MR, for a car that is both.
+   *
+   * The Layout enum cannot say "mid-engined and four-wheel drive", so it has to
+   * pick which half the physics cares about -- and what the sim reads `layout`
+   * for is which wheels are driven and where load goes under power. This is a
+   * quattro; modelling it as rear-drive would understate traction out of a
+   * corner and then force the calibration scalar up to 1.09 to hit the measured
+   * 0-100 anyway. As AWD it lands at 0.89 and is telling the truth on the way.
+   */
+  {
+    id: "audi-r8-v10",
+    make: "Audi",
+    model: "R8 V10",
+    year: 2010,
+    kW: 386, // 5.2 FSI V10, 525 PS
+    kg: 1625,
+    layout: "AWD",
+    cls: "supercar",
+    topKph: 316,
+    zeroTo100: 3.9, // manual and R tronic alike; the S tronic does 3.6
+    nm: 530,
+    rarity: "exclusive",
+    blurb: "Superdeportivo",
+  },
+
+  /**
+   * The F80 sedan, and an object lesson in the rule at the top of this file.
+   *
+   * Its top speed is 280, not the 250 it ships limited to. Both numbers are
+   * published and the difference is not cosmetic: at 250 the importer derives a
+   * drag area of 1.293 m², nearly the 1.4 ceiling, because the solve assumes
+   * the engine ran out of power when in fact the limiter cut in. At the real
+   * 280 it is 0.916, which is an M3.
+   *
+   * The 0-100 is 4.1 s, BMW's figure for the DCT. Careful with the numbers in
+   * circulation: the widely quoted 3.9 s is 0-60 MPH, a different measurement
+   * that lands near enough to be mistaken for this one. This field is 0-100
+   * km/h -- the same trap the McLaren F1 sprang before it was taken out again.
+   */
+  {
+    id: "bmw-m3-f80",
+    make: "BMW",
+    model: "M3 F80",
+    year: 2015,
+    kW: 317, // S55 2979 cm³ biturbo, 431 PS
+    kg: 1621,
+    layout: "FR",
+    cls: "saloon",
+    topKph: 280, // with the M Driver's Package; 250 delimited
+    zeroTo100: 4.1,
+    nm: 550,
+    rarity: "vrare",
+    blurb: "Super Sedán",
+    logo: "/bmw-logo.png",
+  },
+
+  /**
+   * NO topKph, and it is the same rule reaching the opposite conclusion.
+   *
+   * The only published figure for an M240i is 250 km/h, which is the limiter
+   * rather than the car, and the M3 above shows what feeding a limiter to the
+   * drag solve does. Unlike the M3 there is no published delimited number to
+   * use instead -- there is no M Driver's Package on a 240i.
+   *
+   * So it goes in without one. The measured 0-100 still calibrates the car
+   * exactly; only the drag area falls back to the class estimate, which is a
+   * guess honestly labelled rather than a wrong number confidently derived.
+   */
+  {
+    id: "bmw-m240i",
+    make: "BMW",
+    model: "M240i",
+    year: 2017,
+    kW: 250, // B58 2998 cm³ turbo, 340 PS
+    kg: 1600,
+    layout: "FR",
+    cls: "sports",
+    zeroTo100: 4.8,
+    nm: 500,
+    rarity: "rare",
+    blurb: "Coupé",
+    logo: "/bmw-logo.png",
+  },
 ];
 export function carById(id: string): CarSpec | undefined {
   return CARS.find((c) => c.id === id);
