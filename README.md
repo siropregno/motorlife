@@ -300,6 +300,11 @@ would otherwise fail silently:
   scarcity rather than a missing car.
 - Scarcer tiers turn up on the lot strictly less often than commoner ones, both
   in the weight table and in what actually gets drawn.
+- A scarcer car wears fewer kilometres for its age (`USE_BY_TIER`), because age
+  alone put 225.400 km on an Audi R8. `common` and `uncommon` stay at exactly 1:
+  the `expectedKm` curve was fitted against those cars, so moving them would be
+  re-fitting it by the back door. The barn-find branch is deliberately *not*
+  scaled, or every rare survivor would clamp to the same 500 km.
 - The five ordinary slots of the known rotations do not move. Any change that
   spends a different number of rng rolls fails here rather than silently
   rewriting every player's Marketplace.

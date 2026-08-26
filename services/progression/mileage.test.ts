@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { CarSpec } from "@contracts/car";
+import type { CarSpec, Rarity } from "@contracts/car";
+import { RARITIES } from "@contracts/car";
 import { CARS, carById } from "@catalog/cars";
 import {
   KM_TAU,
@@ -13,6 +14,7 @@ import {
   kmFor,
   mulFor,
   priceWithKm,
+  USE_BY_TIER,
 } from "./mileage";
 
 const modern = (year: number): CarSpec => ({
@@ -114,6 +116,84 @@ describe("the odometer on a listing", () => {
     const survivors = draws.filter((km) => conditionOf(fuego, km).band === "survivor");
     expect(survivors.length).toBeGreaterThan(4);
     expect(Math.min(...survivors)).toBeLessThan(6_000);
+  });
+});
+
+/**
+ * A better car does not lead an ordinary car's life.
+ *
+ * Age was the whole model and it put 225.400 km on an Audi R8, which is what
+ * fifteen years does to a car somebody commutes in and is not what happens to
+ * an R8. The tier is the correction: it says how much a car was SPARED, not how
+ * fast it is.
+ */
+describe("how hard a tier gets driven", () => {
+  /** The middle of 300 draws, which is the odometer this car usually wears. */
+  const typical = (spec: CarSpec) =>
+    Array.from({ length: 300 }, (_, i) => kmFor(spec, `t${i}`)).sort((a, b) => a - b)[150]!;
+
+  /** The same car in every tier, so nothing but the tier can move the answer. */
+  const asTier = (rarity: Rarity): CarSpec => ({
+    ...(carById("renault-12-tl") as CarSpec),
+    id: `tier-${rarity}`,
+    rarity,
+  });
+
+  it("is a ladder: a scarcer car is never driven harder", () => {
+    for (let i = 1; i < RARITIES.length; i++) {
+      expect(
+        USE_BY_TIER[RARITIES[i]!],
+        `${RARITIES[i]} is used harder than ${RARITIES[i - 1]}`,
+      ).toBeLessThanOrEqual(USE_BY_TIER[RARITIES[i - 1]!]);
+    }
+    expect(USE_BY_TIER.unique).toBeLessThan(USE_BY_TIER.common);
+  });
+
+  /**
+   * The ordinary tiers must stay at exactly 1.
+   *
+   * expectedKm was fitted against precisely these cars -- a Chevy that had done
+   * 985.800 km is what forced the decay curve -- so giving `common` a
+   * multiplier would be re-fitting that curve through the back door, and every
+   * number in the comment above it would quietly become wrong.
+   */
+  it("leaves an ordinary car exactly where the curve put it", () => {
+    expect(USE_BY_TIER.common).toBe(1);
+    expect(USE_BY_TIER.uncommon).toBe(1);
+  });
+
+  it("so the same car reads lower the scarcer you make it", () => {
+    const common = typical(asTier("common"));
+    const unique = typical(asTier("unique"));
+    expect(unique).toBeLessThan(common);
+    // and not by a rounding error: the top tier is a different car's history
+    expect(unique).toBeLessThan(common * 0.5);
+  });
+
+  it("puts a believable odometer on the car that started this", () => {
+    const r8 = carById("audi-r8-v10")!;
+    const draws = Array.from({ length: 300 }, (_, i) => kmFor(r8, `t${i}`));
+    // 225.400 was the number on the forecourt that prompted the change
+    expect(Math.max(...draws)).toBeLessThan(150_000);
+    expect(typical(r8)).toBeLessThan(100_000);
+    // still a used car, not a museum piece with delivery miles
+    expect(typical(r8)).toBeGreaterThan(20_000);
+  });
+
+  /**
+   * The shed-find branch is NOT scaled, and this is what says so.
+   *
+   * Scaling it twice would push a unique car's barn-find ratio under FLOOR_KM,
+   * and every rare survivor in the game would come back as exactly 500 km --
+   * one number pretending to be a draw.
+   */
+  it("still finds a genuine barn-find supercar, and not always the same one", () => {
+    const f40 = carById("ferrari-f40")!;
+    const draws = Array.from({ length: 400 }, (_, i) => kmFor(f40, `t${i}`));
+    const sheds = draws.filter((km) => km < 12_000);
+    expect(sheds.length).toBeGreaterThan(4);
+    expect(new Set(sheds).size, "every barn-find clamped to one number").toBeGreaterThan(3);
+    expect(Math.min(...sheds)).toBeGreaterThanOrEqual(FLOOR_KM);
   });
 });
 

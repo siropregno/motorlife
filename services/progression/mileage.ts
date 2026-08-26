@@ -1,4 +1,4 @@
-import type { CarSpec } from "@contracts/car";
+import type { CarSpec, Rarity } from "@contracts/car";
 import { hashSeed, mulberry32 } from "@sim/rng";
 
 /**
@@ -68,6 +68,37 @@ export function expectedKm(year: number, now: number = NOW_YEAR): number {
 }
 
 /**
+ * How hard a tier gets used, against an ordinary car of the same age.
+ *
+ * Age alone was the whole model, and it produced an Audi R8 with 225.400 km on
+ * a forecourt. The curve was not wrong -- that IS what fifteen years does to a
+ * car somebody drives to work -- it was being asked the wrong question. A
+ * 2010 R8 is not a 2010 anything: it is a second car that comes out on Sundays,
+ * gets garaged, and spends winters under a cover.
+ *
+ * Keyed on RARITY rather than on `cls`, and the difference matters. `cls` is
+ * what the car IS -- a coupé, a pickup -- and it would say a rare Torino ZX and
+ * a common Falcon lead the same life because both are Argentine muscle. Rarity
+ * is how it was TREATED, which is the actual question: the same reason few of
+ * them survive is the reason the survivors are the cared-for ones. It is also
+ * already this game's collectibility axis, so a car does not need a second
+ * opinion about how special it is.
+ *
+ * The numbers are a ladder rather than a formula so each one can be argued
+ * with. `common` and `uncommon` sit at 1 because they are what "ordinary" MEANS
+ * -- the expectedKm curve was fitted against exactly these cars, and moving
+ * them would be re-fitting it by the back door.
+ */
+export const USE_BY_TIER: Record<Rarity, number> = {
+  common: 1,
+  uncommon: 1,
+  rare: 0.8,
+  vrare: 0.6,
+  exclusive: 0.45,
+  unique: 0.3,
+};
+
+/**
  * The odometer for one listing.
  *
  * Salt it with the dealer id or the rotation so the same car reads differently
@@ -84,8 +115,14 @@ export function kmFor(spec: CarSpec, salt: string): number {
 
   const ratio =
     rng() < SURVIVOR_CHANCE
-      ? 0.004 + rng() * 0.05 // shed-kept: half a percent to five percent of normal
-      : 0.5 + rng() * 1.5; // driven: half to twice normal
+      ? // Shed-kept, and the tier is deliberately NOT applied here. This branch
+        // already means "this one sat", and scaling it again would push a
+        // unique car under FLOOR_KM and clamp every barn-find supercar to the
+        // same 500 km -- one number pretending to be a draw.
+        0.004 + rng() * 0.05
+      : // Driven: half to twice normal for its age, and then as much less as
+        // its tier says it was spared.
+        (0.5 + rng() * 1.5) * USE_BY_TIER[spec.rarity];
   return Math.max(FLOOR_KM, Math.round((expected * ratio) / 100) * 100);
 }
 
